@@ -8,7 +8,7 @@
 #===------------------------------------------------------------------------===#
 
 Dir := lib
-SubDirs := i386 ppc x86_64
+SubDirs := i386 ppc x86_64 arm
 
 Sources := $(foreach file,$(wildcard $(Dir)/*.c),$(notdir $(file)))
 ObjNames := $(Sources:%.c=%.o)
