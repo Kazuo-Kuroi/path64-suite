@@ -42,9 +42,9 @@ int test__udivmodti4(tu_int a, tu_int b, tu_int expected_q, tu_int expected_r)
         printf("error in __udivmodti4: 0x%.16llX%.16llX / 0x%.16llX%.16llX = "
                "0x%.16llX%.16llX, R = 0x%.16llX%.16llX, expected 0x%.16llX%.16llX, "
                "0x%.16llX%.16llX\n",
-               at.high, at.low, bt.high, bt.low, qt.high, qt.low,
-               rt.high, rt.low, expected_qt.high, expected_qt.low,
-               expected_rt.high, expected_rt.low);
+               at.s.high, at.s.low, bt.s.high, bt.s.low, qt.s.high, qt.s.low,
+               rt.s.high, rt.s.low, expected_qt.s.high, expected_qt.s.low,
+               expected_rt.s.high, expected_rt.s.low);
     }
     return !(q == expected_q && r == expected_r);
 }
