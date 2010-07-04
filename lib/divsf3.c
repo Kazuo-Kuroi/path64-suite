@@ -19,8 +19,6 @@
 #define SINGLE_PRECISION
 #include "fp_lib.h"
 
-#include <stdio.h>
-
 fp_t __divsf3(fp_t a, fp_t b) {
     
     const unsigned int aExponent = toRep(a) >> significandBits & maxExponent;
@@ -166,28 +164,3 @@ fp_t __divsf3(fp_t a, fp_t b) {
         return fromRep(absResult | quotientSign);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
