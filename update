@@ -1,0 +1,13 @@
+#! /bin/sh
+
+base=$(cd $(dirname $0) && pwd)
+src=$base
+
+for mod in $src/compiler/*; do
+(
+	cd $mod
+	git remote update
+	git pull
+)
+done
+
