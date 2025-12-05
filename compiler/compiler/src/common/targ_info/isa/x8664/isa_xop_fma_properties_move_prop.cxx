@@ -1,0 +1,2 @@
+TOP_vpcmov_f128_oxmm_xmm_xmm_xmm,
+TOP_vpcmov_f256_oymm_ymm_ymm_ymm,

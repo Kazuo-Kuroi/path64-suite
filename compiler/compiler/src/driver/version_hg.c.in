@@ -1,0 +1,7 @@
+#include "version.h"
+
+const char *const cset_id = "@CSET_ID@";
+const char *const build_root = "@BUILD_ROOT@";
+const char *const build_host = "@BUILD_HOST@";
+const char *const build_user = "@BUILD_USER@";
+const char *const build_date = "@BUILD_DATE@";

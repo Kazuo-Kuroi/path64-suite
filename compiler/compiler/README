@@ -1,0 +1,47 @@
+WARNING!
+If you plan on building the path64 compiler, do not rely on the
+following instructions.
+
+Instead clone https://github.com/pathscale/path64-suite and follow the
+README file in that repository.
+
+
+Dependencies:
+    cmake-2.8.1 or later
+
+
+1. Create a build directory and go there
+    % mkdir $BUILDDIR
+    % cd $BUILDDIR
+
+2. Run cmake
+    % cmake -DCMAKE_INSTALL_PREFIX=$INSTDIR $SOURCEDIR
+
+   Possible options (incomplete list):
+      -DPATH64_ENABLE_TARGETS=<targets>  e.g. "x86_64"
+      -DCMAKE_BUILD_TYPE=<Debug|Release>
+      -DCMAKE_Fortran_COMPILER=<compiler>
+      -DPATH64_ENABLE_HUGEPAGES=<ON|OFF>
+
+   Options that should be specified for each target in <targets>:
+      -DPSC_LIBSUPCPP_PATH_<target>=<path to libsupc++ library>
+      -DPSC_LIBSTDCPP_PATH_<target>=<path to libstdc++ library>
+      -DPSC_LIBGCC_PATH_<target>=<path to libgcc library>
+      -DPSC_LIBGCC_EH_PATH_<target>=<path to libgcc_eh library>
+      -DPSC_LIBGCC_S_PATH_<target>=<path to libgcc_s library>
+
+   Example for x86_64 target:
+   cmake -DCMAKE_BUILD_TYPE=Debug \
+         -DPATH64_ENABLE_TARGETS="x86_64" \
+         -DPATH64_ENABLE_FORTRAN=ON \
+         -DPSC_LIBSUPCPP_PATH_x86_64=/usr/lib/gcc/x86_64-linux-gnu/4.4 \
+         -DPSC_LIBSTDCPP_PATH_x86_64=/usr/lib/gcc/x86_64-linux-gnu/4.4 \
+         -DPSC_LIBGCC_PATH_x86_64=/usr/lib/gcc/x86_64-linux-gnu/4.4 \
+         -DPSC_LIBGCC_EH_PATH_x86_64=/usr/lib/gcc/x86_64-linux-gnu/4.4 \
+         -DPSC_LIBGCC_S_PATH_x86_64=/usr/lib/gcc/x86_64-linux-gnu/4.4 \
+         <path_to_sources>
+
+3. Run make:
+    % make
+ To increase build verbosity
+    % make VERBOSE=1

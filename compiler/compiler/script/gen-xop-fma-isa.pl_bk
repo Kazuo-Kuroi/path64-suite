@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+use Data::Dumper;
+
+sub cartesian{
+  my @C=[];
+  foreach(reverse @_){
+    my @A=@$_;
+	@C=map{my $n=$_;map{[$n,@$_]} @C} @A;
+  }
+  return @C;
+}
+
+@oxmm_xmm_xmm_xmm=["vfmaddpd","vfmaddps"];
+my @ops=(
+		[@oxmm_xmm_xmm_xmm,["f128","f256"],["OPS"],["ofloat"],["float"],["float","int"]],
+	);
+
+
+foreach $op (@ops){
+  my @variants=cartesian(@$op);
+  foreach(@variants){
+    print $_."\n";
+	foreach(@$_){
+	  print $_."\n";
+	}
+  }
+}
+
+my $test = 0;
+$test = $test | 0x11110000;
+print sprintf "%x", $test;
