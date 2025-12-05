@@ -1,0 +1,414 @@
+#
+# x86 CPU recognition
+#
+#  Copyright (C) 2002-2007  Peter Johnson
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND OTHER CONTRIBUTORS ``AS IS''
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR OTHER CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+%{
+#include <cctype>
+#include <cstring>
+
+#include "llvm/ADT/StringRef.h"
+#include "yasmx/Support/phash.h"
+
+#include "modules/arch/x86/X86Arch.h"
+
+using namespace yasm;
+using namespace yasm::arch;
+
+#define PROC_8086	0
+#define PROC_186	1
+#define PROC_286	2
+#define PROC_386	3
+#define PROC_486	4
+#define PROC_586	5
+#define PROC_686	6
+#define PROC_p2		7
+#define PROC_p3		8
+#define PROC_p4		9
+#define PROC_prescott	10
+#define PROC_conroe	11
+#define PROC_penryn	12
+#define PROC_nehalem	13
+#define PROC_westmere   14
+#define PROC_sandybridge 15
+
+static void
+X86CpuIntel(X86Arch::CpuMask& cpu, X86Arch::NopFormat& nop, unsigned int data)
+{
+    cpu.reset();
+
+    cpu.set(X86Arch::CPU_Priv);
+    if (data >= PROC_286)
+        cpu.set(X86Arch::CPU_Prot);
+    if (data >= PROC_386)
+        cpu.set(X86Arch::CPU_SMM);
+    if (data >= PROC_sandybridge)
+        cpu.set(X86Arch::CPU_AVX);
+    if (data >= PROC_westmere)
+    {
+        cpu.set(X86Arch::CPU_AES);
+        cpu.set(X86Arch::CPU_CLMUL);
+    }
+    if (data >= PROC_nehalem)
+    {
+        cpu.set(X86Arch::CPU_SSE42);
+        cpu.set(X86Arch::CPU_XSAVE);
+    }
+    if (data >= PROC_penryn)
+        cpu.set(X86Arch::CPU_SSE41);
+    if (data >= PROC_conroe)
+        cpu.set(X86Arch::CPU_SSSE3);
+    if (data >= PROC_prescott)
+        cpu.set(X86Arch::CPU_SSE3);
+    if (data >= PROC_p4)
+        cpu.set(X86Arch::CPU_SSE2);
+    if (data >= PROC_p3)
+        cpu.set(X86Arch::CPU_SSE);
+    if (data >= PROC_p2)
+        cpu.set(X86Arch::CPU_MMX);
+    if (data >= PROC_486)
+        cpu.set(X86Arch::CPU_FPU);
+    if (data >= PROC_prescott)
+        cpu.set(X86Arch::CPU_EM64T);
+
+    if (data >= PROC_p4)
+        cpu.set(X86Arch::CPU_P4);
+    if (data >= PROC_p3)
+        cpu.set(X86Arch::CPU_P3);
+    if (data >= PROC_686)
+        cpu.set(X86Arch::CPU_686);
+    if (data >= PROC_586)
+        cpu.set(X86Arch::CPU_586);
+    if (data >= PROC_486)
+        cpu.set(X86Arch::CPU_486);
+    if (data >= PROC_386)
+        cpu.set(X86Arch::CPU_386);
+    if (data >= PROC_286)
+        cpu.set(X86Arch::CPU_286);
+    if (data >= PROC_186)
+        cpu.set(X86Arch::CPU_186);
+    cpu.set(X86Arch::CPU_086);
+}
+
+static void
+X86CpuIA64(X86Arch::CpuMask& cpu, X86Arch::NopFormat& nop, unsigned int data)
+{
+    cpu.reset();
+    cpu.set(X86Arch::CPU_Priv);
+    cpu.set(X86Arch::CPU_Prot);
+    cpu.set(X86Arch::CPU_SMM);
+    cpu.set(X86Arch::CPU_SSE2);
+    cpu.set(X86Arch::CPU_SSE);
+    cpu.set(X86Arch::CPU_MMX);
+    cpu.set(X86Arch::CPU_FPU);
+    cpu.set(X86Arch::CPU_IA64);
+    cpu.set(X86Arch::CPU_P4);
+    cpu.set(X86Arch::CPU_P3);
+    cpu.set(X86Arch::CPU_686);
+    cpu.set(X86Arch::CPU_586);
+    cpu.set(X86Arch::CPU_486);
+    cpu.set(X86Arch::CPU_386);
+    cpu.set(X86Arch::CPU_286);
+    cpu.set(X86Arch::CPU_186);
+    cpu.set(X86Arch::CPU_086);
+}
+
+#define PROC_bulldozer	11
+#define PROC_k10    10
+#define PROC_venice 9
+#define PROC_hammer 8
+#define PROC_k7     7
+#define PROC_k6     6
+
+static void
+X86CpuAMD(X86Arch::CpuMask& cpu, X86Arch::NopFormat& nop, unsigned int data)
+{
+    cpu.reset();
+
+    cpu.set(X86Arch::CPU_Priv);
+    cpu.set(X86Arch::CPU_Prot);
+    cpu.set(X86Arch::CPU_SMM);
+    cpu.set(X86Arch::CPU_3DNow);
+    if (data >= PROC_bulldozer)
+    {
+        cpu.set(X86Arch::CPU_XOP);
+        cpu.set(X86Arch::CPU_FMA4);
+    }
+    if (data >= PROC_k10)
+        cpu.set(X86Arch::CPU_SSE4a);
+    if (data >= PROC_venice)
+        cpu.set(X86Arch::CPU_SSE3);
+    if (data >= PROC_hammer)
+        cpu.set(X86Arch::CPU_SSE2);
+    if (data >= PROC_k7)
+        cpu.set(X86Arch::CPU_SSE);
+    if (data >= PROC_k6)
+        cpu.set(X86Arch::CPU_MMX);
+    cpu.set(X86Arch::CPU_FPU);
+
+    if (data >= PROC_hammer)
+        cpu.set(X86Arch::CPU_Hammer);
+    if (data >= PROC_k7)
+        cpu.set(X86Arch::CPU_Athlon);
+    if (data >= PROC_k6)
+        cpu.set(X86Arch::CPU_K6);
+    cpu.set(X86Arch::CPU_686);
+    cpu.set(X86Arch::CPU_586);
+    cpu.set(X86Arch::CPU_486);
+    cpu.set(X86Arch::CPU_386);
+    cpu.set(X86Arch::CPU_286);
+    cpu.set(X86Arch::CPU_186);
+    cpu.set(X86Arch::CPU_086);
+}
+
+static void
+X86CpuSet(X86Arch::CpuMask& cpu, X86Arch::NopFormat& nop, unsigned int data)
+{
+    cpu.set(data);
+}
+
+static void
+X86CpuClear(X86Arch::CpuMask& cpu, X86Arch::NopFormat& nop, unsigned int data)
+{
+    cpu.reset(data);
+}
+
+static void
+X86CpuSetSSE4(X86Arch::CpuMask& cpu,
+              X86Arch::NopFormat& nop,
+              unsigned int data)
+{
+    cpu.set(X86Arch::CPU_SSE41);
+    cpu.set(X86Arch::CPU_SSE42);
+}
+
+static void
+X86CpuClearSSE4(X86Arch::CpuMask& cpu,
+                X86Arch::NopFormat& nop,
+                unsigned int data)
+{
+    cpu.reset(X86Arch::CPU_SSE41);
+    cpu.reset(X86Arch::CPU_SSE42);
+}
+
+static void
+X86Nop(X86Arch::CpuMask& cpu, X86Arch::NopFormat& nop, unsigned int data)
+{
+    nop = static_cast<X86Arch::NopFormat>(data);
+}
+
+%}
+%ignore-case
+%language=C++
+%compare-strncmp
+%readonly-tables
+%enum
+%struct-type
+%define class-name CpuHash
+struct CpuParseData {
+    const char *name;
+    void (*handler) (X86Arch::CpuMask& cpu,
+                     X86Arch::NopFormat& nop,
+                     unsigned int data);
+    unsigned int data;
+};
+%%
+8086,		X86CpuIntel,	PROC_8086
+186,		X86CpuIntel,	PROC_186
+80186,		X86CpuIntel,	PROC_186
+i186,		X86CpuIntel,	PROC_186
+286,		X86CpuIntel,	PROC_286
+80286,		X86CpuIntel,	PROC_286
+i286,		X86CpuIntel,	PROC_286
+386,		X86CpuIntel,	PROC_386
+80386,		X86CpuIntel,	PROC_386
+i386,		X86CpuIntel,	PROC_386
+486,		X86CpuIntel,	PROC_486
+80486,		X86CpuIntel,	PROC_486
+i486,		X86CpuIntel,	PROC_486
+586,		X86CpuIntel,	PROC_586
+i586,		X86CpuIntel,	PROC_586
+pentium,	X86CpuIntel,	PROC_586
+p5,		X86CpuIntel,	PROC_586
+686,		X86CpuIntel,	PROC_686
+i686,		X86CpuIntel,	PROC_686
+p6,		X86CpuIntel,	PROC_686
+ppro,		X86CpuIntel,	PROC_686
+pentiumpro,	X86CpuIntel,	PROC_686
+p2,		X86CpuIntel,	PROC_p2
+pentium2,	X86CpuIntel,	PROC_p2
+pentium-2,	X86CpuIntel,	PROC_p2
+pentiumii,	X86CpuIntel,	PROC_p2
+pentium-ii,	X86CpuIntel,	PROC_p2
+p3,		X86CpuIntel,	PROC_p3
+pentium3,	X86CpuIntel,	PROC_p3
+pentium-3,	X86CpuIntel,	PROC_p3
+pentiumiii,	X86CpuIntel,	PROC_p3
+pentium-iii,	X86CpuIntel,	PROC_p3
+katmai,		X86CpuIntel,	PROC_p3
+p4,		X86CpuIntel,	PROC_p4
+pentium4,	X86CpuIntel,	PROC_p4
+pentium-4,	X86CpuIntel,	PROC_p4
+pentiumiv,	X86CpuIntel,	PROC_p4
+pentium-iv,	X86CpuIntel,	PROC_p4
+williamette,	X86CpuIntel,	PROC_p4
+ia64,		X86CpuIA64,	0
+ia-64,		X86CpuIA64,	0
+itanium,	X86CpuIA64,	0
+k6,		X86CpuAMD,	PROC_k6
+k7,		X86CpuAMD,	PROC_k7
+athlon,		X86CpuAMD,	PROC_k7
+k8,		X86CpuAMD,	PROC_hammer
+hammer,		X86CpuAMD,	PROC_hammer
+clawhammer,	X86CpuAMD,	PROC_hammer
+opteron,	X86CpuAMD,	PROC_hammer
+athlon64,	X86CpuAMD,	PROC_hammer
+athlon-64,	X86CpuAMD,	PROC_hammer
+venice,		X86CpuAMD,	PROC_venice
+k10,		X86CpuAMD,	PROC_k10
+phenom,		X86CpuAMD,	PROC_k10
+family10h,	X86CpuAMD,	PROC_k10
+bulldozer,	X86CpuAMD,	PROC_bulldozer
+prescott,	X86CpuIntel,	PROC_prescott
+conroe,		X86CpuIntel,	PROC_conroe
+penryn,		X86CpuIntel,	PROC_penryn
+nehalem,	X86CpuIntel,	PROC_nehalem
+corei7,		X86CpuIntel,	PROC_nehalem
+westmere,	X86CpuIntel,	PROC_westmere
+sandybridge,	X86CpuIntel,	PROC_sandybridge
+#
+# Features have "no" versions to disable them, and only set/reset the
+# specific feature being changed.  All other bits are left alone.
+#
+fpu,		X86CpuSet,	X86Arch::CPU_FPU
+nofpu,		X86CpuClear,	X86Arch::CPU_FPU
+mmx,		X86CpuSet,	X86Arch::CPU_MMX
+nommx,		X86CpuClear,	X86Arch::CPU_MMX
+sse,		X86CpuSet,	X86Arch::CPU_SSE
+nosse,		X86CpuClear,	X86Arch::CPU_SSE
+sse2,		X86CpuSet,	X86Arch::CPU_SSE2
+nosse2,		X86CpuClear,	X86Arch::CPU_SSE2
+sse3,		X86CpuSet,	X86Arch::CPU_SSE3
+nosse3,		X86CpuClear,	X86Arch::CPU_SSE3
+#pni,		X86CpuSet,	X86Arch::CPU_PNI
+#nopni,		X86CpuClear,	X86Arch::CPU_PNI
+3dnow,		X86CpuSet,	X86Arch::CPU_3DNow
+no3dnow,	X86CpuClear,	X86Arch::CPU_3DNow
+cyrix,		X86CpuSet,	X86Arch::CPU_Cyrix
+nocyrix,	X86CpuClear,	X86Arch::CPU_Cyrix
+amd,		X86CpuSet,	X86Arch::CPU_AMD
+noamd,		X86CpuClear,	X86Arch::CPU_AMD
+smm,		X86CpuSet,	X86Arch::CPU_SMM
+nosmm,		X86CpuClear,	X86Arch::CPU_SMM
+prot,		X86CpuSet,	X86Arch::CPU_Prot
+noprot,		X86CpuClear,	X86Arch::CPU_Prot
+protected,	X86CpuSet,	X86Arch::CPU_Prot
+noprotected,	X86CpuClear,	X86Arch::CPU_Prot
+undoc,		X86CpuSet,	X86Arch::CPU_Undoc
+noundoc,	X86CpuClear,	X86Arch::CPU_Undoc
+undocumented,	X86CpuSet,	X86Arch::CPU_Undoc
+noundocumented,	X86CpuClear,	X86Arch::CPU_Undoc
+obs,		X86CpuSet,	X86Arch::CPU_Obs
+noobs,		X86CpuClear,	X86Arch::CPU_Obs
+obsolete,	X86CpuSet,	X86Arch::CPU_Obs
+noobsolete,	X86CpuClear,	X86Arch::CPU_Obs
+priv,		X86CpuSet,	X86Arch::CPU_Priv
+nopriv,		X86CpuClear,	X86Arch::CPU_Priv
+privileged,	X86CpuSet,	X86Arch::CPU_Priv
+noprivileged,	X86CpuClear,	X86Arch::CPU_Priv
+svm,		X86CpuSet,	X86Arch::CPU_SVM
+nosvm,		X86CpuClear,	X86Arch::CPU_SVM
+padlock,	X86CpuSet,	X86Arch::CPU_PadLock
+nopadlock,	X86CpuClear,	X86Arch::CPU_PadLock
+em64t,		X86CpuSet,	X86Arch::CPU_EM64T
+noem64t,	X86CpuClear,	X86Arch::CPU_EM64T
+ssse3,		X86CpuSet,	X86Arch::CPU_SSSE3
+nossse3,	X86CpuClear,	X86Arch::CPU_SSSE3
+sse4.1,		X86CpuSet,	X86Arch::CPU_SSE41
+nosse4.1,	X86CpuClear,	X86Arch::CPU_SSE41
+sse41,		X86CpuSet,	X86Arch::CPU_SSE41
+nosse41,	X86CpuClear,	X86Arch::CPU_SSE41
+sse4.2,		X86CpuSet,	X86Arch::CPU_SSE42
+nosse4.2,	X86CpuClear,	X86Arch::CPU_SSE42
+sse42,		X86CpuSet,	X86Arch::CPU_SSE42
+nosse42,	X86CpuClear,	X86Arch::CPU_SSE42
+sse4a,		X86CpuSet,	X86Arch::CPU_SSE4a
+nosse4a,	X86CpuClear,	X86Arch::CPU_SSE4a
+sse4,		X86CpuSetSSE4,	0
+nosse4,		X86CpuClearSSE4,	0
+xsave,		X86CpuSet,	X86Arch::CPU_XSAVE
+noxsave,	X86CpuClear,	X86Arch::CPU_XSAVE
+avx,		X86CpuSet,	X86Arch::CPU_AVX
+noavx,		X86CpuClear,	X86Arch::CPU_AVX
+fma,		X86CpuSet,	X86Arch::CPU_FMA
+nofma,		X86CpuClear,	X86Arch::CPU_FMA
+aes,		X86CpuSet,	X86Arch::CPU_AES
+noaes,		X86CpuClear,	X86Arch::CPU_AES
+clmul,		X86CpuSet,	X86Arch::CPU_CLMUL
+noclmul,	X86CpuClear,	X86Arch::CPU_CLMUL
+pclmulqdq,	X86CpuSet,	X86Arch::CPU_CLMUL
+nopclmulqdq,	X86CpuClear,	X86Arch::CPU_CLMUL
+movbe,		X86CpuSet,	X86Arch::CPU_MOVBE
+nomovbe,	X86CpuClear,	X86Arch::CPU_MOVBE
+xop,		X86CpuSet,	X86Arch::CPU_XOP
+noxop,		X86CpuClear,	X86Arch::CPU_XOP
+fma4,		X86CpuSet,	X86Arch::CPU_FMA4
+nofma4,		X86CpuClear,	X86Arch::CPU_FMA4
+f16c,		X86CpuSet,	X86Arch::CPU_F16C
+nof16c,		X86CpuClear,	X86Arch::CPU_F16C
+fsgsbase,	X86CpuSet,	X86Arch::CPU_FSGSBASE
+nofsgsbase,	X86CpuClear,	X86Arch::CPU_FSGSBASE
+rdrand,		X86CpuSet,	X86Arch::CPU_RDRAND
+nordrand,	X86CpuClear,	X86Arch::CPU_RDRAND
+xsaveopt,	X86CpuSet,	X86Arch::CPU_XSAVEOPT
+noxsaveopt,	X86CpuClear,	X86Arch::CPU_XSAVEOPT
+eptvpid,	X86CpuSet,	X86Arch::CPU_EPTVPID
+noeptvpid,	X86CpuClear,	X86Arch::CPU_EPTVPID
+smx,		X86CpuSet,	X86Arch::CPU_SMX
+nosmx,		X86CpuClear,	X86Arch::CPU_SMX
+# Change NOP patterns
+basicnop,	X86Nop,	X86Arch::NOP_BASIC
+intelnop,	X86Nop,	X86Arch::NOP_INTEL
+amdnop,		X86Nop,	X86Arch::NOP_AMD
+%%
+
+bool
+X86Arch::ParseCpu(llvm::StringRef cpuid)
+{
+    size_t cpuid_len = cpuid.size();
+
+    if (cpuid_len > 15)
+        return false;
+
+    static char lcaseid[16];
+    for (size_t i=0; i<cpuid_len; i++)
+        lcaseid[i] = std::tolower(cpuid[i]);
+    lcaseid[cpuid_len] = '\0';
+
+    const CpuParseData* pdata = CpuHash::in_word_set(lcaseid, cpuid_len);
+    if (!pdata)
+        return false;
+
+    pdata->handler(m_active_cpu, m_nop, pdata->data);
+    return true;
+}

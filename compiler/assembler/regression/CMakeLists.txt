@@ -1,0 +1,7 @@
+ADD_TEST(
+    NAME regression_tests
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/rtest.py
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}
+        $<TARGET_FILE:yasm>
+	$<TARGET_FILE:ygas>)

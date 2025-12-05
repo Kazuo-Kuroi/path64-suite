@@ -1,0 +1,28 @@
+TODO list (no particular order):
+
+Key:
+- No work done
++ Work started
+* Significant work performed
+
+- Translate more object formats from C version:
+-   macho
+- Translate debug formats from C version:
+-   stabs
+-   cv8
+- Object format reading for various formats
+- Disassembly core support
+- x86 disassembly
+- More unit tests
+- Optimize align to detect already aligned case and not create new bytecode
+  (will need adding align member to bytecode?)
+- Optimize org to detect same-offset case and not create new bytecode
+- Optimize x86 append_foo functions for less new bytecode creation
+- Make object format output const (no modification of Object)
+- Translate NASM preprocessor from C version
+- Translate list format support from C version
+- Re-examine standard plugin handling: shared lib or like "external" plugin?
+- Scan plugin directory and load all plugins present?
+- Allow subsetting of standard plugins selection for static builds (yasm-lite)
+- Increase Doxygen code documentation coverage
+- Improve consistency of pointers vs. references

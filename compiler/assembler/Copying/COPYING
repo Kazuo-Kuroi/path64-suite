@@ -1,0 +1,56 @@
+Yasm is Copyright (c) 2001-2011 Peter Johnson and other Yasm developers.
+
+Yasm developers and/or contributors include:
+  Peter Johnson
+  Michael Urman
+  Brian Gladman (VC8 build files, other fixes)
+  Stanislav Karchebny (options parser)
+  Mathieu Monnier (SSE4 instruction patches)
+  Anonymous "NASM64" developer (NASM preprocessor fixes)
+  Stephen Polkowski (x86 instruction patches)
+  Henryk Richter (Mach-O object format)
+  Ben Skeggs (patches, bug reports)
+
+-----------------------------------
+Yasm licensing overview and summary
+-----------------------------------
+
+Note: This document does not provide legal advice nor is it the actual
+license of any part of Yasm.  See the individual licenses for complete
+details.  Consult a lawyer for legal advice.
+
+The primary license of Yasm is the 2-clause BSD license.  Please use this
+license if you plan on submitting code to the project.
+
+Yasm has absolutely no warranty; not even for merchantibility or fitness
+for a particular purpose.
+
+-------
+Libyasm
+-------
+Libyasm is 2-clause or 3-clause BSD licensed.  The LLVM-derived portions
+of Libyasm are licensed under the University of Illinois Open Source License,
+which is equivalent to the 3-clause BSD license.
+
+This means that libyasm is free for binary-only distribution as long as the
+terms of the 3-clause BSD license are fulfilled.
+
+-------
+Modules
+-------
+The modules are 2-clause or 3-clause BSD licensed.
+
+---------
+Frontends
+---------
+The frontends are 2-clause BSD licensed.
+
+-------------
+License Texts
+-------------
+The full text of all licenses are provided in separate files in the source
+distribution.
+
+BSD.txt - 2-clause and 3-clause BSD licenses
+LLVM.txt - University of Illinois/NCSA Open Source License (3-clause BSD-like)
+yaml-cpp.txt - yaml-cpp license (MIT license, equivalent to 2-clause BSD)
