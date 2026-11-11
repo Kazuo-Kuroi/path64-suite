@@ -74,6 +74,12 @@
 
 /* .. */
 
+/* IRIX: big-endian, whatever the compiler. */
+#if defined(__sgi) && defined(_MIPSEB)
+#define _YUGA_LITTLE_ENDIAN 0
+#define _YUGA_BIG_ENDIAN    1
+#endif /* IRIX */
+
 #if defined(__linux__)
 #include <endian.h>
 
