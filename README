@@ -1,23 +1,148 @@
+PathScale EKOPath / Path64 compiler suite — IRIX fork
+=====================================================
 
-Step 1) Run ./initial-clone from the top level
+What this is
+------------
 
-Step 2) Add additional remotes, if desired, to the repositories inside compiler/
+Path64 is the open-source release of the PathScale EKOPath compiler suite:
+optimizing C, C++ and Fortran compilers. It descends from Open64, which in
+turn descends from SGI's Pro64/MIPSpro compilers. The compilers share one
+intermediate representation (WHIRL) and one back end: interprocedural
+analysis (IPA), the loop nest optimizer (LNO), the global optimizer (WOPT)
+and code generation (CG). PathScale's releases targeted x86-64; the MIPS
+back end was maintained for SiCortex's MIPS64 Linux machines.
 
-Step 3) Create your build directory, such as `mybuild`
+This repository holds the whole suite in one tree:
 
-Step 4) `cd mybuild` with your chosen build directory
+    compiler/compiler      driver, front ends, optimizers, code generators
+    compiler/assembler     PathAS assembler (x86-64)
+    compiler/compiler-rt   low-level runtime routines
+    compiler/libcxxrt      C++ ABI runtime
+    compiler/libunwind     unwinder
+    compiler/libdwarf-bsd  DWARF library used by the back end
+    compiler/stdcxx        C++ standard library
+    compiler/pathdb        debugger
 
-Step 5) Run `cmake ..` with your desired options, for instance:
+The top-level CMakeLists.txt builds them together.
 
-        * `-DCMAKE_BUILD_TYPE=Debug` or `-DCMAKE_BUILD_TYPE=Release`
-          to choose the type of build [Note: gcc can not do a Release build]
 
-        * `-DCMAKE_INSTALL_PREFIX=$HOME/prefix` to install in a local
-          tree.
+This fork: IRIX support
+-----------------------
 
-        * `-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++` to change
-          the compiler used.
+This fork is adding IRIX 6.5 as a target: MIPS, the n32 ABI, the R10000
+(MIPS IV) and big-endian code, cross-compiled from Linux.
 
-Step 6) make # Parallel builds tested up to -j30
+Working now:
 
-Running ./update will pull all cloned repositories in compiler.
+  * The C compiler builds for mips64-sgi-irix6.5 with modern GCC/Clang
+    and CMake 3.x.
+  * pathcc -n32 -mips4 -march=r10000 compiles C to R10000 n32 code at
+    -O0 to -O3, using MIPS IV instructions only.
+  * pathcc assembles and links with GNU binutils for IRIX, producing
+    n32 executables that request /lib32/rld and use IRIX's libc and
+    libm from a sysroot.
+
+Not done yet:
+
+  * PathScale runtime libraries (libgcc, libmv, libmpath, libpscrt,
+    libscstr, ...) built for IRIX. Until then, programs link only
+    against IRIX libc and libm.
+  * C++ and Fortran for IRIX, and the 64-bit ABI.
+  * Testing on real IRIX hardware. The output has only been checked
+    with binutils' readelf and objdump.
+  * Using IRIX's own assembler (the output uses GNU as directives such
+    as .cfi_*), and running the compiler natively on IRIX.
+
+
+Requirements
+------------
+
+  * CMake 3.x. CMake 4 dropped support for the old cmake_minimum_required
+    versions this tree uses.
+  * Clang or GCC, plus Ninja (or make).
+  * m4 (libdwarf generates sources with it) and static glibc (the pathcc
+    driver links statically). On Fedora/RHEL: dnf install m4 glibc-static.
+
+A Release build requires the PathScale compiler itself; build with
+-DCMAKE_BUILD_TYPE=Debug when using GCC or Clang.
+
+
+Building the IRIX cross compiler
+--------------------------------
+
+1. IRIX sysroot. Unpack the IRIX 6.5.30 headers and libraries (for
+   example irix-root.6.5.30.tar.bz2) so that you have
+
+       ~/devel/irix-sysroot/usr/include
+       ~/devel/irix-sysroot/usr/lib32
+       ~/devel/irix-sysroot/lib32/rld
+
+2. GNU binutils for IRIX. Build binutils 2.23.2 with the SGUG RSE
+   patches from https://github.com/sgidevnet/sgug-rse/tree/master/packages/binutils
+   (binutils-2.22.52.0.4-no-config-h-check.patch,
+   binutils2_23.sgifixes.patch, binutils.sgirelinkfix.patch,
+   binutils.ldirixn32paths.patch, applied in that order with -p1).
+   GNU as knows IRIX only as mips-sgi-irix6*, so configure with:
+
+       CFLAGS="-O2 -std=gnu11 -fcommon -Wno-error \
+               -Wno-implicit-function-declaration -Wno-int-conversion \
+               -Wno-incompatible-pointer-types -Wno-implicit-int" \
+       ../binutils-2.23.2/configure \
+           --prefix=$HOME/devel/irix-toolchain \
+           --target=mips-sgi-irix6.5 \
+           --with-sysroot=$HOME/devel/irix-sysroot \
+           --disable-werror --disable-nls --disable-gdb \
+           --disable-sim --disable-gold
+       make MAKEINFO=true && make MAKEINFO=true install
+
+3. Configure and build the compiler:
+
+       mkdir build-irix && cd build-irix
+       S=$HOME/devel/irix-sysroot
+       cmake -G Ninja .. \
+           -DCMAKE_BUILD_TYPE=Debug \
+           -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+           -DCMAKE_INSTALL_PREFIX=$HOME/devel/path64-irix \
+           -DPSC_TARGET=mips64-sgi-irix6.5 \
+           -DPATH64_ENABLE_TARGETS=mips_32 \
+           -DPSC_TARGET_OS_mips_32=irix \
+           -DPSC_CRT_PATH_mips_32=$S/usr/lib32/mips4 \
+           -DPSC_CRTBEGIN_PATH_mips_32=$S/usr/lib32/mips4 \
+           -DPSC_DYNAMIC_LINKER_mips_32=/lib32/rld \
+           -DPSC_INCLUDE_PATH_mips_32=$S/usr/include \
+           -DPSC_GCC_LIBRARY_DIRS=$S/usr/lib32/mips4 \
+           -DPSC_BINUTILS_TARGET=mips-sgi-irix6.5 \
+           -DPSC_BINUTILS_DIR=$HOME/devel/irix-toolchain/bin \
+           -DPATH64_BUILD_STDCXX=OFF \
+           -DPATH64_ENABLE_FORTRAN=OFF -DPATH64_ENABLE_MATHLIBS=OFF \
+           -DPATH64_ENABLE_OPENMP=OFF -DPATH64_ENABLE_PROFILING=OFF \
+           -DPATH64_ENABLE_TESTING=OFF \
+           -DPATH64_ENABLE_PATHAS=OFF -DPATH64_ENABLE_DEFAULT_PATHAS=OFF
+       ninja compiler-stage-C
+
+   Large parallel builds have livelocked build hosts; -j8 has been fine
+   on a 16-core, 30 GB machine.
+
+4. Compile for IRIX with the staged driver:
+
+       build-irix/Xcompiler/bin/pathcc -n32 -mips4 -march=r10000 \
+           -O2 -o hello hello.c
+
+   Use -S to stop at R10000 assembly. The front end is GCC 4.2-based,
+   so C99 code needs -std=c99.
+
+
+Building for x86-64 Linux
+-------------------------
+
+The original native build:
+
+    mkdir build && cd build
+    cmake -G Ninja .. -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_INSTALL_PREFIX=$HOME/prefix
+    ninja
+
+The initial-clone, update and install scripts date from when the
+components lived in separate repositories. They are not needed: every
+component is now in this tree.
