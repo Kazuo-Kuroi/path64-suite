@@ -1,4 +1,17 @@
 # Looking for gcc runtime search path
+#
+# The probe builds a small C++ program with a host g++ and scrapes the
+# collect2 command line. Set PATH64_GCC_RUNTIME_CXX to another g++, or to
+# an empty string to skip the probe (e.g. no usable host g++, or when
+# cross-compiling for a target such as IRIX).
+set(PATH64_GCC_RUNTIME_CXX "g++" CACHE STRING
+    "g++ used to probe gcc runtime dirs; empty skips the probe")
+
+if("${PATH64_GCC_RUNTIME_CXX}" STREQUAL "")
+    message(STATUS "Skipping gcc runtime search path probe")
+    return()
+endif()
+
 SET(SOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/GetGccRuntimeDir/rt.cc")
 
 MESSAGE(STATUS "Checking for gcc runtime search path")
@@ -26,7 +39,7 @@ FILE(WRITE \"\${CMAKE_CURRENT_BINARY_DIR}/result.cmake\"
 
 execute_process(
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/GetGccRuntimeDir
-    COMMAND env CXX=g++ ${CMAKE_COMMAND} . -G ${CMAKE_GENERATOR}
+    COMMAND env CXX=${PATH64_GCC_RUNTIME_CXX} ${CMAKE_COMMAND} . -G ${CMAKE_GENERATOR}
     OUTPUT_VARIABLE output
     ERROR_VARIABLE error
     RESULT_VARIABLE result

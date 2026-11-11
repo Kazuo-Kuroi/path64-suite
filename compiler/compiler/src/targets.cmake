@@ -387,8 +387,18 @@ function(path64_add_library_for_target name target type src_base_path)
     set(objects)
     set(rel_objects)
     foreach(src ${sources})
+        # Newer CMake fails on source properties of a relative name it can
+        # not locate, so query those under the multitarget base path.
+        set(src_prop ${src})
+        if(NOT IS_ABSOLUTE "${src}"
+           AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src}"
+           AND NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/${src}"
+           AND EXISTS "${src_base_path}/${src}")
+            set(src_prop "${src_base_path}/${src}")
+        endif()
+
         # Getting source language
-        get_property(src_lang SOURCE ${src} PROPERTY LANGUAGE)
+        get_property(src_lang SOURCE ${src_prop} PROPERTY LANGUAGE)
         if(NOT src_lang)
             # Trying get language from extension
             path64_get_file_ext(src_ext ${src})
@@ -419,14 +429,14 @@ function(path64_add_library_for_target name target type src_base_path)
             endif()
     
             # Getting source compile definitions
-            get_property(src_compile_defs_list SOURCE ${src} PROPERTY COMPILE_DEFINITIONS)
+            get_property(src_compile_defs_list SOURCE ${src_prop} PROPERTY COMPILE_DEFINITIONS)
             set(src_compile_defs_flags)
             foreach(def ${src_compile_defs_list})
                 list(APPEND src_compile_defs_flags "-D${def}")
             endforeach()
     
             # Getting source compile flags
-            get_property(src_flags_list SOURCE ${src} PROPERTY COMPILE_FLAGS)
+            get_property(src_flags_list SOURCE ${src_prop} PROPERTY COMPILE_FLAGS)
             string(REPLACE " " ";" src_flags "${src_flags_list}")
     
             # Getting target compile flags
@@ -450,14 +460,14 @@ function(path64_add_library_for_target name target type src_base_path)
             endforeach()
 
             # Getting additional object dependencies
-            get_property(obj_depends_rel SOURCE ${src} PROPERTY OBJECT_DEPENDS)
+            get_property(obj_depends_rel SOURCE ${src_prop} PROPERTY OBJECT_DEPENDS)
             set(obj_depends)
             foreach(dep ${obj_depends_rel})
                 list(APPEND obj_depends ${CMAKE_CURRENT_BINARY_DIR}/${name}-${targ}/${dep})
             endforeach()
 
             # Getting additional object outputs
-            get_property(obj_outputs_rel SOURCE ${src} PROPERTY OBJECT_OUTPUTS)
+            get_property(obj_outputs_rel SOURCE ${src_prop} PROPERTY OBJECT_OUTPUTS)
             set(obj_outputs)
             foreach(out ${obj_outputs_rel})
                 list(APPEND obj_outputs ${CMAKE_CURRENT_BINARY_DIR}/${name}-${targ}/${out})

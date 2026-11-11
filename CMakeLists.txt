@@ -57,6 +57,46 @@ option(PATH64_ENABLE_PATHOPT2 "Enables 'PATHOPT2'" OFF)
 option(PATH64_ENABLE_PATHAS "Enables PathAS" ON)
 option(PATH64_ENABLE_DEFAULT_PATHAS "Enables PathAS by default" ON)
 
+# The sources predate C11/C++11. Modern GCC and Clang default to C17 and
+# C++17 and turn several legacy constructs into hard errors, so pin the
+# host build to the dialects the code was written for. This only affects
+# targets built by the host compiler; runtime libraries built with the
+# stage compiler get their flags in targets.cmake.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+	# -fcommon: headers declare globals without extern (tentative
+	# definitions); GCC 10 and Clang 11 stopped merging them by default.
+	# -fno-delete-null-pointer-checks: code tests this == NULL, which
+	# modern compilers otherwise fold away.
+	add_compile_options(
+		"$<$<COMPILE_LANGUAGE:C>:-fcommon>"
+		"-fno-delete-null-pointer-checks"
+		"$<$<COMPILE_LANGUAGE:C>:-std=gnu89>"
+		"$<$<COMPILE_LANGUAGE:C>:-Wno-error=int-conversion>"
+		"$<$<COMPILE_LANGUAGE:C>:-Wno-error=incompatible-pointer-types>")
+	if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+		add_compile_options(
+			"$<$<COMPILE_LANGUAGE:C>:-Wno-error=incompatible-function-pointer-types>")
+	endif()
+endif()
+# C++11 is the floor: the assembler uses std::function and std::bind.
+# C++11 made narrowing in braced initializers an error, which the opcode
+# tables rely on, so demote it back to a warning.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+	add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>")
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		# -fno-strict-return: many functions fall off the end of a
+		# non-void body; Clang traps there (ud2) even at -O0.
+		add_compile_options(
+			"$<$<COMPILE_LANGUAGE:CXX>:-fno-strict-return>"
+			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-c++11-narrowing>"
+			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-reserved-user-defined-literal>")
+	else()
+		add_compile_options(
+			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-narrowing>"
+			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-literal-suffix>")
+	endif()
+endif()
+
 
 if(("${CMAKE_BUILD_TYPE}" STREQUAL "Release" or "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo") AND (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "PathScale"))
 	message(FATAL_ERROR "Building in Release mode with a non-PathScale
