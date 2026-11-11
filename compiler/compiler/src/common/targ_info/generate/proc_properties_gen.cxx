@@ -212,7 +212,7 @@ void PROC_Properties_End(void)
 	flag_value |= (1ULL << property->bit_position);
       }
     }
-    fprintf (cfile, "  0x%0*"PRIx64"%s, /* %s:", int_size / 4,
+    fprintf (cfile, "  0x%0*" PRIx64"%s, /* %s:", int_size / 4,
 					    flag_value, 
 					    int_suffix,
 					    PROCESSOR_Name((PROCESSOR)code));
@@ -224,7 +224,7 @@ void PROC_Properties_End(void)
     }
     fprintf (cfile, " */\n");
   }
-  fprintf (cfile, "  0x%0*"PRIx64"%s  /* UNDEFINED */\n"
+  fprintf (cfile, "  0x%0*" PRIx64"%s  /* UNDEFINED */\n"
 		  "};\n",
 		  int_size / 4,
 		  0ULL,
@@ -233,7 +233,7 @@ void PROC_Properties_End(void)
   for ( isi = properties.begin(); isi != properties.end(); ++isi ) {
     PROC_PROPERTY property = *isi;
     if (property->bit_position >= 0) {
-      fprintf (hfile, "#define PROP_%-16s 0x%"PRIx64"%s\n", 
+      fprintf (hfile, "#define PROP_%-16s 0x%" PRIx64"%s\n", 
 	       property->name, 
 	       (1ULL << property->bit_position),
 	       int_suffix);

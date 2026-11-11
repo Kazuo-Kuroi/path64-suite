@@ -1354,12 +1354,12 @@ put_TN_comment (TN *t, BOOL add_name, vstring *comment)
 		*comment = vstr_concat (*comment, ST_name(TN_var(t)));
 	}
 	if (TN_offset(t) != 0) {
-		vstr_sprintf (comment, vstr_len(*comment), "%+"PRId64, val);
+		vstr_sprintf (comment, vstr_len(*comment), "%+" PRId64, val);
 	}
   }
   else if ( TN_is_label(t) && val != 0) {
 	*comment = vstr_concat (*comment, LABEL_name(TN_label(t)));
-	vstr_sprintf (comment, vstr_len(*comment), "%+"PRId64, val); 
+	vstr_sprintf (comment, vstr_len(*comment), "%+" PRId64, val); 
   }
 }
 
@@ -1517,7 +1517,7 @@ r_apply_l_const (
 	// when have multiple instruction slots.
 	// Instead just do label+offset.
 	*buf = vstr_concat (*buf, LABEL_name(TN_label(t)));
-	vstr_sprintf (buf, vstr_len(*buf), "%+"PRId64, val); 
+	vstr_sprintf (buf, vstr_len(*buf), "%+" PRId64, val); 
     }
     else {
       *buf = vstr_concat(*buf, LABEL_name(TN_label(t)));
@@ -1558,7 +1558,7 @@ r_apply_l_const (
   }
 
   if (print_TN_offset && (val != 0)) {
-      vstr_sprintf (buf, vstr_len(*buf), "%+"PRId64, val );
+      vstr_sprintf (buf, vstr_len(*buf), "%+" PRId64, val );
   }
 
   while ( paren > 0 ) {
@@ -7625,7 +7625,7 @@ EMT_Begin_File (
 			    INCLUDE_STAMP );
     if (*ism_name != '\0')
     	fprintf ( Asm_File, "\t%s%s\t%s\n", ASM_CMNT, "ism", ism_name);
-    List_Compile_Options ( Asm_File, "\t"ASM_CMNT, FALSE, TRUE, TRUE );
+    List_Compile_Options ( Asm_File, "\t" ASM_CMNT, FALSE, TRUE, TRUE );
 
 #ifdef KEY
     if (! CG_emit_non_gas_syntax)

@@ -257,7 +257,7 @@ TCON2C_translate(TOKEN_BUFFER tokens, TCON tvalue)
       break;
 
     case MTYPE_I8:
-      Append_Token_String(tokens, Targ_Print("%1"PRId64"LL", tvalue));
+      Append_Token_String(tokens, Targ_Print("%1" PRId64"LL", tvalue));
       break;
 
     case MTYPE_U8:
@@ -339,7 +339,7 @@ TCON2C_translate(TOKEN_BUFFER tokens, TCON tvalue)
    }
    case MTYPE_V16I8: {
      char *newstr;
-     str = Targ_Print("%1"PRId64"LL", tvalue);
+     str = Targ_Print("%1" PRId64"LL", tvalue);
      newstr = (char *)malloc(sizeof(char)*1000); //((strlen(strbase)+1)*2+15));
      sprintf(newstr, "[%s, %s]", str, str);
      Append_Token_String(tokens, newstr);

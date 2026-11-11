@@ -229,10 +229,10 @@ void ISA_Create_Lit_Class(const char* name, LIT_CLASS_TYPE type, ...)
   // Initialize ISA_LIT_CLASS_info for this class. Note that .range[0]
   // holds the smallest min/largest max; .range[1] is the first sub-range.
   fprintf(hfile, "\tLC_%s,\n", name);
-  fprintf(cfile, "  { { { 0x%016"PRIx64"LL, 0x%016"PRIx64"LL }", min, max);
+  fprintf(cfile, "  { { { 0x%016" PRIx64"LL, 0x%016" PRIx64"LL }", min, max);
   va_start(ap,type);
   while ((range = va_arg(ap,LIT_RANGE)) != LIT_RANGE_END) {
-    fprintf(cfile, ",\n      { 0x%016"PRIx64"LL, 0x%016"PRIx64"LL }", 
+    fprintf(cfile, ",\n      { 0x%016" PRIx64"LL, 0x%016" PRIx64"LL }", 
 		   range->min, range->max);
   }
   va_end(ap);

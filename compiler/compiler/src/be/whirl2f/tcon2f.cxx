@@ -278,7 +278,7 @@ TCON2F_translate(TOKEN_BUFFER tokens, TCON tvalue, BOOL is_logical)
 	 break;
 
       case MTYPE_I8:
-	 Append_Token_String(tokens, Targ_Print("%1"PRId64"_8", tvalue));
+	 Append_Token_String(tokens, Targ_Print("%1" PRId64"_8", tvalue));
 	 break;
       
       case MTYPE_U1:

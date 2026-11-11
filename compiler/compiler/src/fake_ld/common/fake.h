@@ -306,8 +306,8 @@ typedef int64_t FILE_SZ;	/* 64-bit file size/length */
 #define _fmt_v        PRId64
 #define _fmt_a        PRIx64
 #define _fmt_s        PRIx64
-#define _fmt_w_a      "016"PRIx64
-#define _fmt_w_s      "016"PRIx64
+#define _fmt_w_a      "016" PRIx64
+#define _fmt_w_s      "016" PRIx64
 
 #else
 

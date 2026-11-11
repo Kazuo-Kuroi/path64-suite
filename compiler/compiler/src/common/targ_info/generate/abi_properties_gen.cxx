@@ -389,7 +389,7 @@ void ABI_Properties_End(void)
 	ABI_PROPERTY prop = *prop_iter;
 	mask |= prop->v;
       }
-      fprintf(cfile, "    0x%0*"PRIx64"%s,\n",
+      fprintf(cfile, "    0x%0*" PRIx64"%s,\n",
 		     Type_Size(count) / 4,
 		     mask,
 		     Type_Suffix(count));
@@ -417,7 +417,7 @@ void ABI_Properties_End(void)
 	    fprintf(cfile, "\n");
 	    cursor = fprintf(cfile, "       ");
 	  }
-	  cursor += fprintf(cfile, " 0x%0*"PRIx64"%s,",
+	  cursor += fprintf(cfile, " 0x%0*" PRIx64"%s,",
 				   Type_Size(count) / 4,
 				   mask,
 				   Type_Suffix(count));

@@ -706,7 +706,7 @@ static void Dump_TN( char* buf, int size, TN* tn )
       if (ST_class(var) == CLASS_CONST)
       	buf += sprintf ( buf, ":%s)", Targ_Print(NULL, ST_tcon_val(var)));
       else
-      	buf += sprintf ( buf, ":%s%+"PRId64")", ST_name(var), TN_offset(tn) );
+      	buf += sprintf ( buf, ":%s%+" PRId64")", ST_name(var), TN_offset(tn) );
     } 
     else {
       ASSERT( false );
@@ -716,7 +716,7 @@ static void Dump_TN( char* buf, int size, TN* tn )
   else if (TN_is_multidirect(tn)) {  
     ST *var = TN_var(tn);
     if (TN_offset(tn))
-      buf += sprintf ( buf, "(mdsym:%s%+"PRId64")", ST_name(var), TN_offset(tn) );
+      buf += sprintf ( buf, "(mdsym:%s%+" PRId64")", ST_name(var), TN_offset(tn) );
     else buf += sprintf ( buf, "(mdsym:%s)", ST_name(var));
   }
 #endif

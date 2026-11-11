@@ -1987,7 +1987,7 @@ PU::Print (FILE *f) const
 	     "\tMisc. Info (misc) %d\n",
 	     flags, lexical_level, src_lang, target_idx, misc); 
 #else
-    fprintf (f, ", flags 0x%016"SCNx64",\n"
+    fprintf (f, ", flags 0x%016" SCNx64",\n"
 	     "\tlexical level %d, LANG 0x%02x, TARGET_INFO %d\n",
 	     flags, lexical_level, src_lang, target_idx); 
 #endif

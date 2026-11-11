@@ -243,7 +243,7 @@ LBitMask::Print (FILE *f) const
   else if (isBottom ())
     fputs ("<bottom>", f);
   else {
-    fprintf (f, "%#"SCNx64"", bmask_);
+    fprintf (f, "%#" SCNx64"", bmask_);
   }
 }
 
