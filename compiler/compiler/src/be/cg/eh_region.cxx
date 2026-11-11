@@ -648,7 +648,7 @@ struct HAS_NO_CALL_OR_HAS_NULL_OR_UNREACHABLE_LABEL {
 #ifdef KEY
 struct FIX_PARENT
 {
-  bool operator() (EH_RANGE& r)
+  void operator() (EH_RANGE& r)		// used with std::for_each
   {
     while (r.parent &&
            HAS_NO_CALL_OR_HAS_NULL_OR_UNREACHABLE_LABEL() (*(r.parent)))

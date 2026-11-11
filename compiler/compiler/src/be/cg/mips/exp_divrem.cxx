@@ -591,6 +591,7 @@ Expand_Divide (TN *result, TN *src1, TN *src2, TYPE_ID mtype, OPS *ops)
   Build_OP(top, Hilo_TN(), src1, src2, ops);
   Build_OP(TOP_teq, src2, Zero_TN, Gen_Literal_TN(7, 4), ops);
   Build_OP(TOP_mflo, result, Hilo_TN(), ops);
+  return NULL;
 }
 
 

@@ -1404,6 +1404,7 @@ Compare_Self_Recursive_Cost(reg_list *list) {
             return FALSE;
         }
     }
+    return FALSE;	// deletable nodes are not costed
 } 
 
 static reg_list* 

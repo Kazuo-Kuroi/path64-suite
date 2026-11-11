@@ -2285,6 +2285,7 @@ static BOOL Gen_Early_Exit(const WN *if_stmt, WN *loop)
      parent = LWN_Get_Parent(parent);
     }//end while
  }
+ return TRUE;	// the early exit was generated
 }
 
 // Called by LNO unswitching 2nd phase.

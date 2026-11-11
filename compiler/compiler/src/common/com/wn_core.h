@@ -519,7 +519,7 @@ public:
   WN (const WN& wn) {}
   WN (const WN* wn) {}
 #pragma set woff 1116
-  WN& operator= (const WN& wn) {}
+  WN& operator= (const WN& wn) { return *this; }
 #pragma reset woff 1116
 #pragma reset woff 3201
   ~WN () {}

@@ -968,6 +968,7 @@ Expand_Divide (TN *result, TN *src1, TN *src2, TYPE_ID mtype, OPS *ops)
   Extend_Dividend(&src1, &src3, mtype, is_double, ops);
   FmtAssert( !OP_NEED_PAIR(mtype), ("NYI") );
   Build_OP(top, result, result1, src1, src3, src2, ops);
+  return NULL;
 }
 
 

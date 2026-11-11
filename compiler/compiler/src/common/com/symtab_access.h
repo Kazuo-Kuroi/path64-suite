@@ -1343,8 +1343,7 @@ TY_register_parm (const TY& ty)
     return 3;
   if (ty.Pu_flags() & TY_HAS_1_REG_PARM)
     return 1;
-  if (ty.Pu_flags() & TY_HAS_2_REG_PARM)
-    return 2;
+  return 2;	// only TY_HAS_2_REG_PARM is left
 }
 
 inline void

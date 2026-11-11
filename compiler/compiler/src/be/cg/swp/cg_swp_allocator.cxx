@@ -456,7 +456,8 @@ REGISTER
 SWP_ALLOCATOR::Best_Fit (INT selected_lt,
                          ISA_REGISTER_CLASS rclass) const
 {
-
+  // Not implemented; Allocate_Loop_Variant rejects this algorithm.
+  Fail_FmtAssertion ("SWP_ALLOCATOR::Best_Fit: NOT YET IMPLEMENTED");
 }
 
 
@@ -481,7 +482,8 @@ REGISTER
 SWP_ALLOCATOR::End_Fit (INT selected_lt,
                         ISA_REGISTER_CLASS rclass) const
 {
-
+  // Not implemented; Allocate_Loop_Variant rejects this algorithm.
+  Fail_FmtAssertion ("SWP_ALLOCATOR::End_Fit: NOT YET IMPLEMENTED");
 }
 
 

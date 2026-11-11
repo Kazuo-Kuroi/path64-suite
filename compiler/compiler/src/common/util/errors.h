@@ -383,17 +383,24 @@ extern void Abort_Compiler_Location (
 #pragma mips_frequency_hint NEVER Abort_Compiler_Location
 
 /* Simple abort report with error code: */
+/* Fail_FmtAssertion and Fatal_Error never return (they abort or exit). */
+#if defined(__GNUC__)
+# define ERRORS_NORETURN __attribute__((noreturn))
+#else
+# define ERRORS_NORETURN
+#endif
+
 extern void Fail_Assertion ( INT ecode, ... );
 #pragma mips_frequency_hint NEVER Fail_Assertion
 
 /* Simple abort report with format instead of code: */
 /*PRINTFLIKE1*/
-extern void Fail_FmtAssertion ( const char *fmt, ... );
+extern void Fail_FmtAssertion ( const char *fmt, ... ) ERRORS_NORETURN;
 #pragma mips_frequency_hint NEVER Fail_FmtAssertion
 
 /* Simple fatal error report with format instead of code: */
 /*PRINTFLIKE1*/
-extern void Fatal_Error ( const char *fmt, ... );
+extern void Fatal_Error ( const char *fmt, ... ) ERRORS_NORETURN;
 #pragma mips_frequency_hint NEVER Fatal_Error
 
 /* ====================================================================

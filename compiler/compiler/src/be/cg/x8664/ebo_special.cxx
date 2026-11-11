@@ -4642,6 +4642,7 @@ Reset_Execute_Format(TOP top, ADDR_MODE mode){
 	  	FmtAssert(FALSE, ("ERROR in addressing mode"));
     }
   }
+  return top;	// no addressing-mode group: leave the opcode unchanged
 }
 
 

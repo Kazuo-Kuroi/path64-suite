@@ -739,6 +739,7 @@ Find_Compare_IV (WN* node, WN* innerloop)
               ("LNO_HoistIf: Invalid node passed to Find_Compare_IV"));
     return Find_Compare_IV_Recurse(node, symindex);
   }
+  return NULL;	// no comparison of the induction variable found
 }
 
 static void 

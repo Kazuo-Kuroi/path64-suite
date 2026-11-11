@@ -1162,7 +1162,7 @@ OPT_REVISE_SSA::Form_extract(CODEREP *cr)
       return _htable->Rehash(new_cr);
     }
     return NULL;
-  }
+  }  return NULL;	// unexpected CODEREP kind: nothing to extract
 }
 
 // ====================================================================
@@ -1471,7 +1471,7 @@ OPT_REVISE_SSA::Fold_lda_iloads(CODEREP *cr)
     cr->Set_isop_flag(ISOP_LDAFOLD2_VISITED);
 #endif
     return NULL;
-  }
+  }  return NULL;	// unexpected CODEREP kind: nothing to fold
 }
 
 // ====================================================================

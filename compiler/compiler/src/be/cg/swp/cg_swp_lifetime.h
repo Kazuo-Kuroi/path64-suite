@@ -160,7 +160,7 @@ class SWP_TN_LIFETIME {
   mUINT16
   Get_TN_Lifetime (void) const;
   mUINT16
-  operator () (void) const            { Get_TN_Lifetime (); }
+  operator () (void) const            { return Get_TN_Lifetime (); }
 };
 
 

@@ -256,7 +256,7 @@ public:
   void Clear_Internal_BBs(void)	{ BB_SET_ClearD(u.c.internal_bb_set); }
 
   LRANGE_BOUNDARY_BB *Boundary_BBs(void)	{ return u.c.boundary_bbs; }
-  void *Set_Boundary_BBs(LRANGE_BOUNDARY_BB *x)	{ u.c.boundary_bbs = x; }
+  void Set_Boundary_BBs(LRANGE_BOUNDARY_BB *x)	{ u.c.boundary_bbs = x; }
   LRANGE_BOUNDARY_BB* Get_Boundary_Bb(BB *target);
   LRANGE_BOUNDARY_BB* Remove_Boundary_Bb(BB *target);
 #endif

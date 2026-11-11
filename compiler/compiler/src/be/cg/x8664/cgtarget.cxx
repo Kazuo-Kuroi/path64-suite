@@ -3517,6 +3517,8 @@ CGTARG_Modified_Asm_Opnd_Name(char modifier, TN* tn, char *tn_name)
       else
         return int_reg_names[3][reg - REGISTER_MIN];
 	}
+	// No sub-register name applies: use the register's own name.
+	return tn_name;
   }
   else {
     FmtAssert(FALSE, ("Unknown ASM operand modifier '%c'", modifier));
