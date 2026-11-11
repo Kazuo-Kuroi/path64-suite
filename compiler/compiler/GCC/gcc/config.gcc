@@ -1515,7 +1515,7 @@ mcore-*-pe*)
         tmake_file=mcore/t-mcore-pe
         use_fixproto=yes
         ;;
-mips-sgi-irix[56]*)
+mips-sgi-irix[56]* | mips64-sgi-irix6*)
         tm_file="elfos.h ${tm_file} mips/iris.h"
         tmake_file="mips/t-iris mips/t-slibgcc-irix"
         target_cpu_default="MASK_ABICALLS"
