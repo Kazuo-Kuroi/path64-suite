@@ -60,6 +60,11 @@
 #include "config.h"             // Run_ipl, Run_cg
 #include "cg.h"                 // CG_Change_Elf_Symbol_To_Undefined
 
+// CG_Change_Elf_Symbol_To_Undefined lives in CG, which inline and ipa_link
+// do not link. Reference it weakly; it is NULL when CG is absent.
+extern "C" void CG_Change_Elf_Symbol_To_Undefined (ST* st)
+    __attribute__((weak));
+
 #include "dra_internal.h"       // Internal DRA interface
 
 // =====================================================================
@@ -825,7 +830,7 @@ DRA_Mangle_Entry(WN* entry_wn,
       Set_ST_sclass (old_st, SCLASS_EXTERN);
       if (!PU_has_non_mangled_call (Pu_Table[ST_pu (old_st)]))
         Set_ST_is_not_used (old_st);
-      else if (Run_cg) {
+      else if (Run_cg && CG_Change_Elf_Symbol_To_Undefined) {
         CG_Change_Elf_Symbol_To_Undefined(old_st);
       }
     }

@@ -215,7 +215,11 @@ static BOOL dump_parent_before_children = FALSE;
 **  to consumers of ir_reader.h
 */
 extern void fdump_dep_tree(FILE *, const WN *, struct ALIAS_MANAGER *);
-extern void CG_Dump_Region(FILE*, WN*);
+/*
+**  CG_Dump_Region lives in CG, which tools such as inline and ipa_link
+**  do not link. Reference it weakly; it is NULL when CG is absent.
+*/
+extern void CG_Dump_Region(FILE*, WN*) __attribute__((weak));
 
 #endif /* BACK_END */
 
@@ -1287,7 +1291,7 @@ static void ir_put_stmt(WN * wn, INT indent)
       /* check to make sure cg.so is loaded first */
       /* IR_dump_region will be NULL if it is not */
 #ifdef BACK_END
-      if (IR_dump_region)
+      if (IR_dump_region && CG_Dump_Region)
 	CG_Dump_Region(ir_ofile, wn);
 #endif /* BACK_END */
       { char str[20];
@@ -1827,7 +1831,7 @@ static void WN_TREE_put_stmt(WN * wn, INT indent)
       /* check to make sure cg.so is loaded first */
       /* IR_dump_region will be NULL if it is not */
 #ifdef BACK_END
-      if (IR_dump_region)
+      if (IR_dump_region && CG_Dump_Region)
 	CG_Dump_Region(ir_ofile, wn);
 #endif /* BACK_END */
       { char str[20];
