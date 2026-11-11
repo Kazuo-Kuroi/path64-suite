@@ -35,6 +35,12 @@ const char *target_include_path();
 const char *target_runtime_path();
 
 
+// Returns the target operating system name, e.g. "linux" or "irix"
+const char *target_os();
+
+// Returns TRUE if the current target operating system is IRIX
+boolean is_target_os_irix();
+
 // Returns path to crtbegin.o/crtend.o for current target
 // Returned memory should be freed by caller
 char *target_crtbegin_path();

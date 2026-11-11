@@ -111,6 +111,16 @@ const char *target_runtime_path() {
 }
 
 
+const char *target_os() {
+    return current_target->target_os;
+}
+
+
+boolean is_target_os_irix() {
+    return strcmp(current_target->target_os, "irix") == 0;
+}
+
+
 char *target_crtbegin_path() {
 #ifdef TARG_X8664
     if(is_target_arch_X8664()) {

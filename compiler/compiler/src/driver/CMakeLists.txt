@@ -12,6 +12,14 @@ function(generate_targ_info config_name output)
         set(crt_path ${PSC_CRT_PATH_${targ}})
         set(crtbegin_path ${PSC_CRTBEGIN_PATH_${targ}})
 
+        # Target operating system. It defaults to the host system but can
+        # differ when cross-compiling (e.g. PSC_TARGET_OS_mips_32=irix).
+        set(target_os "${PSC_TARGET_OS_${targ}}")
+        if("${target_os}" STREQUAL "")
+            string(TOLOWER "${CMAKE_SYSTEM_NAME}" target_os)
+        endif()
+        message(STATUS "Target OS for ${targ}: ${target_os}")
+
         # checking CRT path
 
         if("${crt_path}" STREQUAL "")
@@ -37,7 +45,9 @@ function(generate_targ_info config_name output)
                 message(FATAL_ERROR "file '${crt_path}/crt1.o' does not exist. Please check CRT path for target '${targ}'")
             endif()
 
-            if(NOT EXISTS "${crt_path}/crti.o")
+            # IRIX has no crti.o: crt1.o and crtn.o bracket the program.
+            if(NOT "${target_os}" STREQUAL "irix"
+               AND NOT EXISTS "${crt_path}/crti.o")
                 message(FATAL_ERROR "file '${crt_path}/crti.o' does not exist. Please check CRT path for target '${targ}'")
             endif()
 
@@ -57,6 +67,12 @@ function(generate_targ_info config_name output)
                     set(dyn_linker "/lib/ld-linux.so.2")
                 elseif("${targ}" STREQUAL "x86_64")
                     set(dyn_linker "/lib64/ld-linux-x86-64.so.2")
+                elseif("${target_os}" STREQUAL "irix"
+                       AND "${targ}" STREQUAL "mips_32")
+                    set(dyn_linker "/lib32/rld")
+                elseif("${target_os}" STREQUAL "irix"
+                       AND "${targ}" STREQUAL "mips_64")
+                    set(dyn_linker "/lib64/rld")
                 else()
                     message(FATAL_ERROR "Dynamic linker for ${targ} target is not specified. Please specify PSC_DYNAMIC_LINKER_${targ} variable")
                 endif()
@@ -106,7 +122,8 @@ function(generate_targ_info config_name output)
     
             set(TARGET_DEFINITIONS "${TARGET_DEFINITIONS},\t\"${supcpp_path}\",\t\"${stdcpp_path}\",\t\"${gcc_path}\",\t\"${gcc_eh_path}\",\t\"${gcc_s_path}\"")
         endif()
-    
+
+        set(TARGET_DEFINITIONS "${TARGET_DEFINITIONS},\t\"${target_os}\"")
         set(TARGET_DEFINITIONS "${TARGET_DEFINITIONS}}")
     endforeach()
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/targ_info.c.cmake.in"

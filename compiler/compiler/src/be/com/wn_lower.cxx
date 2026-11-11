@@ -5171,7 +5171,11 @@ static WN *lower_expr(WN *block, WN *tree, LOWER_ACTIONS actions)
   *  before children are processed reassociate for madd oportunities
   */
   if ( Action(LOWER_MADD)	&&
+#ifdef TARG_X8664
       (Madd_Allowed || (Is_Target_FMA()&&Is_Target_XOP()))		&&
+#else
+      Madd_Allowed							&&
+#endif
 #ifndef TARG_MIPS
      (MTYPE_id(type) == MTYPE_F4 || MTYPE_id(type) == MTYPE_F8 ||
      (Is_Target_XOP() && MTYPE_id(type) == MTYPE_I4 && WN_operator(tree) == OPR_ADD))// XOP supports MADD instruction for Integer

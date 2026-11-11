@@ -124,6 +124,9 @@ set_source_files_properties(${PATHSCALE_BINARY_DIR}/be/preg_list.h PROPERTIES GE
 set_source_files_properties(${PATHSCALE_BINARY_DIR}/be/preg_list.cxx PROPERTIES GENERATED 1)
 
 path64_set_multiarch_sources(be_com_sources COMMON ${BE_COM_SOURCES})
+# MIPS emulates quad (long double) arithmetic in software.
+path64_set_multiarch_sources(be_com_sources mips ${BE_COM_SOURCES}
+                             "mips/quad_sim.cxx")
 path64_add_multiarch_library(be-com STATIC be_com_sources)
 path64_set_multiarch_property(be-com COMPILE_FLAGS
                               "-I${CMAKE_CURRENT_SOURCE_DIR}/@ARCH@ -I${CMAKE_CURRENT_SOURCE_DIR}/../be/@ARCH@  -I${CMAKE_CURRENT_SOURCE_DIR}/../cg/@ARCH@  -I${PATHSCALE_BINARY_DIR}/common/targ_info/@ARCH@ -I${CMAKE_CURRENT_SOURCE_DIR}/../../common/com/@ARCH@")

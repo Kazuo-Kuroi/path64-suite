@@ -459,8 +459,8 @@ extern BOOL CG_skip_local_sched;
 extern BOOL CG_skip_local_swp;
 #ifdef TARG_X8664
 extern BOOL CG_cmp_load_exec;
-extern BOOL CG_Restore_Callee_Save_Register;
 #endif
+extern BOOL CG_Restore_Callee_Save_Register;
 extern INT CG_opt_level;
 extern BOOL CG_localize_tns;
 extern BOOL CG_localize_tns_Set;

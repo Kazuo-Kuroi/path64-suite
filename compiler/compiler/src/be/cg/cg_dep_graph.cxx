@@ -3591,7 +3591,11 @@ void add_mem_arcs_from(UINT16 op_idx)
       // help avoid creating false dependences with biased critical info. 
     
       if (!have_latency) latency =
-        (CG_DEP_Adjust_OOO_Latency && PROC_is_out_of_order() && (!definite||Is_Target_Orochi())) ? 
+        (CG_DEP_Adjust_OOO_Latency && PROC_is_out_of_order() && (!definite
+#ifdef TARG_X8664
+	 || Is_Target_Orochi()
+#endif
+	)) ? 
 	0 : CG_DEP_Latency(op, succ, kind, 0);//fixme: not a proper way by specified Is_Target_Orochi()
 
       /* Build a mem dep arc from <op> to <succ> */

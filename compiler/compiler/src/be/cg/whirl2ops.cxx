@@ -3168,6 +3168,7 @@ Get_Intrinsic_Op_Parameters( WN *expr, TN **result, TN ***opnds, INT *numopnds, 
 #undef CHECK_OPNDS
 }
 
+#ifdef TARG_X8664
 static BOOL
 INTRINSIC_Is_SETROP(INTRINSIC id){
   switch (id){
@@ -3200,6 +3201,7 @@ Handle_INTRINSIC_SETOP(WN *expr, TN *result){
   
   return result; 
 }
+#endif /* TARG_X8664 */
 
 static TN*
 Handle_INTRINSIC_OP (WN *expr, TN *result)

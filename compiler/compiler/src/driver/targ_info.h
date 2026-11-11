@@ -24,6 +24,7 @@ typedef struct targ_info_t_ {
     const char *libgcc_eh_path;     // Path to libgcc_eh
     const char *libgcc_s_path;      // Path to libgcc_s
 #endif // PATH64_ENABLE_PSCRUNTIME
+    const char *target_os;      // Target OS ("linux", "irix", ...)
 } targ_info_t;
 
 extern targ_info_t targ_info[];

@@ -3138,7 +3138,9 @@ void EBO_Remove_Unused_Ops (BB *bb, BOOL BB_completely_processed)
 #else
     // If op was replaced, then op->bb could be NULL. Just skip this op.
     if (op == NULL || op->bb == NULL) continue;
+#ifdef TARG_X8664
 	if (TOP_is_aesmov(OP_code(op))) goto op_is_needed;
+#endif
 
     // Don't delete OP in the branch delay slot if EBO is run after delay slot
     // filling.

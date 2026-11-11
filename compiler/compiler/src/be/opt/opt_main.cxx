@@ -1257,10 +1257,12 @@ Pre_Optimizer(INT32 phase, PU *pu, WN *wn_tree, DU_MANAGER *du_mgr,
     // is only represented in the lowered IOs.
 
     LOWER_ACTIONS lower_flags = LOWER_NULL;
+#ifdef TARG_X8664
 	if(Is_Target_Orochi()){
 	// for Bulldozer we can use FMA and XOP instruction to enhance more opportunity optimization
 	  lower_flags |= LOWER_MADD;
 	}
+#endif
 
     if (PU_has_namelist(Get_Current_PU())) 
       lower_flags |= LOWER_IO_STATEMENT;
@@ -1846,7 +1848,7 @@ Pre_Optimizer(INT32 phase, PU *pu, WN *wn_tree, DU_MANAGER *du_mgr,
 #if !defined(TARG_IA32) && !defined(TARG_X8664)
       if ( WOPT_Enable_RVI ) {
         SET_OPT_PHASE("RVI");
-        opt_wn = rvi.Perform_RVI( opt_wn, alias_mgr );
+        opt_wn = rvi.Perform_RVI( pu, opt_wn, alias_mgr );
 	if (Cur_PU_Feedback)
 	  Cur_PU_Feedback->Reset_Root_WN(opt_wn);
         Is_True(REGION_consistency_check(opt_wn),(""));

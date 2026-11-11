@@ -394,7 +394,12 @@ Em_Dwarf_Begin (BOOL is_64bit, BOOL dwarf_trace, BOOL is_cplus,
 		    Is_Target_64bit() ? sizeof(init_bytes) : sizeof(init_x86_bytes), 
 		    &dw_error);
 #endif
-#elif defined(TARG_MIPS)
+#elif defined(TARG_MIPS) && 0
+  /*
+   * TODO(irix): dwf_add_ehframe_cie is a PathScale libdwarf extension
+   * that the bundled BSD libdwarf lacks; x86 disables it the same way.
+   * Revisit with C++ exception handling for IRIX.
+   */
   // Generate a CIE for .eh_frame only if it is C++ or if -DEBUG:eh_frame=on
   if (is_cplus || DEBUG_Emit_Ehframe)
     eh_cie_index = dwf_add_ehframe_cie (dw_dbg, augmenter,
