@@ -168,9 +168,9 @@ static phase_info_t phase_info[] = {
    {'a',  0x0000001000000000LL, "pathas", PSC_INSTALL_PREFIX "/bin", FALSE}, /* pathas */
 #endif // PATH64_ENABLE_PSCRUNTIME
 #ifndef __sun__
-   {'a',  0x0000002000000000LL, CROSS_PFX"as", "", FALSE}, /* gas */
+   {'a',  0x0000002000000000LL, CROSS_PFX"as", PSC_BINUTILS_DIR, FALSE}, /* gas */
 #else // __sun__
-   {'a',  0x0000002000000000LL, CROSS_PFX"gas", "", FALSE}, /* gas */
+   {'a',  0x0000002000000000LL, CROSS_PFX"gas", PSC_BINUTILS_DIR, FALSE}, /* gas */
 #endif // __sun__
    {'a',  0x0000003000000000LL,	"",	"",		FALSE},	/* any_as */
 

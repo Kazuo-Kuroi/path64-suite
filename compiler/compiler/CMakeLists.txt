@@ -168,6 +168,18 @@ IF(NOT PSC_TARGET)
     ENDIF()
 ENDIF()
 
+# The GNU binutils (as, ld) that the driver runs. When cross-compiling
+# they are named <PSC_BINUTILS_TARGET>-as and so on. That name can differ
+# from PSC_TARGET: GNU as supports IRIX only as mips-sgi-irix6*, while the
+# compiler needs mips64-sgi-irix6.5.
+IF(NOT PSC_BINUTILS_TARGET)
+    set(PSC_BINUTILS_TARGET "${PSC_TARGET}")
+ENDIF()
+IF(NOT PSC_BINUTILS_DIR)
+    set(PSC_BINUTILS_DIR "/usr/bin")
+ENDIF()
+message(STATUS "Using binutils ${PSC_BINUTILS_DIR}/${PSC_BINUTILS_TARGET}-*")
+
 # Checking that CRT paths are specified for all targets
 FOREACH(targ ${PATH64_ENABLE_TARGETS})
     if(PSC_CRTBEGIN_PATH_${targ})

@@ -743,8 +743,11 @@ add_target_linker_args(string_list_t *args, boolean is_ipa) {
 
     // Adding -rpath argument
     {
+        // The compiler's own library directory is a build-host path,
+        // meaningless on an IRIX machine.
         if(!option_was_seen(O_nodefaultlibs) &&
-           !option_was_seen(O_nostdlib)) {
+           !option_was_seen(O_nostdlib) &&
+           !is_target_os_irix()) {
             char * lib_path = target_library_path();
             add_arg(args, "-rpath");
             add_arg(args, "%s", lib_path);
@@ -979,6 +982,10 @@ void add_std_includes(string_list_t *args) {
 
     add_inc_path(args, target_include_path());
     add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
+    // The front end's built-in search list holds the build host's
+    // /usr/include. When targeting IRIX, use only the directories above.
+    if (is_target_os_irix())
+        add_string(args, "-nostdinc");
     free(root);
 }
 #endif // PATH64_ENABLE_PSCRUNTIME
@@ -1829,7 +1836,10 @@ add_file_args (string_list_t *args, phases_t index)
 			add_string(args, "-###");
 #ifdef TARG_MIPS
         if (is_target_arch_MIPS()) {
-            add_string(args, abi == ABI_N32 ? "-melf32ltsmipn32" : "-melf64ltsmip");
+            if (is_target_os_irix())
+              add_string(args, abi == ABI_N32 ? "-melf32bmipn32" : "-melf64bmip");
+            else
+              add_string(args, abi == ABI_N32 ? "-melf32ltsmipn32" : "-melf64ltsmip");
             add_sysroot(args, index);
         }
 #endif
@@ -1862,11 +1872,14 @@ add_file_args (string_list_t *args, phases_t index)
                free(cb_path);
 
 			   add_string_if_new_basename(args, crt1_path);
-			   add_string_if_new_basename(args, crti_path);
+			   // IRIX has no crti.o or crtbegin.o: crt1.o and crtn.o
+			   // bracket the program.
+			   if (!is_target_os_irix()) {
+			     add_string_if_new_basename(args, crti_path);
+			     add_string(args, crtbegin_path);
+			   }
                free(crt1_path);
                free(crti_path);
-
-			   add_string(args, crtbegin_path);
                free(crtbegin_path);
 
 		       } else {
@@ -1876,8 +1889,10 @@ add_file_args (string_list_t *args, phases_t index)
                char *crtbeginS_path = concat_strings(cb_path, "/crtbeginS.o");
                free(cb_path);
 
-			   add_string_if_new_basename(args, crti_path);
-			   add_string(args, crtbeginS_path);
+			   if (!is_target_os_irix()) {
+			     add_string_if_new_basename(args, crti_path);
+			     add_string(args, crtbeginS_path);
+			   }
 
                free(crtbeginS_path);
                free(crti_path);
@@ -1902,7 +1917,10 @@ add_file_args (string_list_t *args, phases_t index)
         }
 #elif defined(TARG_MIPS)
         if (is_target_arch_MIPS()) {
-		  if( abi == ABI_N32 ) {
+		  if (is_target_os_irix()) {
+		    add_string(args, abi == ABI_N32 ? "-melf32bmipn32" : "-melf64bmip");
+		  }
+		  else if( abi == ABI_N32 ) {
 		    add_string(args, "-melf32ltsmipn32");
 		  }
 		  else {
@@ -1936,11 +1954,12 @@ add_file_args (string_list_t *args, phases_t index)
             free(cb_path);
 
             add_string_if_new_basename(args, crt1_path);
-            add_string_if_new_basename(args, crti_path);
+            if (!is_target_os_irix()) {
+              add_string_if_new_basename(args, crti_path);
+              add_string(args, crtbegin_path);
+            }
             free(crt1_path);
             free(crti_path);
-
-			add_string(args, crtbegin_path);
 			free(crtbegin_path);
 			if (ftz_crt) {
 				add_string(args, find_crt_path("ftz.o"));
@@ -2071,8 +2090,12 @@ void add_crtend(string_list_t *args) {
     char *crtend_path = concat_strings(cb_path, crtend_name);
     free(cb_path);
 
-    add_string(args, crtend_path);
+    // IRIX has no crtend.o; crtn.o alone ends the program.
+    if (!is_target_os_irix())
+      add_string(args, crtend_path);
     add_string_if_new_basename(args, crtn_path);
+    free(crtend_path);
+    free(crtn_path);
 }
 
 
@@ -2211,8 +2234,10 @@ add_final_ld_args (string_list_t *args)
     // Put pscrt & gcc after all the libraries that are built with PathScale
     // compilers, since those libraries could use PathScale routines.
     // Bug 3995.
+    // libpscrt is not built for IRIX yet.
     if (!option_was_seen(O_fno_fast_stdlib) &&
-        !option_was_seen(O_nolibpscrt)) {	// bug 9611
+        !option_was_seen(O_nolibpscrt) &&	// bug 9611
+        !is_target_os_irix()) {
         add_library(args, "pscrt");
     }
 
@@ -2228,10 +2253,10 @@ add_final_ld_args (string_list_t *args)
 
 
 #ifdef TARG_MIPS
-    if (is_target_arch_MIPS()) {
+    if (is_target_arch_MIPS() && !is_target_os_irix()) {
         // Put libscstr after all libraries that are built with PathScale
         // compilers, since those libraries could use PathScale routines.
-        // Bug 3995.
+        // Bug 3995.  (Not built for IRIX yet.)
         if (!option_was_seen(O_fno_fast_stdlib) &&
             !option_was_seen(O_fbootstrap_hack)) {
           add_library(args, "scstr");
@@ -2281,7 +2306,7 @@ postprocess_ld_args (string_list_t *args, phases_t phase)
 
     /* TODO: FIXME: Temp hack to replace gcc as a linker */
 
-    phase_name = "/usr/bin/" CROSS_PFX "ld";
+    phase_name = PSC_BINUTILS_DIR "/" CROSS_PFX "ld";
 
     //init_stdc_plus_plus_path();
 
@@ -3076,7 +3101,7 @@ run_ld (void)
     ldpath = get_full_phase_name(ldphase);
 
     if ( ldphase != P_ipa_link )
-        ldpath = "/usr/bin/" CROSS_PFX "ld";
+        ldpath = PSC_BINUTILS_DIR "/" CROSS_PFX "ld";
 
 	/* for ld, we first have options, then files, then objects,
 	 * where objects includes object-specific options */
@@ -3099,7 +3124,7 @@ run_ld (void)
 
 
 #if defined(TARG_MIPS)
-    if (is_target_arch_MIPS())
+    if (is_target_arch_MIPS() && !is_target_os_irix())
         add_string(args, "-mips64");	// call gcc with -mips64
 #endif
 

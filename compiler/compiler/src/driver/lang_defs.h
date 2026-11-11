@@ -44,7 +44,7 @@
 #include "basic.h"
 
 #ifdef PATH64_CROSS
-#define CROSS_PFX PSC_TARGET "-"
+#define CROSS_PFX PSC_BINUTILS_TARGET "-"
 #else
 #define CROSS_PFX
 #endif

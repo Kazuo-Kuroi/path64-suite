@@ -60,6 +60,7 @@
 #include "file_names.h"
 #include "file_utils.h"
 #include "driver_defs.h"
+#include "targets.h"
 #include "run.h"
 #include "profile_type.h"    /* for PROFILE_TYPE */
 #include "targets.h"
@@ -737,6 +738,19 @@ string_list_t *get_runtime_libraries_ld_flags()
 
     if(huge_lib_used) {
         add_library(flags, "hugetlbfs-psc");
+    }
+
+    if (is_target_os_irix()) {
+        // The PathScale runtime libraries (libgcc, libmv, libmpath, ...)
+        // are not built for IRIX yet. Link with IRIX's own libc and libm
+        // from the sysroot.
+        if (!option_was_seen(O_nodefaultlibs) &&
+            !option_was_seen(O_nostdlib) &&
+            !option_was_seen(O_nostdlib__)) {
+            add_library(flags, "c");
+            add_library(flags, "m");
+        }
+        return flags;
     }
 
 #ifdef PATH64_ENABLE_PSCRUNTIME
