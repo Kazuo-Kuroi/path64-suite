@@ -39,7 +39,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 struct dwarf_cursor;	/* forward-declaration */
 
 #include "dwarf-config.h"
-#include <link.h>
+#ifdef __sgi
+# include "os-irix.h"
+#else
+# include <link.h>
+#endif
 
 /* DWARF expression opcodes.  */
 

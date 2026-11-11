@@ -35,6 +35,23 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 # include "config.h"
 #endif
 
+#ifdef __sgi
+/* config.h describes the build host; when cross-compiling for IRIX,
+   correct what differs on the target.  */
+# undef HAVE_ENDIAN_H
+# undef HAVE_SYS_ENDIAN_H
+# undef HAVE_DL_ITERATE_PHDR
+# undef HAVE_DL_PHDR_REMOVALS_COUNTER
+# undef HAVE_STRUCT_DL_PHDR_INFO_DLPI_SUBS
+# undef HAVE_EXECINFO_H
+# undef IS_BIG_ENDIAN
+# ifdef _MIPSEB
+#  define IS_BIG_ENDIAN 1
+# else
+#  define IS_BIG_ENDIAN 0
+# endif
+#endif
+
 #ifdef HAVE___THREAD
   /* For now, turn off per-thread caching.  It uses up too much TLS
      memory per thread even when the thread never uses libunwind at
@@ -210,6 +227,21 @@ do {						\
 
 #define SOS_MEMORY_SIZE 16384	/* see src/mi/mempool.c */
 
+#ifdef __sgi
+/* IRIX 6.5 has no anonymous mmap; map /dev/zero privately instead.  */
+# include <fcntl.h>
+# define GET_MEMORY(mem, size_in_bytes)					    \
+do {									    \
+  int zero_fd_ = open ("/dev/zero", O_RDWR);				    \
+  mem = zero_fd_ < 0 ? MAP_FAILED					    \
+	: mmap (0, (size_in_bytes), PROT_READ | PROT_WRITE, MAP_PRIVATE,    \
+		zero_fd_, 0);						    \
+  if (zero_fd_ >= 0)							    \
+    close (zero_fd_);							    \
+  if (mem == MAP_FAILED)						    \
+    mem = NULL;								    \
+} while (0)
+#else
 #ifndef MAP_ANONYMOUS
 # define MAP_ANONYMOUS MAP_ANON
 #endif
@@ -221,6 +253,7 @@ do {									    \
   if (mem == MAP_FAILED)						    \
     mem = NULL;								    \
 } while (0)
+#endif /* __sgi */
 
 #define unwi_find_dynamic_proc_info	UNWI_OBJ(find_dynamic_proc_info)
 #define unwi_extract_dynamic_proc_info	UNWI_OBJ(extract_dynamic_proc_info)

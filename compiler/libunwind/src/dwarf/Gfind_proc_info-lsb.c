@@ -26,7 +26,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 /* Locate an FDE via the ELF data-structures defined by LSB v1.3
    (http://www.linuxbase.org/spec/).  */
 
-#include <link.h>
+#ifdef __sgi
+# include "os-irix.h"
+#else
+# include <link.h>
+#endif
 #include <stddef.h>
 #include <stdio.h>
 #include <limits.h>
@@ -156,7 +160,7 @@ search_fde_in_eh_frame(unw_word_t ip, unw_word_t hdr_addr, unw_word_t gp,
 }
 
 
-#ifdef HAVE_DL_ITERATE_PHDR
+#if defined(HAVE_DL_ITERATE_PHDR) || defined(__sgi)
 
 struct callback_data
   {
@@ -783,7 +787,11 @@ find_proc_fde (unw_word_t ip, unw_word_t *fde_addr,
   cb_data.arg = arg;
 
   SIGPROCMASK (SIG_SETMASK, &unwi_full_mask, &saved_mask);
+#ifdef __sgi
+  ret = _Uirix_phdr_for_ip (ip, callback, &cb_data);
+#else
   ret = dl_iterate_phdr (callback, &cb_data);
+#endif
   SIGPROCMASK (SIG_SETMASK, &saved_mask, NULL);
 
   if (ret < 0)

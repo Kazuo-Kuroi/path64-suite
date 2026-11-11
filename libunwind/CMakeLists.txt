@@ -54,13 +54,15 @@ set(libunwind_sources_common
     ${PATH64_COMPILER_RT_SOURCE}/lib/gcc_personality_v0.c
    )
 
+# OS support for the host system (x86 targets).
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-    list(APPEND libunwind_sources_common os-linux.c)
+    set(libunwind_sources_host_os os-linux.c)
 elseif(CMAKE_SYSTEM_NAME MATCHES "SunOS")
-    list(APPEND libunwind_sources_common os-solaris.c)
+    set(libunwind_sources_host_os os-solaris.c)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    list(APPEND libunwind_sources_common os-freebsd.c)
+    set(libunwind_sources_host_os os-freebsd.c)
 endif()
+list(APPEND libunwind_sources_common ${libunwind_sources_host_os})
 
 set(libunwind_sources_x86_32
     elf32.c
@@ -124,6 +126,38 @@ set_property(SOURCE x86_64/getcontext.S
                     x86_64/setcontext.S
              PROPERTY LANGUAGE C)
 
+
+# MIPS n32 (mips_32). Its target OS can differ from the host's: IRIX
+# objects are found through rld instead of /proc and dl_iterate_phdr.
+set(libunwind_sources_mips_32
+    elf32.c
+    mips/is_fpreg.c
+    mips/regname.c
+    mips/Lcreate_addr_space.c
+    mips/Lget_save_loc.c
+    mips/Lglobal.c
+    mips/Linit.c
+    mips/Linit_local.c
+    mips/Linit_remote.c
+    mips/Lget_proc_info.c
+    mips/Lis_signal_frame.c
+    mips/Lregs.c
+    mips/Lresume.c
+    mips/Lstep.c
+    mips/getcontext.S
+   )
+if("${PSC_TARGET_OS_mips_32}" STREQUAL "irix")
+    set(libunwind_mips_32_os os-irix.c)
+else()
+    set(libunwind_mips_32_os os-linux.c)
+endif()
+# The common list ends with the host OS file; replace it for MIPS.
+set(libunwind_sources_common_no_os ${libunwind_sources_common})
+if(libunwind_sources_host_os)
+    list(REMOVE_ITEM libunwind_sources_common_no_os ${libunwind_sources_host_os})
+endif()
+set_property(SOURCE mips/getcontext.S PROPERTY LANGUAGE C)
+
 include_directories(${PATH64_LIBUNWIND_SOURCE}/src
                     ${PATH64_LIBUNWIND_SOURCE}/include
                     ${CMAKE_CURRENT_BINARY_DIR}/include
@@ -140,6 +174,9 @@ path64_set_multitarget_sources(unwind-static x86_64 ${libunwind_sources_common}
                                              ${libunwind_sources_x86_64})
 path64_set_multitarget_sources(unwind-static x86_32 ${libunwind_sources_common}
                                              ${libunwind_sources_x86_32})
+path64_set_multitarget_sources(unwind-static mips_32 ${libunwind_sources_common_no_os}
+                                             ${libunwind_mips_32_os}
+                                             ${libunwind_sources_mips_32})
 if("X${CMAKE_BUILD_TYPE}" STREQUAL "XDebug")
     path64_set_multitarget_property_(unwind-static COMPILE_DEFINITIONS DEBUG)
 endif()
@@ -148,6 +185,8 @@ path64_set_multitarget_property_for_target(unwind-static x86_64 COMPILE_FLAGS
         "-I${PATH64_LIBUNWIND_SOURCE}/include/tdep-x86_64")
 path64_set_multitarget_property_for_target(unwind-static x86_32 COMPILE_FLAGS
         "-I${PATH64_LIBUNWIND_SOURCE}/include/tdep-x86")
+path64_set_multitarget_property_for_target(unwind-static mips_32 COMPILE_FLAGS
+        "-I${PATH64_LIBUNWIND_SOURCE}/include/tdep-mips -std=gnu99")
 path64_set_multitarget_property_(unwind-static OUTPUT_NAME "eh")
 path64_add_multitarget_library(unwind-static STATIC)
 path64_add_dependencies_from_multitarget(compiler-stage-libs-C unwind-static)
@@ -160,11 +199,16 @@ path64_set_multitarget_sources(unwind x86_64 ${libunwind_sources_common}
                                              ${libunwind_sources_x86_64})
 path64_set_multitarget_sources(unwind x86_32 ${libunwind_sources_common}
                                              ${libunwind_sources_x86_32})
+path64_set_multitarget_sources(unwind mips_32 ${libunwind_sources_common_no_os}
+                                             ${libunwind_mips_32_os}
+                                             ${libunwind_sources_mips_32})
 path64_set_multitarget_property_(unwind COMPILE_FLAGS "-fPIC -fexceptions")
 path64_set_multitarget_property_for_target(unwind x86_64 COMPILE_FLAGS
         "-I${PATH64_LIBUNWIND_SOURCE}/include/tdep-x86_64")
 path64_set_multitarget_property_for_target(unwind x86_32 COMPILE_FLAGS
         "-I${PATH64_LIBUNWIND_SOURCE}/include/tdep-x86")
+path64_set_multitarget_property_for_target(unwind mips_32 COMPILE_FLAGS
+        "-I${PATH64_LIBUNWIND_SOURCE}/include/tdep-mips -std=gnu99")
 if("X${CMAKE_BUILD_TYPE}" STREQUAL "XDebug")
     path64_set_multitarget_property_(unwind COMPILE_DEFINITIONS DEBUG)
 endif()

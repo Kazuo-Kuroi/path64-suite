@@ -44,5 +44,7 @@ extern dwarf_loc_t x86_scratch_loc (struct cursor *c, unw_regnum_t reg);
 */
 
 extern void mips_local_addr_space_init (void);
+extern int mips_local_resume (unw_addr_space_t as, unw_cursor_t *cursor,
+			      void *arg);
 
 #endif /* unwind_i_h */
