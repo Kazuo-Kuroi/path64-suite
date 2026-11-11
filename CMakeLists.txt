@@ -79,21 +79,15 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 	endif()
 endif()
 # C++11 is the floor: the assembler uses std::function and std::bind.
-# C++11 made narrowing in braced initializers an error, which the opcode
-# tables rely on, so demote it back to a warning.
+# The sources are valid C++11 (no narrowing in braced initializers, no
+# string literal directly followed by a macro), so keep those errors on.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 	add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>")
 	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 		# -fno-strict-return: many functions fall off the end of a
 		# non-void body; Clang traps there (ud2) even at -O0.
 		add_compile_options(
-			"$<$<COMPILE_LANGUAGE:CXX>:-fno-strict-return>"
-			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-c++11-narrowing>"
-			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-reserved-user-defined-literal>")
-	else()
-		add_compile_options(
-			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-narrowing>"
-			"$<$<COMPILE_LANGUAGE:CXX>:-Wno-literal-suffix>")
+			"$<$<COMPILE_LANGUAGE:CXX>:-fno-strict-return>")
 	endif()
 endif()
 
