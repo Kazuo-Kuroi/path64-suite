@@ -298,23 +298,28 @@ if(${mips_enabled})
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION ${PATH64_LIB_PATH}/mips)
 
-    # r10000 is broken
 
-    #add_executable(r10000_si_gen proc/mips/r10000_si.cxx)
-    #target_link_libraries(r10000_si_gen ${si_gen_mips_name} ${isa_gen_topcode_mips_name})
-    #set_property(TARGET r10000_si_gen APPEND PROPERTY
-    #             COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}/mips")
+    add_executable(r10000_si_gen proc/mips/r10000_si.cxx)
+    target_link_libraries(r10000_si_gen ${si_gen_mips_name} ${isa_gen_topcode_mips_name})
+    set_property(TARGET r10000_si_gen APPEND PROPERTY
+                 COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}/mips")
 
-    #add_custom_command(
-    #  OUTPUT r10000.c
-    #  COMMAND r10000_si_gen
-    #  DEPENDS r10000_si_gen
-    #  )
-    #add_library(r10000 SHARED r10000.c)
-    #set_property(TARGET r10000 PROPERTY LIBRARY_OUTPUT_DIRECTORY
-    #             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/mips)
-    #set_property(TARGET r10000 PROPERTY PREFIX "")
-    #set_property(TARGET r10000 APPEND PROPERTY
-    #             COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}/mips")
+    add_custom_command(
+      OUTPUT r10000.c
+      COMMAND r10000_si_gen
+      DEPENDS r10000_si_gen
+      )
+    add_library(r10000 SHARED r10000.c)
+    set_property(TARGET r10000 PROPERTY LIBRARY_OUTPUT_DIRECTORY
+                 ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/mips)
+    set_property(TARGET r10000 PROPERTY PREFIX "")
+    set_property(TARGET r10000 APPEND PROPERTY
+                 COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}/mips")
+
+    install(TARGETS r10000
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION ${PATH64_LIB_PATH}/mips)
+
+    add_dependencies(be-all mips5kf r10000)
 endif()
 

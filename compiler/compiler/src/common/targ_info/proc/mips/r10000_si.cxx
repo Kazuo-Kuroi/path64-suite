@@ -120,6 +120,7 @@ main (int argc, char *argv[])
 		    TOP_tltu,
 		    TOP_tne,
 		    TOP_tnei,
+		    TOP_sext,
 		    TOP_UNDEFINED);
   Any_Operand_Access_Time(0);
   Any_Result_Available_Time(1);
@@ -421,6 +422,14 @@ main (int argc, char *argv[])
   Any_Result_Available_Time(1);
   Resource_Requirement(res_issue, 0);
   Resource_Requirement(res_integer, 0);
+
+  /* Fictitious instructions requiring no resource and zero time. */
+  Instruction_Group("dummy-no-res",
+		    TOP_mov_hilo,
+		    TOP_mov_fcc,
+		    TOP_UNDEFINED);
+  Any_Operand_Access_Time(0);
+  Any_Result_Available_Time(0);
 
   Machine_Done("r10000.c");
 }

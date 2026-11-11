@@ -59,7 +59,7 @@ static RESOURCE res_Issue, res_EX, res_MD, res_FP, res_Prefetch;
 int
 main (int argc, char *argv[])
 {
-  Machine("mips5kf", ISA_SUBSET_MIPS4, argc, argv);
+  Machine("mips5kf", ISA_SUBSET_MIPS64, argc, argv);
 
   res_Issue = RESOURCE_Create ("Issue", 2);
   res_EX = RESOURCE_Create ("Execution", 1);		// integer pipeline

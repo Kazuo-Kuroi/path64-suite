@@ -55,8 +55,11 @@ void Initialize_Targ_Info(void)
   }
 
   switch (Target_ISA) {
-  case TARGET_ISA_Mips64:
+  case TARGET_ISA_M4:
     isa = ISA_SUBSET_MIPS4;
+    break;
+  case TARGET_ISA_Mips64:
+    isa = ISA_SUBSET_MIPS64;
     break;
   default:
     FmtAssert(FALSE, ("targinfo doesn't handle isa: %s\n", Isa_Name(Target_ISA)));

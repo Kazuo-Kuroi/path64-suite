@@ -54,7 +54,7 @@ static RESOURCE res_MC, res_ID, res_IM, res_FS;
 int
 main (int argc, char *argv[])
 {
-  Machine("twc9a", ISA_SUBSET_MIPS4, argc, argv);
+  Machine("twc9a", ISA_SUBSET_MIPS64, argc, argv);
 
   res_Issue = RESOURCE_Create ("Issue", 2);
   res_EX = RESOURCE_Create ("ExecutionPipe", 1);

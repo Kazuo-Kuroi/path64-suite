@@ -86,7 +86,11 @@ set_defaults (void)
 	}
 	if (endian == UNDEFINED) {
 #ifdef TARG_MIPS
-        if (is_target_arch_MIPS()) {
+        if (is_target_arch_MIPS() && is_target_os_irix()) {
+            /* IRIX is big-endian. */
+            toggle(&endian, ENDIAN_BIG);
+            prepend_option_seen(O_EB);
+        } else if (is_target_arch_MIPS()) {
             /* Default to little-endian -JMB */
             toggle(&endian, ENDIAN_LITTLE);
             prepend_option_seen(O_EL);

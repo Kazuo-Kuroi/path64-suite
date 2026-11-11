@@ -290,6 +290,7 @@ Isa_Name ( TARGET_ISA b)
   char *r;
 
   switch ( b ) {
+    case TARGET_ISA_M4:	return "mips4";
     case TARGET_ISA_Mips64:	return "mips64";
     default:
       r = bnb[bnb_used].name;
@@ -380,9 +381,13 @@ Prepare_Target ( void )
     if ( strcasecmp ( ISA_Name, "mips64" ) == 0 ) {
       isa = TARGET_ISA_Mips64;
       targ_default = TARGET_mips5kf;
+    } else if ( strcasecmp ( ISA_Name, "mips4" ) == 0 ) {
+      isa = TARGET_ISA_M4;
+      targ_default = TARGET_R10K;
     } else
     {
       ErrMsg ( EC_Inv_TARG, "isa", ISA_Name );
+      isa = TARGET_ISA_UNDEF;
     }
 
     /* If there's an ISA from -Tn,Ix it must match: */
@@ -439,7 +444,8 @@ Prepare_Target ( void )
 	Target = TARGET_twc9a;
 	break;
     case TARGET_R10K:
-	Target_ISA = TARGET_ISA_Mips64;
+	/* The R10000 implements MIPS IV, without the MIPS64 additions. */
+	Target_ISA = TARGET_ISA_M4;
 	Target = TARGET_R10K;
 	break;
     case TARGET_UNDEF:

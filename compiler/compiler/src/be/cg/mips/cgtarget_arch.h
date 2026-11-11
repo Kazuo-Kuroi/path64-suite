@@ -59,6 +59,8 @@ inline BOOL CGTARG_Branch_Always_Predicted_Taken(void)
     return TRUE;
   else if (Is_Target_twc9a())
     return FALSE;
+  else if (Is_Target_R10K())
+    return FALSE;	// R10000 predicts branches dynamically
   FmtAssert(FALSE, ("CGTARG_Branch_Always_Predicted_Taken: unknown target"));
   return FALSE;
 }
@@ -66,7 +68,8 @@ inline BOOL CGTARG_Branch_Always_Predicted_Taken(void)
 inline INT32 CGTARG_Branch_Taken_Penalty(void)
 {
   if (Is_Target_Mips5kf() ||
-      Is_Target_twc9a()) {
+      Is_Target_twc9a() ||
+      Is_Target_R10K()) {
     return CGTARG_branch_taken_penalty_overridden ?
 	     CGTARG_branch_taken_penalty : 0;
   }
@@ -80,6 +83,8 @@ inline INT32 CGTARG_Issue_Width(void)
       Is_Target_twc9a()) {
     return 2;
   }
+  if (Is_Target_R10K())
+    return 4;
   FmtAssert(FALSE, ("CGTARG_Issue_Width: unknown target"));
   return -1;
 }
@@ -233,8 +238,10 @@ CGTARG_Copy_Op(TYPE_ID mtype)
 inline BOOL
 CGTARG_Have_Indexed_Mem_Insts(void)
 {
+  // MIPS IV has indexed FP loads and stores (lwxc1, ldxc1, ...).
   if (Is_Target_Mips5kf() ||
-      Is_Target_twc9a()) {
+      Is_Target_twc9a() ||
+      Is_Target_R10K()) {
     return TRUE;
   }
   FmtAssert(FALSE, ("CGTARG_Have_Indexed_Mem_Insts: unknown target"));
