@@ -2777,6 +2777,27 @@ Exp_Intrinsic_Call (WN *intrncall, TN *op0, TN *op1, TN *op2, OPS *ops,
       return tn_result;
     }
 
+  case INTRN_BOOL_COMPARE_AND_SWAP_I4:
+  case INTRN_BOOL_COMPARE_AND_SWAP_I8:
+    {
+      // __sync_bool_compare_and_swap (ptr, old, new). The ll/sc sequence
+      // that Expand_TOP_intrncall emits for the VAL_COMPARE_AND_SWAP ids
+      // leaves 1 in its result when the swap happened and 0 when the
+      // value differed -- the bool form exactly. (It does not return the
+      // previous value, so __sync_val_compare_and_swap is wrong on MIPS.)
+      const INTRINSIC val_id = (id == INTRN_BOOL_COMPARE_AND_SWAP_I4)
+	? INTRN_VAL_COMPARE_AND_SWAP_I4 : INTRN_VAL_COMPARE_AND_SWAP_I8;
+      const TYPE_ID mtype = Get_Intrinsic_Size_Mtype(val_id);
+      TN *tn_flag = Build_TN_Of_Mtype(mtype);
+      Build_OP(TOP_intrncall, tn_flag, Gen_Literal_TN((INT) val_id, 4),
+	       op0, op1, op2, ops);
+      if (mtype == MTYPE_I4)
+	return tn_flag;
+      TN *tn_result = Build_TN_Of_Mtype(MTYPE_I4);
+      Expand_Copy(tn_result, tn_flag, MTYPE_I4, ops);
+      return tn_result;
+    }
+
   default:
     FmtAssert(FALSE, ("Exp_Intrinsic_Call NYI"));
     return NULL; // if you can
