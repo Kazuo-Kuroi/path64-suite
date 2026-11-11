@@ -290,7 +290,10 @@ endif()
 
 
 # TODO: set proper build date and time 
-add_definitions(-std=gnu99 ${driver_defs})
+add_definitions(${driver_defs})
+# The driver is C99 code. As a compile option, -std=gnu99 follows the
+# top-level -std=gnu89 on the command line and so takes effect.
+add_compile_options("$<$<COMPILE_LANGUAGE:C>:-std=gnu99>")
 
 
 include_directories("."

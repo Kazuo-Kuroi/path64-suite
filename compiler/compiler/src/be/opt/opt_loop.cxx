@@ -1027,7 +1027,7 @@ BOOL expr_iter(CODEREP *cr, BOOL_FUNC f)
 template <class BOOL_FUNC>
 BOOL ref_iter(CODEREP *cr, BOOL_FUNC f)
 {
-  expr_iter(cr, f);
+  return expr_iter(cr, f);
 }
 
 
