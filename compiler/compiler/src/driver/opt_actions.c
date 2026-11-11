@@ -803,7 +803,10 @@ Check_Target ( void )
 
 #ifdef TARG_MIPS
   if (is_target_arch_MIPS()) {
-    if (target_cpu == NULL) {
+    if (is_target_os_irix() &&
+        (target_cpu == NULL || ! strcmp(target_cpu, "auto"))) {
+      set_cpu ("r10000", M_ARCH);	// IRIX: default to the R10000.
+    } else if (target_cpu == NULL) {
       set_cpu ("mips5kf", M_ARCH);	// Default to mips5kf.
     } else if (! strcmp(target_cpu, "auto") ||
            ! strcmp(target_cpu, "5kf") ||  // Bug 14152
@@ -899,7 +902,9 @@ Check_Target ( void )
           opt_val = ISA_MIPS3;
           opt_id = O_mips3;
         }
-        else if (default_isa == ISA_MIPS4) {
+        else if (default_isa == ISA_MIPS4 ||
+                 (default_isa == UNDEFINED && is_target_os_irix())) {
+          // IRIX n32 code defaults to MIPS IV (the R10000).
           opt_val = ISA_MIPS4;
           opt_id = O_mips4;
         }

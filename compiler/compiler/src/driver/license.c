@@ -68,7 +68,8 @@ void obtain_license (char *exedir, int argc, char *argv[]) {
 #ifdef TARG_MIPS
     if (is_target_arch_MIPS) {
         if (!strcmp(target_cpu, "mips5kf") ||
-        !strcmp(target_cpu, "twc9a")) {
+        !strcmp(target_cpu, "twc9a") ||
+        !strcmp(target_cpu, "r10000")) {
           return;
         } else {
           warning("Unexpected target_cpu \"%s\" requires subscription.",

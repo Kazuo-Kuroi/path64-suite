@@ -723,6 +723,14 @@ add_abi(string_list_t *args) {
 		  add_string(args, "-mabi=n32");
 		else
 		  add_string(args, "-mabi=64");
+		// Tell the front end the ISA so that it predefines _MIPS_ISA
+		// and __mips to match; IRIX headers test them.
+		if (is_target_os_irix()) {
+		  if (isa == ISA_MIPS3)
+		    add_string(args, "-mips3");
+		  else if (isa == ISA_MIPS4)
+		    add_string(args, "-mips4");
+		}
     }
 #endif /* TARG_MIPS */
 }
@@ -984,8 +992,31 @@ void add_std_includes(string_list_t *args) {
     add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
     // The front end's built-in search list holds the build host's
     // /usr/include. When targeting IRIX, use only the directories above.
-    if (is_target_os_irix())
+    if (is_target_os_irix()) {
         add_string(args, "-nostdinc");
+        // IRIX headers enable C99 interfaces (stdint.h, fenv.h, the C99
+        // parts of math.h, ...) only when __c99 is defined, as MIPSpro
+        // does under -c99.
+        if (source_lang != L_CC &&
+            (option_was_seen(O_stdQc99) || option_was_seen(O_stdQc9x) ||
+             option_was_seen(O_stdQiso9899_1999) ||
+             option_was_seen(O_stdQiso9899_199x) ||
+             option_was_seen(O_stdQgnu99) || option_was_seen(O_stdQgnu9x)))
+            add_string(args, "-D__c99");
+        // The C99 headers implement type-generic macros (isnan, tgmath.h)
+        // with MIPSpro's __generic(x, y, z, d, f, l, cd, cf, cl) builtin,
+        // which picks the double, float or long double function by the
+        // type of x. Provide it with GCC builtins; the complex variants
+        // (cd, cf, cl) are not supported.
+        if (source_lang != L_CC)
+            add_string(args,
+                "-D__generic(x,y,z,d,f,l,cd,cf,cl)="
+                "__builtin_choose_expr("
+                  "__builtin_types_compatible_p(__typeof__(x),float),f,"
+                "__builtin_choose_expr("
+                  "__builtin_types_compatible_p(__typeof__(x),long double),"
+                  "l,d))");
+    }
     free(root);
 }
 #endif // PATH64_ENABLE_PSCRUNTIME
@@ -2234,10 +2265,8 @@ add_final_ld_args (string_list_t *args)
     // Put pscrt & gcc after all the libraries that are built with PathScale
     // compilers, since those libraries could use PathScale routines.
     // Bug 3995.
-    // libpscrt is not built for IRIX yet.
     if (!option_was_seen(O_fno_fast_stdlib) &&
-        !option_was_seen(O_nolibpscrt) &&	// bug 9611
-        !is_target_os_irix()) {
+        !option_was_seen(O_nolibpscrt)) {	// bug 9611
         add_library(args, "pscrt");
     }
 
@@ -2256,7 +2285,8 @@ add_final_ld_args (string_list_t *args)
     if (is_target_arch_MIPS() && !is_target_os_irix()) {
         // Put libscstr after all libraries that are built with PathScale
         // compilers, since those libraries could use PathScale routines.
-        // Bug 3995.  (Not built for IRIX yet.)
+        // Bug 3995.  libscstr is SiCortex's and is not in this tree, so
+        // IRIX does not use it.
         if (!option_was_seen(O_fno_fast_stdlib) &&
             !option_was_seen(O_fbootstrap_hack)) {
           add_library(args, "scstr");

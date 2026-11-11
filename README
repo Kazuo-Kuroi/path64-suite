@@ -41,12 +41,15 @@ Working now:
   * pathcc assembles and links with GNU binutils for IRIX, producing
     n32 executables that request /lib32/rld and use IRIX's libc and
     libm from a sysroot.
+  * The C runtime libraries (libgcc from compiler-rt, libmv, libmpath,
+    libpscrt) build for IRIX with MIPS IV code. pathcc links them
+    statically, so executables need only IRIX's own shared libraries.
+  * -n32 defaults to -mips4 and the R10000 on IRIX.
 
 Not done yet:
 
-  * PathScale runtime libraries (libgcc, libmv, libmpath, libpscrt,
-    libscstr, ...) built for IRIX. Until then, programs link only
-    against IRIX libc and libm.
+  * libunwind (libeh), and with it C++ exception handling. It still
+    assumes Linux (link.h, endian.h).
   * C++ and Fortran for IRIX, and the 64-bit ABI.
   * Testing on real IRIX hardware. The output has only been checked
     with binutils' readelf and objdump.
@@ -123,10 +126,19 @@ Building the IRIX cross compiler
    Large parallel builds have livelocked build hosts; -j8 has been fine
    on a 16-core, 30 GB machine.
 
+   Then build the C runtime libraries with the staged compiler:
+
+       ninja compiler-rt-static-mips_32 pscrt-static-mips_32 \
+             mpath-static-mips_32 mv-static-mips_32
+
+   (ninja compiler-stage-libs-C also tries libunwind, which does not
+   build for IRIX yet.)
+
 4. Compile for IRIX with the staged driver:
 
-       build-irix/Xcompiler/bin/pathcc -n32 -mips4 -march=r10000 \
-           -O2 -o hello hello.c
+       build-irix/Xcompiler/bin/pathcc -O2 -o hello hello.c
+
+   -n32 -mips4 -march=r10000 are the IRIX defaults.
 
    Use -S to stop at R10000 assembly. The front end is GCC 4.2-based,
    so C99 code needs -std=c99.

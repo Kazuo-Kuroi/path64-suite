@@ -558,27 +558,58 @@ static int check_for_whirl(char *name) { return 0; }
 #include <sys/stat.h>
 #include <stdint.h>
 
+// Objects may be in either byte order: a cross compiler reads target
+// objects (big-endian for IRIX) on a little-endian host. ELF_SWAP is true
+// when the file's byte order differs from the host's.
+static int elf_needs_swap (const unsigned char *ident)
+{
+    const uint16_t one = 1;
+    const int host_lsb = *(const unsigned char *)&one == 1;
+    return (ident[EI_DATA] == ELFDATA2LSB) != host_lsb;
+}
+
+static uint16_t elf_16 (int swap, uint16_t v)
+{
+    return swap ? (uint16_t)((v >> 8) | (v << 8)) : v;
+}
+
+static uint32_t elf_32 (int swap, uint32_t v)
+{
+    return swap ? ((v >> 24) | ((v >> 8) & 0xff00) |
+                   ((v << 8) & 0xff0000) | (v << 24)) : v;
+}
+
+static uint64_t elf_64 (int swap, uint64_t v)
+{
+    return swap ? ((uint64_t)elf_32(swap, (uint32_t)v) << 32) |
+                  elf_32(swap, (uint32_t)(v >> 32)) : v;
+}
+
 #ifdef X86_WHIRL_OBJECTS
-static int look_for_elf32_section (const Elf32_Ehdr* ehdr, Elf32_Word type, Elf32_Word info)
+static int look_for_elf32_section (const Elf32_Ehdr* ehdr, int swap,
+                                   Elf32_Word type, Elf32_Word info)
 {
     int i;
 
-    Elf32_Shdr* shdr = (Elf32_Shdr*)((char*)ehdr + ehdr->e_shoff);
-    for (i = 1; i < ehdr->e_shnum; ++i) {
-        if (shdr[i].sh_type == type && shdr[i].sh_info == info)
+    Elf32_Shdr* shdr = (Elf32_Shdr*)((char*)ehdr + elf_32(swap, ehdr->e_shoff));
+    for (i = 1; i < elf_16(swap, ehdr->e_shnum); ++i) {
+        if (elf_32(swap, shdr[i].sh_type) == type &&
+            elf_32(swap, shdr[i].sh_info) == info)
             return 1;
     }
 
     return 0;
 }
 
-static int look_for_elf64_section (const Elf64_Ehdr* ehdr, Elf64_Word type, Elf64_Word info)
+static int look_for_elf64_section (const Elf64_Ehdr* ehdr, int swap,
+                                   Elf64_Word type, Elf64_Word info)
 {
     int i;
 
-    Elf64_Shdr* shdr = (Elf64_Shdr*)((char*)ehdr + ehdr->e_shoff);
-    for (i = 1; i < ehdr->e_shnum; ++i) {
-        if (shdr[i].sh_type == type && shdr[i].sh_info == info)
+    Elf64_Shdr* shdr = (Elf64_Shdr*)((char*)ehdr + elf_64(swap, ehdr->e_shoff));
+    for (i = 1; i < elf_16(swap, ehdr->e_shnum); ++i) {
+        if (elf_32(swap, shdr[i].sh_type) == type &&
+            elf_32(swap, shdr[i].sh_info) == info)
             return 1;
     }
 
@@ -598,6 +629,7 @@ check_for_whirl(char *name)
     Elf32_Ehdr *p_ehdr = NULL;
     struct stat statb;
     int test;
+    int swap;
     
     fd = open(name, O_RDONLY, 0755);
     if (fd < 0)
@@ -631,18 +663,27 @@ check_for_whirl(char *name)
 	    return(FALSE);
     }
 
+    swap = elf_needs_swap(p_ehdr->e_ident);
+
     if(p_ehdr->e_ident[EI_CLASS] == ELFCLASS32){
     	Elf32_Ehdr *p32_ehdr = (Elf32_Ehdr *)raw_bits;
 #ifdef X86_WHIRL_OBJECTS
 
-        int new_size = p32_ehdr->e_shoff + sizeof(Elf32_Shdr)*p32_ehdr->e_shnum;
+        uint64_t new_size = (uint64_t)elf_32(swap, p32_ehdr->e_shoff) +
+            sizeof(Elf32_Shdr) * (uint64_t)elf_16(swap, p32_ehdr->e_shnum);
+        if (new_size > (uint64_t)statb.st_size) {   // corrupt or truncated
+            close(fd);
+            return FALSE;
+        }
         lseek(fd, 0, SEEK_SET);
         second_buf = (char *)malloc(new_size);
         size = read(fd, second_buf, new_size);
         p32_ehdr = (Elf32_Ehdr *)second_buf;
-        if (p32_ehdr->e_type == ET_REL && look_for_elf32_section(p32_ehdr, SHT_PROGBITS, WT_PU_SECTION))
+        if (size == (int)new_size &&
+            elf_16(swap, p32_ehdr->e_type) == ET_REL &&
+            look_for_elf32_section(p32_ehdr, swap, SHT_PROGBITS, WT_PU_SECTION))
 #else
-        if (p32_ehdr->e_type == ET_SGI_IR)
+        if (elf_16(swap, p32_ehdr->e_type) == ET_SGI_IR)
 #endif
 	{
 	    if (second_buf != NULL) free(second_buf);
@@ -654,14 +695,21 @@ check_for_whirl(char *name)
 	Elf64_Ehdr *p64_ehdr = (Elf64_Ehdr *)raw_bits;
 #ifdef X86_WHIRL_OBJECTS
 
-        int new_size = p64_ehdr->e_shoff + sizeof(Elf64_Shdr)*p64_ehdr->e_shnum;
+        uint64_t new_size = elf_64(swap, p64_ehdr->e_shoff) +
+            sizeof(Elf64_Shdr) * (uint64_t)elf_16(swap, p64_ehdr->e_shnum);
+        if (new_size > (uint64_t)statb.st_size) {   // corrupt or truncated
+            close(fd);
+            return FALSE;
+        }
         lseek(fd, 0, SEEK_SET);
         second_buf = (char *)malloc(new_size);
         size = read(fd, second_buf, new_size);
         p64_ehdr = (Elf64_Ehdr *)second_buf;
-        if (p64_ehdr->e_type == ET_REL && look_for_elf64_section(p64_ehdr, SHT_PROGBITS, WT_PU_SECTION))
+        if (size == (int)new_size &&
+            elf_16(swap, p64_ehdr->e_type) == ET_REL &&
+            look_for_elf64_section(p64_ehdr, swap, SHT_PROGBITS, WT_PU_SECTION))
 #else
-        if (p64_ehdr->e_type == ET_SGI_IR)
+        if (elf_16(swap, p64_ehdr->e_type) == ET_SGI_IR)
 #endif
 	{
 	    if (second_buf != NULL) free(second_buf);
@@ -740,20 +788,13 @@ string_list_t *get_runtime_libraries_ld_flags()
         add_library(flags, "hugetlbfs-psc");
     }
 
-    if (is_target_os_irix()) {
-        // The PathScale runtime libraries (libgcc, libmv, libmpath, ...)
-        // are not built for IRIX yet. Link with IRIX's own libc and libm
-        // from the sysroot.
-        if (!option_was_seen(O_nodefaultlibs) &&
-            !option_was_seen(O_nostdlib) &&
-            !option_was_seen(O_nostdlib__)) {
-            add_library(flags, "c");
-            add_library(flags, "m");
-        }
-        return flags;
-    }
-
 #ifdef PATH64_ENABLE_PSCRUNTIME
+    // IRIX machines do not have the PathScale runtime libraries, so link
+    // them statically there; executables then need only IRIX's own
+    // libraries (libc, libm, ...).
+    const boolean static_runtime = is_target_os_irix() &&
+        !option_was_seen(O_static) && !option_was_seen(O__static);
+
 #ifndef NO_AS_NEEDED
 #ifdef __sun
     add_string(flags, "-z");
@@ -768,11 +809,17 @@ string_list_t *get_runtime_libraries_ld_flags()
        !option_was_seen(O_nostdlib) &&
        !option_was_seen(O_nostdlib__)) {
 
+        if (static_runtime)
+            add_string(flags, "-Bstatic");
+
         // STL library
         add_library(flags, "stl");
 
         // C++ support library
         add_library(flags, "cxxrt");
+
+        if (static_runtime)
+            add_string(flags, "-Bdynamic");
 
         // other dependencies
         add_library(flags, "pthread");
@@ -788,6 +835,9 @@ string_list_t *get_runtime_libraries_ld_flags()
         add_string(flags, "--start-group");
     }
 
+    if (static_runtime)
+        add_string(flags, "-Bstatic");
+
     add_library(flags, "gcc");
 
     // Exception support library (used by stl and gcc)
@@ -799,6 +849,9 @@ string_list_t *get_runtime_libraries_ld_flags()
         add_library(flags, "eh");
     }
 
+    if (static_runtime)
+        add_string(flags, "-Bdynamic");
+
     add_library(flags, "c");
 
     if (option_was_seen(O_static) || option_was_seen(O__static)) {
@@ -806,8 +859,12 @@ string_list_t *get_runtime_libraries_ld_flags()
     }
 
     // always link with math library (libgcc depends on libm)
+    if (static_runtime)
+        add_string(flags, "-Bstatic");
     add_library(flags, "mv");
     add_library(flags, "mpath");
+    if (static_runtime)
+        add_string(flags, "-Bdynamic");
     add_library(flags, "m");
 
 #ifndef NO_AS_NEEDED
