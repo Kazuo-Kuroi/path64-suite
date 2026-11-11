@@ -41,16 +41,24 @@ Working now:
   * pathcc assembles and links with GNU binutils for IRIX, producing
     n32 executables that request /lib32/rld and use IRIX's libc and
     libm from a sysroot.
-  * The C runtime libraries (libgcc from compiler-rt, libmv, libmpath,
-    libpscrt) build for IRIX with MIPS IV code. pathcc links them
-    statically, so executables need only IRIX's own shared libraries.
+  * The runtime libraries (libgcc from compiler-rt, libeh from
+    libunwind, libmv, libmpath, libpscrt) build for IRIX with MIPS IV
+    code. pathcc links them statically, so executables need only IRIX's
+    own shared libraries.
+  * libeh (libunwind) finds unwind tables through rld's _RLD_DLADDR
+    service and the PT_GNU_EH_FRAME segment that ld --eh-frame-hdr
+    adds, and resumes into landing pads on n32. The compiler emits
+    call-frame information (.cfi_*) for MIPS prologues.
   * -n32 defaults to -mips4 and the R10000 on IRIX.
 
 Not done yet:
 
-  * libunwind (libeh), and with it C++ exception handling. It still
-    assumes Linux (link.h, endian.h).
-  * C++ and Fortran for IRIX, and the 64-bit ABI.
+  * C++ for IRIX: libcxxrt and the C++ standard library, and so
+    end-to-end exception handling. libeh does not yet restore
+    floating-point callee-saved registers when it resumes.
+  * __sync_val_compare_and_swap on MIPS returns 0/1 instead of the old
+    value (__sync_bool_compare_and_swap is correct).
+  * Fortran for IRIX, and the 64-bit ABI.
   * Testing on real IRIX hardware. The output has only been checked
     with binutils' readelf and objdump.
   * Using IRIX's own assembler (the output uses GNU as directives such
@@ -126,13 +134,9 @@ Building the IRIX cross compiler
    Large parallel builds have livelocked build hosts; -j8 has been fine
    on a 16-core, 30 GB machine.
 
-   Then build the C runtime libraries with the staged compiler:
+   Then build the runtime libraries with the staged compiler:
 
-       ninja compiler-rt-static-mips_32 pscrt-static-mips_32 \
-             mpath-static-mips_32 mv-static-mips_32
-
-   (ninja compiler-stage-libs-C also tries libunwind, which does not
-   build for IRIX yet.)
+       ninja compiler-stage-libs-C
 
 4. Compile for IRIX with the staged driver:
 

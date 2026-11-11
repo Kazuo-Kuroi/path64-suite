@@ -1008,6 +1008,9 @@ void add_std_includes(string_list_t *args) {
         // which picks the double, float or long double function by the
         // type of x. Provide it with GCC builtins; the complex variants
         // (cd, cf, cl) are not supported.
+        // IRIX's offsetof() wraps the address in MIPSpro's __INTADDR__
+        // builtin, which turns it into an integer constant.
+        add_string(args, "-D__INTADDR__(x)=(x)");
         if (source_lang != L_CC)
             add_string(args,
                 "-D__generic(x,y,z,d,f,l,cd,cf,cl)="
@@ -1749,6 +1752,11 @@ add_file_args (string_list_t *args, phases_t index)
 		if (option_was_seen(O_ffreestanding)) /* bug 14816 */
 		  add_string (args, "-OPT:freestanding=on");
 
+		// On MIPS, fast_stdlib renames memcpy, memset and strcpy to
+		// SiCortex's libscstr versions, which IRIX does not have.
+		if (is_target_os_irix() && !option_was_seen(O_ffast_stdlib))
+		  add_string (args, "-OPT:fast_stdlib=off");
+
 		switch (source_kind) {
 		case S_B:
 		    if (post_fe_phase () == P_inline) {
@@ -1867,9 +1875,11 @@ add_file_args (string_list_t *args, phases_t index)
 			add_string(args, "-###");
 #ifdef TARG_MIPS
         if (is_target_arch_MIPS()) {
-            if (is_target_os_irix())
+            if (is_target_os_irix()) {
               add_string(args, abi == ABI_N32 ? "-melf32bmipn32" : "-melf64bmip");
-            else
+              // libeh finds unwind tables through PT_GNU_EH_FRAME.
+              add_string(args, "--eh-frame-hdr");
+            } else
               add_string(args, abi == ABI_N32 ? "-melf32ltsmipn32" : "-melf64ltsmip");
             add_sysroot(args, index);
         }
@@ -1950,6 +1960,7 @@ add_file_args (string_list_t *args, phases_t index)
         if (is_target_arch_MIPS()) {
 		  if (is_target_os_irix()) {
 		    add_string(args, abi == ABI_N32 ? "-melf32bmipn32" : "-melf64bmip");
+		    add_string(args, "--eh-frame-hdr");
 		  }
 		  else if( abi == ABI_N32 ) {
 		    add_string(args, "-melf32ltsmipn32");
