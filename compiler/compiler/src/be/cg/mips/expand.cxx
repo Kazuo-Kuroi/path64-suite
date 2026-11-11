@@ -797,11 +797,12 @@ Expand_Multiply (TN *result, TN *src1, TN *src2, TYPE_ID mtype, OPS *ops)
 
   FmtAssert(!TN_is_constant(src1),("Expand_Multiply: unexpected constant operand"));
   if (! MTYPE_is_size_double(mtype)) {
-    if (MTYPE_signed(mtype)) {
+    // mul (3-operand) is MIPS32; MIPS IV has only mult/multu + mflo.
+    if (MTYPE_signed(mtype) && Is_Target_ISA_Mips64()) {
       Build_OP(TOP_mul, result, Hilo_TN(), src1, src2, ops);
       return;
     }
-    top = TOP_multu;
+    top = MTYPE_signed(mtype) ? TOP_mult : TOP_multu;
   } else top = MTYPE_signed(mtype) ? TOP_dmult : TOP_dmultu;
   if (TN_is_constant(src2))
     src2 = Expand_Immediate_Into_Register(src2, MTYPE_is_size_double(mtype), ops);
@@ -2210,6 +2211,66 @@ Generate_Temp_Apply_Arg ( )
 }
 
 
+// Count leading zeros without the MIPS32/MIPS64 clz/dclz instructions,
+// for MIPS IV (the R10000). Branch-free binary search: at each step, if
+// the top s bits of y are zero, shift y left by s and add s to the count.
+// A zero input ends with count W-1 and y == 0, so add (x == 0) last.
+static void
+Expand_Clz_Without_Clz (TN *result, TN *op, BOOL is_double, OPS *ops)
+{
+  const TYPE_ID mtype = is_double ? MTYPE_U8 : MTYPE_U4;
+  const INT width = is_double ? 64 : 32;
+  TN *y = op;
+  TN *count = NULL;
+  for (INT s = width / 2; s >= 1; s /= 2) {
+    INT log2_s = 0;
+    while ((1 << log2_s) < s) log2_s++;
+    // t = y >> (width - s): nonzero iff the top s bits of y are set.
+    TN *t = Build_TN_Of_Mtype(mtype);
+    INT shift = width - s;
+    if (!is_double)
+      Build_OP(TOP_srl, t, y, Gen_Literal_TN(shift, 4), ops);
+    else if (shift >= 32)
+      Build_OP(TOP_dsrl32, t, y, Gen_Literal_TN(shift - 32, 4), ops);
+    else
+      Build_OP(TOP_dsrl, t, y, Gen_Literal_TN(shift, 4), ops);
+    // c = (t == 0); amount = c * s
+    TN *c = Build_TN_Of_Mtype(MTYPE_U4);
+    Build_OP(TOP_sltiu, c, t, Gen_Literal_TN(1, 4), ops);
+    TN *amount = Build_TN_Of_Mtype(MTYPE_U4);
+    Build_OP(TOP_sll, amount, c, Gen_Literal_TN(log2_s, 4), ops);
+    // y <<= amount; count += amount
+    TN *y_next = Build_TN_Of_Mtype(mtype);
+    Build_OP(is_double ? TOP_dsllv : TOP_sllv, y_next, y, amount, ops);
+    y = y_next;
+    if (count == NULL) {
+      count = amount;
+    } else {
+      TN *sum = Build_TN_Of_Mtype(MTYPE_U4);
+      Build_OP(TOP_addu, sum, count, amount, ops);
+      count = sum;
+    }
+  }
+  TN *is_zero = Build_TN_Of_Mtype(MTYPE_U4);
+  Build_OP(TOP_sltiu, is_zero, op, Gen_Literal_TN(1, 4), ops);
+  Build_OP(TOP_addu, result, count, is_zero, ops);
+}
+
+// Set result to ~x & (x - 1): the bits below the lowest set bit of x
+// (all ones for x == 0). Its leading-zero count is W - ctz(x).
+static void
+Expand_Bits_Below_Lowest_Set (TN *result, TN *op, BOOL is_double, OPS *ops)
+{
+  const TYPE_ID mtype = is_double ? MTYPE_U8 : MTYPE_U4;
+  TN *minus1 = Build_TN_Of_Mtype(mtype);
+  Build_OP(is_double ? TOP_daddiu : TOP_addiu, minus1, op,
+           Gen_Literal_TN(-1, 4), ops);
+  TN *inverted = Build_TN_Of_Mtype(mtype);
+  Build_OP(TOP_nor, inverted, op, Zero_TN, ops);
+  Build_OP(TOP_and, result, inverted, minus1, ops);
+}
+
+
 static void
 Expand_Count_Leading_Zeros (TN *result, TN *op, TYPE_ID mtype, OPS *ops)
 {
@@ -2221,7 +2282,10 @@ Expand_Count_Leading_Zeros (TN *result, TN *op, TYPE_ID mtype, OPS *ops)
   BOOL is_small = ( MTYPE_bit_size(mtype) < 32 );
   BOOL is_double = ( MTYPE_bit_size(mtype) == 64 );
   TN *tmp1 = is_small ? Build_TN_Like( result ) : result;
-  Build_OP( is_double ? TOP_dclz : TOP_clz, tmp1, op, ops );
+  if ( Is_Target_ISA_Mips64() )
+    Build_OP( is_double ? TOP_dclz : TOP_clz, tmp1, op, ops );
+  else
+    Expand_Clz_Without_Clz( tmp1, op, is_double, ops );
   if ( is_small ) {
     // Account for zero/sign extension
     Expand_Sub( result, tmp1,
@@ -2241,6 +2305,16 @@ Expand_Count_Trailing_Zeros (TN *result, TN *op, TYPE_ID mtype, OPS *ops)
        mtype != MTYPE_I8 && mtype != MTYPE_U8 )
     Fail_FmtAssertion("Expand_Count_Trailing_Zeros: unexpected mtype");
   BOOL is_8 = ( mtype == MTYPE_I8 || mtype == MTYPE_U8 );
+  if ( ! Is_Target_ISA_Mips64() ) {
+    // No clo on MIPS IV: ctz(x) = W - clz( ~x & (x - 1) )
+    TN *below = Build_TN_Of_Mtype( mtype );
+    Expand_Bits_Below_Lowest_Set( below, op, is_8, ops );
+    TN *lz = Build_TN_Like( result );
+    Expand_Clz_Without_Clz( lz, below, is_8, ops );
+    Expand_Sub( result, Gen_Literal_TN( is_8 ? 64 : 32, 4 ), lz,
+		MTYPE_I4, ops );
+    return;
+  }
   // Implement ctz in terms of clo:
   //   ctz(x) = 64 - clz( ~x & (x - 1) )  [6 ops]
   //   ctz(x) = 64 - clo( x | -x )        [5 ops]
@@ -2264,6 +2338,18 @@ Expand_Least_Significant_Bit (TN *result, TN *op, TYPE_ID mtype, OPS *ops)
        mtype != MTYPE_I8 && mtype != MTYPE_U8 )
     Fail_FmtAssertion("Expand_Least Significant_Bit: unexpected mtype");
   BOOL is_double = ( mtype == MTYPE_I8 || mtype == MTYPE_U8 );
+  if ( ! Is_Target_ISA_Mips64() ) {
+    // No clo on MIPS IV: ffs(x) = W + 1 - clz( ~x & (x - 1) ), ffs(0) = 0
+    TN *below = Build_TN_Of_Mtype( mtype );
+    Expand_Bits_Below_Lowest_Set( below, op, is_double, ops );
+    TN *lz = Build_TN_Like( result );
+    Expand_Clz_Without_Clz( lz, below, is_double, ops );
+    Expand_Sub( result, Gen_Literal_TN( is_double ? 65 : 33, 4 ), lz,
+		MTYPE_I4, ops );
+    Build_OP( TOP_movz, result, Zero_TN, op, result, ops );
+    Set_OP_cond_def_kind( OPS_last(ops), OP_ALWAYS_COND_DEF );
+    return;
+  }
   // Implement ffs (for x nonzero) in terms of clo:
   //   ffs(x) = 65 - clo( x | -x )        [5 ops]
   // Source: p. 84 and p. 11 of Hacker's Delight by Henry Warren
