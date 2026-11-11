@@ -2698,8 +2698,15 @@ Cg_Dwarf_Process_PU (Elf64_Word	scn_index,
     unsigned lsda_encoding = 3;
     if (Gen_PIC_Call_Shared || Gen_PIC_Shared) {
       personality = "DW.ref.__gxx_personality_v0";
+#ifdef TARG_MIPS
+      // GNU as for MIPS rejects pc-relative encodings in these directives;
+      // use absolute pointers (indirect for the personality), as GCC does.
+      lsda_encoding = 0x0;		// DW_EH_PE_absptr
+      personality_encoding = 0x80;	// DW_EH_PE_indirect | DW_EH_PE_absptr
+#else
       lsda_encoding = 0x1b;
       personality_encoding = 0x9b;
+#endif
     }
     if (eh_offset != DW_DLX_NO_EH_OFFSET) {
       fprintf(Asm_File, ".cfi_lsda %u, .range_table.%s\n", lsda_encoding, ST_name(PU_st));

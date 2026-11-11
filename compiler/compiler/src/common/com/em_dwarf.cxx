@@ -341,6 +341,35 @@ Em_Dwarf_Begin (BOOL is_64bit, BOOL dwarf_trace, BOOL is_cplus,
   {
     augmenter = DW_CIE_AUGMENTER_STRING_V0;
     personality = Save_Str ("__gxx_personality_v0");
+    // PIC code reaches the personality routine through
+    // DW.ref.__gxx_personality_v0 (see .cfi_personality in cgdwarf.cxx),
+    // a pointer each object defines weakly in a link-once section.
+    if (Gen_PIC_Call_Shared || Gen_PIC_Shared)
+    {
+      const TYPE_ID ptr_mtype = is_64bit ? MTYPE_U8 : MTYPE_U4;
+      ST * pic_personality_st = New_ST (GLOBAL_SYMTAB);
+      STR_IDX name = Save_Str ("DW.ref.__gxx_personality_v0");
+      ST_Init(pic_personality_st, name, CLASS_VAR, SCLASS_DGLOBAL,
+	      EXPORT_HIDDEN, MTYPE_TO_TY_array[ptr_mtype]);
+      Set_ST_is_weak_symbol (pic_personality_st);
+      Set_ST_is_initialized (pic_personality_st);
+      ST_ATTR_IDX st_attr_idx;
+      ST_ATTR&    st_attr = New_ST_ATTR (GLOBAL_SYMTAB, st_attr_idx);
+      ST_ATTR_Init (st_attr, ST_st_idx (pic_personality_st),
+		    ST_ATTR_SECTION_NAME,
+		    Save_Str (".gnu.linkonce.d.DW.ref.__gxx_personality_v0"));
+
+      ST * personality_st = New_ST (GLOBAL_SYMTAB);
+      ST_Init (personality_st, Save_Str("__gxx_personality_v0"), CLASS_VAR,
+	       SCLASS_EXTERN, EXPORT_PREEMPTIBLE,
+	       MTYPE_TO_TY_array[ptr_mtype]);
+      INITV_IDX iv = New_INITV();
+      INITV_Init_Symoff (iv, personality_st, 0, 1);
+      New_INITO (ST_st_idx (pic_personality_st), iv);
+      if (Read_Global_Data) // ipa && !symtab.I; see bug 8315 above
+	Assign_ST_To_Named_Section (pic_personality_st,
+				    ST_ATTR_section_name (st_attr));
+    }
   }
   else
     augmenter = "";
