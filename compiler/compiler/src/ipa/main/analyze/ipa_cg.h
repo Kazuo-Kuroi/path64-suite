@@ -1299,9 +1299,10 @@ template <class NODE>
 class AUX_IPA_NODE
 {
 private:
-    NODE* data;
+    /* The const accessors grow the table on demand, hence mutable. */
+    mutable NODE* data;
     MEM_POOL* pool;
-    UINT node_size;
+    mutable UINT node_size;
 
 public:
 
@@ -1335,7 +1336,7 @@ public:
             UINT size = sizeof(NODE) * node_size;
             node_size *= 2;
             data = (NODE*) MEM_POOL_Realloc (pool, data, size, size*2);
-	    memset (data+size, 0, size);
+	    memset (((char *)data)+size, 0, size);
         }
 #else // _LIGHTWEIGHT_INLINER || !_STANDALONE_INLINER
 	Is_True (node->Array_Index () < node_size, ("Subscript out of bound"));
@@ -1349,7 +1350,7 @@ public:
             UINT size = sizeof(NODE) * node_size;
             node_size *= 2;
             data = (NODE*) MEM_POOL_Realloc (pool, data, size, size*2);
-	    memset (data+size, 0, size);
+	    memset (((char *)data)+size, 0, size);
         }
 #else // _LIGHTWEIGHT_INLINER || !_STANDALONE_INLINER
 	Is_True (n_idx < node_size, ("Subscript out of bound"));
@@ -1362,7 +1363,7 @@ public:
             UINT size = sizeof(NODE) * node_size;
             node_size *= 2;
             data = (NODE*) MEM_POOL_Realloc (pool, data, size, size*2);
-	    memset (data+size, 0, size);
+	    memset (((char *)data)+size, 0, size);
 	}
 #else // _LIGHTWEIGHT_INLINER || !_STANDALONE_INLINER
 	Is_True (n_idx < node_size, ("Subscript out of bound"));
