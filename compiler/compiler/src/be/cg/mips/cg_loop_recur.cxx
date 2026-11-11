@@ -946,7 +946,8 @@ void Apply_Interleave(BB *prolog, BB *epilog, RECUR_OP_DESC& op_desc)
 	Exp_ADD(mtype, dst, dst, src, &epilog_ops);
 	backpatch_tns[i] = dst;
       }
-      backpatch_tns[i] = backpatch_tns[2 * i];  // For odd size
+      if (size & 1)  // Carry the odd element into the next round
+	backpatch_tns[i] = backpatch_tns[2 * i];
     }
     BB_Append_Ops(epilog, &epilog_ops);
   }
@@ -1045,7 +1046,8 @@ void Apply_Nested_Interleave(BB *prolog, BB *epilog, OP *op,
 	Exp_ADD(mtype, dst, dst, src, &epilog_ops);
 	tn_sums[i] = dst;
       }
-      tn_sums[i] = tn_sums[2 * i];  // For odd size
+      if (size & 1)  // Carry the odd element into the next round
+	tn_sums[i] = tn_sums[2 * i];
     }
     BB_Append_Ops(epilog, &epilog_ops);
   }
