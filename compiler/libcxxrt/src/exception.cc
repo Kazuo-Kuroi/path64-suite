@@ -2,6 +2,21 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef __sgi
+// IRIX 6.5's libc has no dladdr(); rld provides it as
+// _rld_new_interface(_RLD_DLADDR). rld binds the symbol at run time and
+// no library defines it at link time, so reference it weakly.
+#include <rld_interface.h>
+#pragma weak _rld_new_interface
+static int dladdr(void *addr, Dl_info *info)
+{
+	memset(info, 0, sizeof(*info));
+	if (&_rld_new_interface == NULL)
+		return 0;
+	_rld_new_interface(_RLD_DLADDR, addr, info);
+	return info->dli_fname != NULL;
+}
+#endif
 #include <pthread.h>
 #include "typeinfo.h"
 #include "dwarf_eh.h"

@@ -53,9 +53,11 @@ Working now:
 
 Not done yet:
 
-  * C++ for IRIX: libcxxrt and the C++ standard library, and so
-    end-to-end exception handling. libeh does not yet restore
-    floating-point callee-saved registers when it resumes.
+  * pathCC compiles C++ with exceptions for IRIX, and libcxxrt builds;
+    a throw/catch program links (given a libstl). libeh does not yet
+    restore floating-point callee-saved registers when it resumes.
+  * The C++ standard library (stdcxx, libstl). Its configuration is
+    normally produced by running test programs on the target.
   * __sync_val_compare_and_swap on MIPS returns 0/1 instead of the old
     value (__sync_bool_compare_and_swap is correct).
   * Fortran for IRIX, and the 64-bit ABI.

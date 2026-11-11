@@ -12,6 +12,10 @@ set(CXXRT_SOURCES
    )
 
 
+# The C demangler is C99 code (stdbool.h).
+set_property(SOURCE "${PATH64_LIBCXXRT_SOURCE}/src/libelftc_dem_gnu3.c"
+             PROPERTY COMPILE_FLAGS "-std=gnu99")
+
 path64_set_multitarget_sources_base_path(cxxrt-static "${PATH64_LIBCXXRT_SOURCE}/src")
 path64_set_multitarget_sources(cxxrt-static COMMON ${CXXRT_SOURCES})
 path64_set_multitarget_property_(cxxrt-static OUTPUT_NAME "cxxrt")
