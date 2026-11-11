@@ -108,7 +108,7 @@ ElfReloc::setWrt(SymbolRef wrt, size_t valsize)
         return false;
 
     // Force TLS type; this is required by the linker.
-    if (ssym->thread_local)
+    if (ssym->is_thread_local)
     {
         if (ElfSymbol* esym = m_sym->getAssocData<ElfSymbol>())
             esym->setType(STT_TLS);

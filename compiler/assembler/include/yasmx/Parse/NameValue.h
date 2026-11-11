@@ -270,6 +270,12 @@ swap(NameValues& left, NameValues& right)
 
 } // namespace yasm
 
+/*
+ * Pre-C++11 only: these std::swap specializations do not match the
+ * noexcept specification of the C++11 primary template. The yasm::swap
+ * overloads above are found by argument-dependent lookup instead.
+ */
+#if __cplusplus < 201103L
 namespace std
 {
 
@@ -289,5 +295,6 @@ swap(yasm::NameValues& left, yasm::NameValues& right)
 }
 
 } // namespace std
+#endif // __cplusplus < 201103L
 
 #endif

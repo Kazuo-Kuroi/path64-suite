@@ -57,7 +57,7 @@ struct ElfSpecialSymbolData
 
     // flags
     bool sym_relative:1;    // symbol relative (instead of section relative)
-    bool thread_local:1;    // thread local
+    bool is_thread_local:1; // thread local
     bool curpos_adjust:1;   //
 };
 

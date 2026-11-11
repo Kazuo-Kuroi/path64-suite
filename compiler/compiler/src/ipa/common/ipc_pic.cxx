@@ -507,7 +507,7 @@ IP_tag_symbol_gp_rel (INT avail_gp_area)
     
     if (Trace_IPA || Trace_Perf) {
 	fprintf (TFile,
-		 "Total gp-relative area available for AutoGnum = %"_fmt_v"\n",
+		 "Total gp-relative area available for AutoGnum = %" _fmt_v "\n",
 		 avail_gp_area);
 	if (IPA_user_gnum)
 	    fprintf (TFile, "User-specified gnum = %d\n", IPA_user_gnum);
@@ -561,7 +561,7 @@ IP_tag_symbol_gp_rel (INT avail_gp_area)
 	    if (ST_storage_class (st) == SCLASS_COMMON && 
 		(TY_size (ST_type(st)) > IMMEDIATE_MAX_VALUE)) {
 	        if (Trace_IPA || Trace_Perf)
-		    fprintf (TFile, "%s of size (%"_fmt_v") is NOT marked "
+		    fprintf (TFile, "%s of size (%" _fmt_v ") is NOT marked "
 			     "gp-relative because it is a COMMON symbol with"
 			     " size > 32767(0x7fff)\n",
 			     DEMANGLE (ST_name (st)),
@@ -571,7 +571,7 @@ IP_tag_symbol_gp_rel (INT avail_gp_area)
 
 	    if (gp_area_left < TY_size (ST_type(st))) {
 	        if (Trace_IPA || Trace_Perf)
-		    fprintf (TFile, "%s of size (%"_fmt_v") is NOT marked gp-relative because there is NO AutoGnum area left\n",
+		    fprintf (TFile, "%s of size (%" _fmt_v ") is NOT marked gp-relative because there is NO AutoGnum area left\n",
 			     DEMANGLE (ST_name (st)), (INT)TY_size (ST_type(st)));
                 break;
 	    }
@@ -583,10 +583,10 @@ IP_tag_symbol_gp_rel (INT avail_gp_area)
 #endif
 
 	    if (Trace_IPA || Trace_Perf)
-		fprintf (TFile, "%s of size (%"_fmt_v") is marked gp-relative\n",
+		fprintf (TFile, "%s of size (%" _fmt_v ") is marked gp-relative\n",
 			 DEMANGLE (ST_name (st)), (INT)TY_size (ST_type(st)));
         } else if (Trace_IPA || Trace_Perf) {
-	    fprintf (TFile, "%s of size (%"_fmt_v") is NOT marked"
+	    fprintf (TFile, "%s of size (%" _fmt_v ") is NOT marked"
 		     " gp-relative by IPA because ", DEMANGLE (ST_name (st)),
 		     (INT)TY_size (ST_type(st))); 
 	    if (!(ST_export(st) != EXPORT_LOCAL && 

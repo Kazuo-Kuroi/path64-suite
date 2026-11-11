@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Unix.h"
+#include <time.h>
 
 namespace llvm {
   using namespace sys;

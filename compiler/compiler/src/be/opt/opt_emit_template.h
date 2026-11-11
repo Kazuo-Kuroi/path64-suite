@@ -1057,7 +1057,7 @@ Gen_stmt_wn(STMTREP *srep, STMT_CONTAINER *stmt_container, EMITTER *emitter)
 	  MTYPE_size_min(srep->Rhs()->Dsctyp()) == MTYPE_size_min(srep->Lhs()->Dsctyp()) &&
 	  !srep->Rhs()->Is_ivar_volatile() &&
 	  !srep->Lhs()->Is_ivar_volatile()) 
-	return FALSE;	// omit generating this istore
+	return NULL;	// omit generating this istore
 
       CODEREP *rhs_cr = srep->Rhs();
       CODEREP *lhs = srep->Lhs();

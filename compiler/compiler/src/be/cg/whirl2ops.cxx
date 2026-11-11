@@ -3861,7 +3861,7 @@ Link_BBs (BB *bb, LABEL_IDX label)
 {
   BB      *dst_bb = Get_Label_BB(label);
 
-  FmtAssert(dst_bb != (LABEL_IDX) 0, 
+  FmtAssert(dst_bb != NULL, 
 	    ("Build_CFG: Label %s not defined", ST_name(label)));
 
   Link_Pred_Succ(bb, dst_bb);

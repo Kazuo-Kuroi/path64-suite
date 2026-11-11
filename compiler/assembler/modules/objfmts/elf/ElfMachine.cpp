@@ -68,7 +68,7 @@ ElfSpecialSymbol::Write(pugi::xml_node out) const
     append_child(root, "RelocType", reloc);
     append_child(root, "DataSize", size);
     append_child(root, "SymRelative", sym_relative);
-    append_child(root, "ThreadLocal", thread_local);
+    append_child(root, "ThreadLocal", is_thread_local);
     append_child(root, "CurposAdjust", curpos_adjust);
     return root;
 }
