@@ -2589,6 +2589,11 @@ Expand_TOP_intrncall ( const OP *op, OPS *ops,
   case INTRN_SUB_AND_FETCH_I8:
     Expand_Sub( tn_new, tn_res, tn_val, mtype, ops );
     break;
+  case INTRN_LOCK_TEST_AND_SET_I4:
+  case INTRN_LOCK_TEST_AND_SET_I8:
+    // Atomic exchange: store VAL, return the previous value.
+    Expand_Copy( tn_new, tn_val, mtype, ops );
+    break;
 
   case INTRN_VAL_COMPARE_AND_SWAP_I4:
   case INTRN_VAL_COMPARE_AND_SWAP_I8:
@@ -2760,6 +2765,8 @@ Exp_Intrinsic_Call (WN *intrncall, TN *op0, TN *op1, TN *op2, OPS *ops,
   case INTRN_XOR_AND_FETCH_I8:
   case INTRN_SUB_AND_FETCH_I4:
   case INTRN_SUB_AND_FETCH_I8:
+  case INTRN_LOCK_TEST_AND_SET_I4:
+  case INTRN_LOCK_TEST_AND_SET_I8:
     {
       // Generate a new TN placeholder to be used inside intrncall expansion.
       const TYPE_ID mtype = Get_Intrinsic_Size_Mtype(id);
