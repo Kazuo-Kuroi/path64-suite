@@ -79,7 +79,8 @@ void Emit_Header (FILE *hfile,
 		  "#ifndef FALSE\n"
 		  "#define FALSE   ((BOOL) 0)\n"
 		  "#endif\n"
-		  "#if (defined(_LANGUAGE_C) || defined(__GNUC__)) && !defined(inline)\n"
+		  "#if !defined(__cplusplus) && \\\n"
+		  "    (defined(_LANGUAGE_C) || defined(__GNUC__)) && !defined(inline)\n"
 		  "#define inline static __inline\n"
 		  "#endif\n"
 		  "#endif\n\n");

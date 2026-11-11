@@ -6347,14 +6347,16 @@ static WN *lower_return_mstid(WN *block, WN *tree, LOWER_ACTIONS actions)
     Is_True(WN_operator(call) == OPR_CALL || WN_operator(call) == OPR_ICALL ||
 	    WN_operator(call) == OPR_PICCALL,
 	    ("statement preceding MMLDID of Return_Val_Preg must be a call"));
-    Is_True(WN_rtype(call) == MTYPE_M
+    // Directives cannot appear inside the macro's arguments.
+    BOOL call_type_ok = WN_rtype(call) == MTYPE_M;
 #if defined(TARG_X8664) || defined(TARG_MIPS)
-	    || MTYPE_is_complex(WN_rtype(call))
+    call_type_ok = call_type_ok || MTYPE_is_complex(WN_rtype(call));
 #endif
 #if defined(TARG_X8664)
-	    || MTYPE_is_mmx_vector(WN_rtype(call))
+    call_type_ok = call_type_ok || MTYPE_is_mmx_vector(WN_rtype(call));
 #endif
-	    , ("call preceding LDID of Return_Val_Preg has unexpected type"));
+    Is_True(call_type_ok,
+	    ("call preceding LDID of Return_Val_Preg has unexpected type"));
 
     WN *awn = WN_CreateLda(OPR_LDA, Pointer_Mtype, MTYPE_V, 
 			   WN_store_offset(tree), 

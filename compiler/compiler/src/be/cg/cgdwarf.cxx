@@ -614,7 +614,10 @@ put_compile_unit(DST_COMPILE_UNIT *attr, Dwarf_P_Die die)
    put_string (DST_COMPILE_UNIT_comp_dir(attr), DW_AT_comp_dir, die);
    if (DEBUG_Optimize_Space && Debug_Level == 0)
 	// don't emit producer string if not debug and want to save space
-	dwarf_add_AT_string (dw_dbg, die, DW_AT_producer, "", &dw_error);
+	{
+	  static char empty[] = "";	// libdwarf takes char *
+	  dwarf_add_AT_string (dw_dbg, die, DW_AT_producer, empty, &dw_error);
+	}
    else
   	put_string (DST_COMPILE_UNIT_producer(attr), DW_AT_producer, die);
    dwarf_add_AT_unsigned_const (dw_dbg, die, DW_AT_language, 

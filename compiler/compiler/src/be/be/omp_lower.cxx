@@ -163,10 +163,10 @@ nearly-identical enum.
  ***********************************************************************/
 
 /* routines for adding OMP trace points */
-static WN *Generate_Call_Shell(char *name, TYPE_ID rtype, INT32 argc);
-static inline void Add_EnterExit_OMP_Trace(char *tp_enter, char *tp_exit, 
+static WN *Generate_Call_Shell(const char *name, TYPE_ID rtype, INT32 argc);
+static inline void Add_EnterExit_OMP_Trace(const char *tp_enter, const char *tp_exit, 
                                            WN *wn, WN *block);
-static inline void Add_BeginEnd_OMP_Trace(char *tp_begin, char *tp_end, 
+static inline void Add_BeginEnd_OMP_Trace(const char *tp_begin, const char *tp_end, 
                                           WN *block);
 static WN *Is_OMP_Trace_Construct(WN *wn);
 /* ------------------------------------ */
@@ -222,7 +222,7 @@ static void Convert_Just_Chunksize_To_Dynamic (WN *wn);
 //-------------------------------------------------------------------
 
 static WN *
-Generate_Call_Shell( char *name, TYPE_ID rtype, INT32 argc )
+Generate_Call_Shell(const char *name, TYPE_ID rtype, INT32 argc )
 {
   TY_IDX  ty = Make_Function_Type( MTYPE_To_TY( rtype ) );
   ST     *st = Gen_Intrinsic_Function( ty, name );
@@ -1030,7 +1030,7 @@ static BOOL Immed_Inside_Par_Begin(WN* wn_barrier)
 
 // Name: Add_EnterExit_OMP_Trace
 // Function: adds an enter and exit trace point around a WN node
-static inline void Add_EnterExit_OMP_Trace(char *tp_enter, char *tp_exit, 
+static inline void Add_EnterExit_OMP_Trace(const char *tp_enter, const char *tp_exit, 
                                            WN *wn, WN *block)
 {
   Is_True(Enable_Omp_Trace, 
@@ -1045,7 +1045,7 @@ static inline void Add_EnterExit_OMP_Trace(char *tp_enter, char *tp_exit,
 
 // Name: Add_BeginEnd_OMP_Trace
 // Function: adds a begin and end trace point within input block
-static inline void Add_BeginEnd_OMP_Trace(char *tp_begin, char *tp_end, 
+static inline void Add_BeginEnd_OMP_Trace(const char *tp_begin, const char *tp_end, 
                                           WN *block)
 {
   Is_True(Enable_Omp_Trace, 

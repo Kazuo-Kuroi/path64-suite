@@ -1040,11 +1040,12 @@ static void Insert_Exit_Code (STACK_OF_WN* exit_stack) {
     // Processing return nodes in the stack
     for (INT i=0; i < exit_stack->Elements(); i++) {
       pwn = exit_stack->Bottom_nth(i);
-      FmtAssert (WN_operator(pwn) == OPR_RETURN
+      // Directives cannot appear inside the macro's arguments.
+      BOOL is_exit = WN_operator(pwn) == OPR_RETURN;
 #ifdef KEY
-  		 || WN_operator(pwn) == OPR_GOTO_OUTER_BLOCK
+      is_exit = is_exit || WN_operator(pwn) == OPR_GOTO_OUTER_BLOCK;
 #endif
-      		 ,
+      FmtAssert (is_exit,
                  ("Insert_Exit_Code found non-return node (got opcode=%d)\n",
                   WN_opcode(pwn)));
       

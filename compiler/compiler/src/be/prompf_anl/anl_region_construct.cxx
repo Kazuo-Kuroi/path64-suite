@@ -210,7 +210,7 @@ ANL_REGION_CONSTRUCT::_Write_Region_Directive(ANL_CBUF *cbuf)
   WN        *region_pragma = WN_first(WN_region_pragmas(_region));
   WN        *region_clause = WN_next(region_pragma);
   ANL_SRCPOS startpos, endpos;
-  char      *p;
+  const char *p;
 
   _func_entry->Get_Pragma_Srcpos_Range(region_pragma, &startpos, &endpos);
 
@@ -393,7 +393,7 @@ ANL_REGION_CONSTRUCT::Write(ANL_CBUF *cbuf)
       ANL_VARLIST varlist(_pool, _func_entry);
       WN         *first_stmt = _First_Region_Stmt();
       WN         *last_stmt = _Last_Region_Stmt();
-      char       *p;
+      const char *p;
 
       // Write out the construct header
       //
