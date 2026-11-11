@@ -87,7 +87,7 @@ static const StaticDiagInfoRec *GetDiagInfo(unsigned DiagID) {
 #endif
 
   // Search the diagnostic table with a binary search.
-  StaticDiagInfoRec Find = { DiagID, 0, 0, 0, 0, 0 };
+  StaticDiagInfoRec Find = { static_cast<unsigned short>(DiagID), 0, 0, 0, 0, 0 };
 
   const StaticDiagInfoRec *Found =
     std::lower_bound(StaticDiagInfo, StaticDiagInfo + NumDiagEntries, Find);
