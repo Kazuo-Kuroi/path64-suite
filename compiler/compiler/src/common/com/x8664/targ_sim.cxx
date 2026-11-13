@@ -297,6 +297,40 @@ INT Classify_Aggregate(const TY_IDX ty,
 	/*NOTREACHED*/
     }
 }
+/* Return TRUE if TY is an aggregate that holds just one long double
+ * (possibly nested in structs, unions or one-element arrays), so that
+ * its eightbytes are classified X87 and X87UP. Classify_Aggregate()
+ * reports these as passed in memory, which is right for arguments, but
+ * the X86-64 ABI returns them in %st0, like a scalar long double.  */
+static BOOL Is_X87_Aggregate(const TY_IDX ty)
+{
+  if (TY_size(ty) != 16)
+    return FALSE;
+  switch (TY_kind(ty)) {
+  case KIND_SCALAR:
+    return TY_mtype(ty) == MTYPE_FQ;
+  case KIND_ARRAY:
+    return Is_X87_Aggregate(TY_etype(ty));
+  case KIND_STRUCT: {
+    if (TY_is_non_pod(ty))
+      return FALSE;
+    BOOL found = FALSE;
+    FLD_ITER fld_iter = Make_fld_iter(TY_fld(ty));
+    do {
+      FLD_HANDLE fld(fld_iter);
+      if (TY_size(FLD_type(fld)) == 0)
+	continue;
+      if (FLD_ofst(fld) != 0 || !Is_X87_Aggregate(FLD_type(fld)))
+	return FALSE;
+      found = TRUE;
+    } while (!FLD_last_field(fld_iter++));
+    return found;
+  }
+  default:
+    return FALSE;
+  }
+}
+
 #if defined(BUILD_OS_DARWIN)
 /* Like Classify_Aggregate(), but for Darwin IA32. According to
  * developer.apple.com, 4-byte structures are passed in EAX, 8-byte
@@ -636,6 +670,12 @@ Get_Return_Info(TY_IDX rtype, Mtype_Return_Level level, BOOL ff2c_abi)
 		}
 	      }
             }
+	    else if (Is_X87_Aggregate(rtype)) {
+	      info.return_via_first_arg = FALSE;
+	      info.count = 1;
+	      info.mtype[0] = MTYPE_FQ;
+	      info.preg[0] = First_X87_Preg_Return_Offset;
+	    }
         }
       }
       break;
