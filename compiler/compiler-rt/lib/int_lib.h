@@ -72,7 +72,18 @@ typedef union
     }s;
 } udwords;
 
-#if __x86_64
+/* 128-bit integer support. The PathScale compiler has no 128-bit
+ * integer arithmetic: WHIRL lowers 16-byte integers to 64 bits, so it
+ * rejects operations on mode (TI) values. Leave the TI routines out when
+ * it builds this library; it never calls them.
+ */
+#if __x86_64 && !defined(__PATHCC__)
+#define CRT_HAS_128BIT 1
+#else
+#define CRT_HAS_128BIT 0
+#endif
+
+#if CRT_HAS_128BIT
 
 typedef int      ti_int __attribute__ ((mode (TI)));
 typedef unsigned tu_int __attribute__ ((mode (TI)));
@@ -121,7 +132,7 @@ static inline tu_int make_tu(du_int h, du_int l) {
     return r.all;
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */
 
 typedef union
 {

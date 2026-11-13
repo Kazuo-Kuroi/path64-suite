@@ -12,7 +12,7 @@
  * ===----------------------------------------------------------------------===
  */
 
-#if __x86_64
+#if CRT_HAS_128BIT
 
 #include "int_lib.h"
 #include <stdlib.h>
@@ -38,4 +38,4 @@ __subvti3(ti_int a, ti_int b)
     return s;
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */

@@ -12,7 +12,7 @@
  * ===----------------------------------------------------------------------===
  */
 
-#if __x86_64
+#if CRT_HAS_128BIT
 
 #include "int_lib.h"
 
@@ -55,4 +55,4 @@ __multi3(ti_int a, ti_int b)
     return r.all;
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */

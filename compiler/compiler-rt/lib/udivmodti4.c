@@ -12,7 +12,7 @@
  * ===----------------------------------------------------------------------===
  */ 
 
-#if __x86_64
+#if CRT_HAS_128BIT
 
 #include "int_lib.h"
 
@@ -253,4 +253,4 @@ __udivmodti4(tu_int a, tu_int b, tu_int* rem)
     return q.all;
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */

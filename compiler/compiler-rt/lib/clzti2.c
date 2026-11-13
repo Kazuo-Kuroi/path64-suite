@@ -12,7 +12,7 @@
  * ===----------------------------------------------------------------------===
  */
 
-#if __x86_64
+#if CRT_HAS_128BIT
 
 #include "int_lib.h"
 
@@ -30,4 +30,4 @@ __clzti2(ti_int a)
            ((si_int)f & ((si_int)(sizeof(di_int) * CHAR_BIT)));
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */

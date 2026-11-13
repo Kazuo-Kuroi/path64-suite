@@ -40,6 +40,7 @@ extern "C"{
 #include <limits.h>
 #include "defs.h"
 #include "glob.h"
+#include "erglob.h"
 #include "config.h"
 #if defined TARG_X8664
 #include "config_opt.h"
@@ -4877,6 +4878,29 @@ WN *WGEN_Expand_Cond_Expr(gs_t exp,
 }
 
 
+// WHIRL has no 128-bit integer arithmetic: Get_TY lowers 16-byte integer
+// types (__int128_t, mode (TI)) to 64 bits. Declaring them is allowed, so
+// that headers such as glibc's <link.h> that put them in structs still
+// compile with the right layout, but computing with one would give wrong
+// code, so stop with an error. GCC's internal bit-size type is also 128
+// bits wide; it is marked TYPE_IS_SIZETYPE and is lowered as before.
+static void
+Check_Int128_Expr (gs_t exp)
+{
+  gs_t type = gs_tree_type (exp);
+  if (type == NULL || gs_tree_code (type) != GS_INTEGER_TYPE ||
+      gs_type_is_sizetype (type))
+    return;
+  gs_t prec = gs_type_precision (type);
+  if (prec == NULL || gs_n (prec) <= 64)
+    return;
+  char msg[512];
+  snprintf (msg, sizeof (msg),
+	    "%s:%d: error: 128-bit integer operations (__int128_t, "
+	    "mode (TI)) are not supported", Orig_Src_File_Name, lineno);
+  ErrMsg (EC_Misc_User_Abort, msg);
+}
+
 WN * 
 WGEN_Expand_Expr (gs_t exp,
 		  bool need_result,
@@ -4900,6 +4924,8 @@ WGEN_Expand_Expr (gs_t exp,
   gs_code_t tmp_code;
 
   wn = NULL;
+
+  Check_Int128_Expr (exp);
 
   switch(code)
   {

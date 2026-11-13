@@ -12,7 +12,7 @@
  * ===----------------------------------------------------------------------===
  */
 
-#if __x86_64
+#if CRT_HAS_128BIT
 
 #include "int_lib.h"
 
@@ -44,4 +44,4 @@ __fixxfti(long double a)
     return (r ^ s) - s;
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */

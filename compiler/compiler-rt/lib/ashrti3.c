@@ -12,7 +12,7 @@
  * ===----------------------------------------------------------------------===
  */
 
-#if __x86_64
+#if CRT_HAS_128BIT
 
 #include "int_lib.h"
 
@@ -43,4 +43,4 @@ __ashrti3(ti_int a, si_int b)
     return result.all;
 }
 
-#endif /* __x86_64 */
+#endif /* CRT_HAS_128BIT */
