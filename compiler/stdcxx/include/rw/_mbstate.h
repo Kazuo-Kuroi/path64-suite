@@ -131,8 +131,15 @@ _USING (::mbstate_t);
 #  if defined (_RWSTD_OS_LINUX)
 /*** Linux/glibc **********************************************************/
 
+#    include <features.h>   // for __GLIBC__ and __GLIBC_MINOR__
+
+#    if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 26)
+       // glibc 2.26 and later define __mbstate_t in its own header,
+       // guarded by ____mbstate_t_defined; __mbstate_t_defined now
+       // guards mbstate_t, so defining it here would hide mbstate_t
+#      include <bits/types/__mbstate_t.h>
+#    elif !defined (__mbstate_t_defined)
      // define __mbstate_t at file scope (see /usr/include/wchar.h)
-#    ifndef __mbstate_t_defined
 #      define __mbstate_t_defined 1
 
 extern "C" {
@@ -147,7 +154,7 @@ typedef struct {
 
 }   // extern "C"
 
-#    endif   // __mbstate_t_defined
+#    endif   // glibc 2.26, __mbstate_t_defined
 
 #    define _RWSTD_MBSTATE_T __mbstate_t
 
