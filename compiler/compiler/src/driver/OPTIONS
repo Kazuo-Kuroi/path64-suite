@@ -1932,6 +1932,8 @@ I-u%s		;		Cc	ld	"-u %s"
 	"Use the same size for double as for float"
 -fshort-wchar	;		Cc	FE	self
 	"Use short unsigned int for wchar_t instead of the default underlying type for the target."
+-fvisibility=%s	;		Cc	FE	"-fvisibility=%s"
+	"Set the default visibility of symbols defined here: default, protected, hidden or internal"
 -fvolatile	;		Cc	NONE	""
 	"Consider all mem refs through pointers as volatile"
 -fvolatile-global	;		Cc	NONE	""

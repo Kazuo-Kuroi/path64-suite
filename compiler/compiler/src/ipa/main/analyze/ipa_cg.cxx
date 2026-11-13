@@ -2541,12 +2541,16 @@ IPA_NODE::Is_Externally_Callable ()
 
     if (AUX_ST_flags (aux_st, USED_IN_OBJ|USED_IN_DSO|ADDR_TAKEN_IN_OBJ))
 	return TRUE;
-#endif // _LIGHTWEIGHT_INLINER
 
+    // IPA sees every object linked into the component, so a hidden or
+    // internal function that none of them uses can't be called.
     if (ST_export (func_st) == EXPORT_INTERNAL ||
 	ST_export (func_st) == EXPORT_HIDDEN )
 	return FALSE;
+#endif // _LIGHTWEIGHT_INLINER
 
+    // The standalone inliner sees one file; hidden and internal
+    // functions may be called from other files in the same component.
     return TRUE;
 
 } // IPA_NODE::Is_Externally_Callable

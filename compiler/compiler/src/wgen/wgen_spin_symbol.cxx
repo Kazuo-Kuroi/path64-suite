@@ -2156,8 +2156,18 @@ Get_Visibility_From_Attribute (gs_t decl_node, ST_CLASS st_class, ST_SCLASS scla
   static const int o64_vis [] = {
     STV_DEFAULT, STV_PROTECTED, STV_HIDDEN, STV_INTERNAL };
   int sv = -1;
-  if (gs_decl_visibility_specified (decl_node))
-    sv = o64_vis[gs_n(gs_decl_visibility (decl_node))];
+  if (gs_tree_code (decl_node) != GS_VAR_DECL &&
+      gs_tree_code (decl_node) != GS_FUNCTION_DECL)
+    return sv;
+  gs_t vis = gs_decl_visibility (decl_node);
+  if (vis == NULL)
+    return sv;
+  /* Use an explicit visibility (attribute, #pragma GCC visibility), and
+     any non-default visibility the front end chose (-fvisibility, or the
+     visibility of the containing class). Otherwise leave it to
+     Get_Default_Visibility.  */
+  if (gs_decl_visibility_specified (decl_node) || gs_n (vis) != 0)
+    sv = o64_vis[gs_n (vis)];
   return sv;
 }
 

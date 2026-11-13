@@ -9579,6 +9579,21 @@ static int translate_func_decl = 0;
 // other.
 static HOST_WIDE_INT sequence_num = 0;
 static debug_num = 0;
+// Record the symbol visibility of VAR_DECL or FUNCTION_DECL T in its gspin
+// node: the visibility value (enum symbol_visibility order) and whether
+// it was given explicitly. FLAGS is the node's GS_FLAGS bit vector.
+static void
+gs_x_visibility (tree t, gs_t flags)
+{
+  gs_t vis = gs_operand ((gs_t) GS_NODE (t), GS_DECL_VISIBILITY);
+  if (vis == NULL) {
+    vis = __gs (IB_INT);
+    gs_set_operand ((gs_t) GS_NODE (t), GS_DECL_VISIBILITY, vis);
+  }
+  _gs_n (vis, DECL_VISIBILITY (t));
+  _gs_bv (flags, GS_DECL_VISIBILITY_SPECIFIED, DECL_VISIBILITY_SPECIFIED (t));
+}
+
 // SEQ_NUM is the sequence number for this translation pass.
 static gs_t
 gs_x_1 (tree t, HOST_WIDE_INT seq_num)
@@ -9760,6 +9775,8 @@ gs_x_1 (tree t, HOST_WIDE_INT seq_num)
     // two flags.
     _gs_bv (flags, GS_TREE_PUBLIC, TREE_PUBLIC (t));
     _gs_bv (flags, GS_DECL_WEAK, DECL_WEAK (t));
+    if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == FUNCTION_DECL)
+      gs_x_visibility (t, flags);
   }
 
 
@@ -10125,6 +10142,11 @@ gs_x_1 (tree t, HOST_WIDE_INT seq_num)
 	_gs_n (decl_align_unit, DECL_ALIGN_UNIT (t)); 
 	gs_set_operand ((gs_t) GS_NODE (t), GS_DECL_ALIGN_UNIT, decl_align_unit);
       }
+
+      // Symbol visibility, from attributes, #pragma GCC visibility,
+      // -fvisibility or the containing class.
+      if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == FUNCTION_DECL)
+	gs_x_visibility (t, flags);
 
       _gs_bv (flags, GS_DECL_ASSEMBLER_NAME_SET_P, DECL_ASSEMBLER_NAME_SET_P (t));
       _gs_bv (flags, GS_DECL_ARTIFICIAL, DECL_ARTIFICIAL(t));

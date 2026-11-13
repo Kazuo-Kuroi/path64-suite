@@ -130,6 +130,7 @@ gs_attribute_name (gs_int_t attribute, gs_tree_code_class_t tree_code_class,
       case GS_THUNK_FIXED_OFFSET:	OMIT; return "GS_THUNK_FIXED_OFFSET";
       case GS_THUNK_VIRTUAL_OFFSET:	OMIT; return "GS_THUNK_VIRTUAL_OFFSET";
       case GS_DECL_NAMED_RETURN_OBJECT:	OMIT; return "GS_DECL_NAME_RETURN_OBJECT";
+      case GS_DECL_VISIBILITY:		return "GS_DECL_VISIBILITY";
     }
 
     if (attribute == GS_DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P &&

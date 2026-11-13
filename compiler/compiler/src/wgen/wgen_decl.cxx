@@ -1269,11 +1269,14 @@ WGEN_Start_Function(gs_t fndecl)
 	    gs_decl_implicit_instantiation (fndecl) &&
 	    gs_decl_namespace_scope_p (fndecl))))
 	eclass = EXPORT_LOCAL; // bug 7550
-      else if (gs_tree_public(fndecl) || gs_decl_weak(fndecl)) {
-	if (gs_decl_inline(fndecl) || !gs_decl_weak(fndecl))
-	  eclass = EXPORT_PROTECTED;
-	else eclass = EXPORT_PREEMPTIBLE;
-      }
+      else if (gs_tree_public(fndecl) || gs_decl_weak(fndecl))
+	// Public functions keep default visibility, as in C. Making them
+	// EXPORT_PROTECTED emitted .protected for every non-weak C++
+	// function (extern "C" ones too): that stops interposition, such
+	// as replacing operator new, and GNU ld 2.39+ rejects executables
+	// that take the address of a protected function in a shared
+	// library.
+	eclass = EXPORT_PREEMPTIBLE;
       else eclass = EXPORT_LOCAL;
       func_st = Get_ST (fndecl);
       // KEY: bugs 8873, 11247, 11287
@@ -1337,6 +1340,15 @@ WGEN_Start_Function(gs_t fndecl)
     if (gs_decl_inline(fndecl)) {
       Set_PU_is_inline_function (Pu_Table [ST_pu (func_st)]);
       wgen_invoke_inliner = TRUE;
+    }
+    // Apply the function's visibility (attribute or #pragma GCC
+    // visibility, as Get_ST does), which the export class chosen above
+    // would otherwise override.
+    if (eclass == EXPORT_PREEMPTIBLE) {
+      ST_EXPORT vis = Get_Export_Class_For_Tree (fndecl, CLASS_FUNC,
+						 SCLASS_TEXT);
+      if (vis != EXPORT_LOCAL && vis != EXPORT_LOCAL_INTERNAL)
+	eclass = vis;
     }
     Set_ST_export (func_st, eclass);
 

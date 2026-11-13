@@ -274,7 +274,7 @@ extern gs_t gs_build_type(gs_code_t code);
 #define GS_THUNK_VIRTUAL_OFFSET		40
 #define GS_DECL_NAMED_RETURN_OBJECT	41
 #define GS_DECL_TEMPLATE_INSTANTIATIONS GS_DECL_VINDEX
-#define GS_DECL_VISIBILITY              42
+#define GS_DECL_VISIBILITY              42 // VAR_DECL, FUNCTION_DECL only
 
 //   ==== end GS_TCC_DECLARATION fields
 
