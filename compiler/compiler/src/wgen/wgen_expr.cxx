@@ -7592,6 +7592,32 @@ WGEN_Expand_Expr (gs_t exp,
 		wn = WGEN_Expand_Expr (gs_tree_value (gs_tree_operand (exp, 1)));
 		whirl_generated = TRUE;
 	        break;
+
+	      // signbit: test the sign bit of the value's representation.
+	      // There is no signbit function to call (glibc's <math.h>
+	      // uses this builtin). Converting long double to double keeps
+	      // the sign, including for NaN, infinity and -0.
+	      case GSBI_BUILT_IN_SIGNBIT:
+	      case GSBI_BUILT_IN_SIGNBITF:
+	      case GSBI_BUILT_IN_SIGNBITL:
+	        {
+		  WN *arg = WGEN_Expand_Expr (gs_tree_value (gs_tree_operand (exp, 1)));
+		  TYPE_ID fty = WN_rtype (arg);
+		  if (fty != MTYPE_F4 && fty != MTYPE_F8) {
+		    arg = WN_Cvt (fty, MTYPE_F8, arg);
+		    fty = MTYPE_F8;
+		  }
+		  TYPE_ID uty = (fty == MTYPE_F4) ? MTYPE_U4 : MTYPE_U8;
+		  wn = WN_Tas (uty, MTYPE_To_TY (uty), arg);
+		  wn = WN_Binary (OPR_LSHR, uty, wn,
+				  WN_Intconst (uty, MTYPE_bit_size (uty) - 1));
+		  if (uty == MTYPE_U8)
+		    wn = WN_Cvt (MTYPE_U8, MTYPE_U4, wn);
+		  if (ret_mtype != MTYPE_V && ret_mtype != MTYPE_U4)
+		    wn = WN_Cvt (MTYPE_U4, ret_mtype, wn);
+		  whirl_generated = TRUE;
+	        }
+	        break;
 	      case GSBI_BUILT_IN_POPCOUNT:
 	      case GSBI_BUILT_IN_POPCOUNTL:
 	      case GSBI_BUILT_IN_POPCOUNTLL:
