@@ -40,6 +40,7 @@
 #endif /* USE_PCH */
 #pragma hdrstop
 #include <stdio.h>
+#include <string.h>
 #if HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
@@ -2751,10 +2752,21 @@ Init_Constab ()
 }
 
 
+// In C, the misc info of a function that contains nested functions is a
+// list of those functions (see WGEN_Finish_Function), not the exception
+// handling table that C++ functions keep there.
+static BOOL
+Misc_info_is_nested_function_list(INITO_IDX misc)
+{
+    const ST *st = INITO_st(Inito_Table[misc]);
+    return ST_class(st) == CLASS_PREG &&
+        strncmp(ST_name(st), ".nested_functions", 17) == 0;
+}
+
 void PU::Get_eh_spec(eh_spec_vector & eh_spec) const
 {
     INITO_IDX misc = PU_misc_info(*this);
-    if (misc == 0)
+    if (misc == 0 || Misc_info_is_nested_function_list(misc))
         return;
 
     INITO_IDX inito_idx = TCON_uval(INITV_tc_val(
@@ -2789,7 +2801,7 @@ void PU::Get_eh_spec(eh_spec_vector & eh_spec) const
 void PU::Get_type_info_table(type_info_table & type_info) const
 {
     INITO_IDX misc = PU_misc_info(*this);
-    if (misc == 0)
+    if (misc == 0 || Misc_info_is_nested_function_list(misc))
         return;
 
     INITO_IDX inito_idx = TCON_uval(INITV_tc_val(
