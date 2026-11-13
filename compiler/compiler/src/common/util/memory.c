@@ -433,9 +433,14 @@ static MEM_POOL mem_overhead_pool = /* Used to allocate stuff for this
 
 static MEM_POOL *The_Default_Mem_Pool;
 
-/* PAD_TO_ALIGN - Pad up a given size to double word alignment.
+/* PAD_TO_ALIGN - Pad up a given size to the alignment malloc gives:
+ * 16 bytes, enough for long double on x86-64 hosts. Objects such as
+ * TCON contain a long double, and compilers copy them with 16-byte
+ * aligned vector moves, so 8-byte alignment is not enough.
  */
-#define PAD_TO_ALIGN(size) (((size) + 7) & (~0U << 3))
+#define MEM_ALIGN 16
+#define PAD_TO_ALIGN(size) \
+  (((size) + (MEM_ALIGN - 1)) & ~((size_t) (MEM_ALIGN - 1)))
 
 
 /* Implementation of memory statististics tracking mechanism
