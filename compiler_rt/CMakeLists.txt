@@ -12,7 +12,7 @@
 SET( Generic_SRCS
  absvdi2.c absvsi2.c addvdi3.c addvsi3.c ashldi3.c ashrdi3.c
  clzdi2.c clzsi2.c cmpdi2.c ctzdi2.c ctzsi2.c
- divdi3.c ffsdi2.c
+ divdc3.c divdi3.c divsc3.c ffsdi2.c
  fixdfdi.c fixsfdi.c fixunsdfdi.c fixunsdfsi.c fixunssfdi.c
  fixunssfsi.c floatdidf.c floatdisf.c floatundidf.c floatundisf.c
  lshrdi3.c moddi3.c muldc3.c muldi3.c
@@ -34,7 +34,7 @@ SET( Generic_SRCS
 # List of functions needed for each architecture.
 SET( SRCS_x86_32
  fixunsxfdi.c fixunsxfsi.c fixxfdi.c floatdixf.c
- floatundixf.c mulxc3.c powixf2.c clear_cache.c enable_execute_stack.c 
+ floatundixf.c divxc3.c mulxc3.c powixf2.c clear_cache.c enable_execute_stack.c
  )
 
 SET( SRCS_x86_64
@@ -45,7 +45,7 @@ SET( SRCS_x86_64
  fixunsxfti.c fixxfdi.c fixxfti.c floatdixf.c floattidf.c
  floattisf.c floattixf.c floatundixf.c floatuntidf.c
  floatuntisf.c floatuntixf.c lshrti3.c modti3.c multi3.c
- mulvti3.c mulxc3.c negti2.c negvti2.c parityti2.c
+ mulvti3.c divxc3.c mulxc3.c negti2.c negvti2.c parityti2.c
  popcountti2.c powixf2.c subvti3.c ucmpti2.c udivmodti4.c
  udivti3.c umodti3.c clear_cache.c enable_execute_stack.c
  )

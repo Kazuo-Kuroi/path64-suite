@@ -47,3 +47,7 @@ install(FILES ${Path64_BINARY_DIR}/lib/x8664/64/crtbegin.o
               ${Path64_BINARY_DIR}/lib/x8664/64/crtend.o
               ${Path64_BINARY_DIR}/lib/x8664/64/crtendS.o
         DESTINATION ${PATH64_LIB_PATH}/x8664/64)
+
+# The shared runtime libraries link these with the staged compiler, so
+# build them as part of it.
+add_dependencies(compiler-stage-C crtbegin-x86_64 crtbeginS-x86_64 crtend-x86_64 crtendS-x86_64)
