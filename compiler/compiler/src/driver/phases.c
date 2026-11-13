@@ -1188,8 +1188,11 @@ add_file_args (string_list_t *args, phases_t index)
 		  add_string(args, "-E");
 
 #ifdef TARG_X8664 
-        if (is_target_arch_X8664()) {
-		  // Add a workaround for bug 3082 and bug 6186.
+        // Old workaround for bugs 3082 and 6186. It only changes the
+        // predefined macros: x86-64 code computes in SSE without excess
+        // precision, so it must not claim -mfpmath=387 there (that made
+        // __FLT_EVAL_METHOD__ 2 and glibc's float_t long double).
+        if (is_target_arch_X8664() && abi == ABI_M32) {
 		  add_string(args, "-mfpmath=387");
         }
 #endif
