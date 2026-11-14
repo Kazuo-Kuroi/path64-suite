@@ -48,13 +48,15 @@ __dso_handle:
 	.type	__pscrt_do_global_dtors, @function
 __pscrt_do_global_dtors:
 	.frame	$sp, 32, $31
-	lui	$28, %hi(%neg(%gp_rel(__pscrt_do_global_dtors)))
-	addiu	$28, $28, %lo(%neg(%gp_rel(__pscrt_do_global_dtors)))
-	addu	$28, $28, $25
+	# gp is callee-saved in n32: save the caller's before setting ours.
 	addiu	$sp, $sp, -32
 	sd	$31, 0($sp)
 	sd	$16, 8($sp)
 	sd	$28, 16($sp)
+	lui	$28, %hi(%neg(%gp_rel(__pscrt_do_global_dtors)))
+	addiu	$28, $28, %lo(%neg(%gp_rel(__pscrt_do_global_dtors)))
+	addu	$28, $28, $25
+	sd	$28, 24($sp)
 	lw	$16, %got_page(__DTOR_LIST__)($28)
 	addiu	$16, $16, %got_ofst(__DTOR_LIST__)
 	addiu	$16, $16, 4		# skip the -1 marker
@@ -64,7 +66,7 @@ __pscrt_do_global_dtors:
 	jalr	$25
 	addiu	$16, $16, 4
 	b	1b
-	ld	$28, 16($sp)
+	ld	$28, 24($sp)		# our gp, in case the callee lost it
 2:	ld	$31, 0($sp)
 	ld	$16, 8($sp)
 	ld	$28, 16($sp)
@@ -78,12 +80,12 @@ __pscrt_do_global_dtors:
 	.type	__pscrt_init_begin, @function
 __pscrt_init_begin:
 	.frame	$sp, 16, $31
+	addiu	$sp, $sp, -16
+	sd	$31, 0($sp)
+	sd	$28, 8($sp)		# the caller's gp
 	lui	$28, %hi(%neg(%gp_rel(__pscrt_init_begin)))
 	addiu	$28, $28, %lo(%neg(%gp_rel(__pscrt_init_begin)))
 	addu	$28, $28, $25
-	addiu	$sp, $sp, -16
-	sd	$31, 0($sp)
-	sd	$28, 8($sp)
 	lw	$4, %got_page(__pscrt_do_global_dtors)($28)
 	addiu	$4, $4, %got_ofst(__pscrt_do_global_dtors)
 	lw	$25, %call16(atexit)($28)
