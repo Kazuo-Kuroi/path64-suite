@@ -122,6 +122,9 @@ boolean is_target_os_irix() {
 
 
 char *target_crtbegin_path() {
+    // IRIX has no crtbegin.o or crtend.o of its own: use PathScale's.
+    if (is_target_os_irix())
+        return target_library_path();
 #ifdef TARG_X8664
     if(is_target_arch_X8664()) {
         return target_library_path();

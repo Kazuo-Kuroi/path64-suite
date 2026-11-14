@@ -1921,12 +1921,12 @@ add_file_args (string_list_t *args, phases_t index)
                free(cb_path);
 
 			   add_string_if_new_basename(args, crt1_path);
-			   // IRIX has no crti.o or crtbegin.o: crt1.o and crtn.o
-			   // bracket the program.
-			   if (!is_target_os_irix()) {
+			   // IRIX has no crti.o; crt1.o and crtn.o bracket the
+			   // program, and PathScale's crtbegin.o and crtend.o
+			   // (static constructors and destructors) go inside.
+			   if (!is_target_os_irix())
 			     add_string_if_new_basename(args, crti_path);
-			     add_string(args, crtbegin_path);
-			   }
+			   add_string(args, crtbegin_path);
                free(crt1_path);
                free(crti_path);
                free(crtbegin_path);
@@ -2140,8 +2140,10 @@ void add_crtend(string_list_t *args) {
     char *crtend_path = concat_strings(cb_path, crtend_name);
     free(cb_path);
 
-    // IRIX has no crtend.o; crtn.o alone ends the program.
-    if (!is_target_os_irix())
+    // On IRIX, PathScale's crtend.o is only built for executables:
+    // shared libraries get neither crtbegin.o nor crtend.o.
+    if (!is_target_os_irix() ||
+        ((shared != DSO_SHARED) && (shared != RELOCATABLE)))
       add_string(args, crtend_path);
     add_string_if_new_basename(args, crtn_path);
     free(crtend_path);
