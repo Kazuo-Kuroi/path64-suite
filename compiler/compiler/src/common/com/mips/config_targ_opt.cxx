@@ -85,6 +85,9 @@ BOOL Flush_To_Zero = FALSE;		/* suppress fp underflow */
 
 /* Miscellaneous target instruction features: */
 BOOL Madd_Allowed = TRUE;		/* Generate madd instructions? */
+/* long double is SGI double-double (IRIX), emulated by the __q_*
+   routines in libc, rather than IEEE quad emulated by libgcc. */
+BOOL SGI_Quad = FALSE;
 BOOL Force_Jalr = FALSE;	/* Force calls via address in register */
 static BOOL Slow_CVTDL_Set = FALSE;
 BOOL Sext_Allowed = TRUE;	/* Use sll r2,r1,0 for 32-bit sign extend */
@@ -157,6 +160,9 @@ static OPTION_DESC Options_TARG[] = {
   { OVK_BOOL,	OV_VISIBLE,	FALSE, "madd",		"",
     0, 0, 0,	&Madd_Allowed,	NULL,
     "Specify whether to generate MADD instructions" },
+  { OVK_BOOL,	OV_VISIBLE,	FALSE, "sgi_quad",	"",
+    0, 0, 0,	&SGI_Quad,	NULL,
+    "long double is SGI double-double, using the IRIX libc __q_* routines" },
   { OVK_BOOL,	OV_SHY,		FALSE, "page_zero",	"",
     0, 0, 0,	&Force_Page_Zero, NULL,
     "Force the kernel to map page zero into address space" },

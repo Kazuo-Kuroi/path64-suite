@@ -100,6 +100,7 @@ extern BOOL Force_Jalr;
 
 /* Miscellaneous target instruction features: */
 extern BOOL Madd_Allowed;	/* Generate madd instructions? */
+extern BOOL SGI_Quad;		/* long double is SGI double-double (IRIX) */
 extern BOOL SYNC_Allowed;
 extern BOOL Slow_CVTDL;
 extern BOOL Sext_Allowed;	/* Use sll r2,r1,0 for 32-bit sign extend */

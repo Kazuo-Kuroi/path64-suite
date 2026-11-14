@@ -33,6 +33,7 @@
 #include "defs.h"
 #include "wn.h"
 #include "wn_util.h"
+#include "config_targ_opt.h"  // SGI_Quad
 
 // Returns function ST for 'name' with return type 'type'.
 static ST * new_func_st (const char * name, TYPE_ID type = MTYPE_FQ)
@@ -48,7 +49,12 @@ static ST * new_func_st (const char * name, TYPE_ID type = MTYPE_FQ)
 }
 
 // The em_quad_* functions below emulate quad precision for mips by
-// calling appropriate library functions from libgcc.
+// calling appropriate library functions: from libgcc for IEEE quad
+// (MIPS Linux), or, with -TARG:sgi_quad (IRIX), the routines in IRIX
+// libc for SGI's double-double long double, as MIPSpro does. Both pass
+// long double in FP register pairs ($f12/$f13, $f14/$f15) and return it
+// in $f0/$f2. GCC's comparison routines return a value to compare
+// against zero; SGI's return 1 if the relation holds and 0 otherwise.
 //
 
 
@@ -69,18 +75,22 @@ extern WN *em_quad_cvt(WN *block, WN *tree)
     switch (WN_desc(tree)) // convert to quad
     {
       case MTYPE_U4:
+        libfunc = SGI_Quad ? "__q_flotju" : "__floatsitf";
+        break;
       case MTYPE_I4:
-        libfunc = "__floatsitf";
+        libfunc = SGI_Quad ? "__q_flotj" : "__floatsitf";
         break;
       case MTYPE_U8:
+        libfunc = SGI_Quad ? "__q_flotku" : "__floatditf";
+        break;
       case MTYPE_I8:
-        libfunc = "__floatditf";
+        libfunc = SGI_Quad ? "__q_flotk" : "__floatditf";
         break;
       case MTYPE_F4:
-        libfunc = "__extendsftf2";
+        libfunc = SGI_Quad ? "__q_ext" : "__extendsftf2";
         break;
       case MTYPE_F8:
-        libfunc = "__extenddftf2";
+        libfunc = SGI_Quad ? "__q_extd" : "__extenddftf2";
         break;
       default:
         Fail_FmtAssertion ("em_quad_cvt: CVT with quad rtype");
@@ -89,10 +99,10 @@ extern WN *em_quad_cvt(WN *block, WN *tree)
     switch (WN_rtype(tree)) // convert from quad
     {
       case MTYPE_F4:
-        libfunc = "__trunctfsf2";
+        libfunc = SGI_Quad ? "__sngl_q" : "__trunctfsf2";
         break;
       case MTYPE_F8:
-        libfunc = "__trunctfdf2";
+        libfunc = SGI_Quad ? "__dble_q" : "__trunctfdf2";
         break;
       default:
         Fail_FmtAssertion ("em_quad_cvt: CVT with quad rtype");
@@ -143,16 +153,16 @@ extern WN *em_quad_arith(WN *block, WN *tree)
   switch (WN_operator (tree))
   {
     case OPR_ADD:
-      libfunc = "__addtf3";
+      libfunc = SGI_Quad ? "__q_add" : "__addtf3";
       break;
     case OPR_SUB:
-      libfunc = "__subtf3";
+      libfunc = SGI_Quad ? "__q_sub" : "__subtf3";
       break;
     case OPR_DIV:
-      libfunc = "__divtf3";
+      libfunc = SGI_Quad ? "__q_div" : "__divtf3";
       break;
     case OPR_MPY:
-      libfunc = "__multf3";
+      libfunc = SGI_Quad ? "__q_mul" : "__multf3";
       break;
     default:
       Fail_FmtAssertion ("em_quad_arith: this quad rtype not handled");
@@ -202,12 +212,16 @@ extern WN *em_quad_trunc(WN * block, WN * tree)
   switch (WN_rtype(tree)) // convert from quad
   {
     case MTYPE_U4:
+      libfunc = SGI_Quad ? "__ji_quint" : "__fixtfsi";
+      break;
     case MTYPE_I4:
-      libfunc = "__fixtfsi";
+      libfunc = SGI_Quad ? "__ji_qint" : "__fixtfsi";
       break;
     case MTYPE_U8:
+      libfunc = SGI_Quad ? "__ki_quint" : "__fixtfdi";
+      break;
     case MTYPE_I8:
-      libfunc = "__fixtfdi";
+      libfunc = SGI_Quad ? "__ki_qint" : "__fixtfdi";
       break;
     default:
       Fail_FmtAssertion ("em_quad_cvt: TRUNC with quad rtype not supported");
@@ -259,22 +273,22 @@ extern WN *em_quad_cmp(WN *block, WN *tree)
   switch (WN_operator (tree))
   {
     case OPR_NE:
-      libfunc = "__netf2";
+      libfunc = SGI_Quad ? "__q_ne" : "__netf2";
       break;
     case OPR_EQ:
-      libfunc = "__eqtf2";
+      libfunc = SGI_Quad ? "__q_eq" : "__eqtf2";
       break;
     case OPR_LE:
-      libfunc = "__letf2";
+      libfunc = SGI_Quad ? "__q_le" : "__letf2";
       break;
     case OPR_LT:
-      libfunc = "__lttf2";
+      libfunc = SGI_Quad ? "__q_lt" : "__lttf2";
       break;
     case OPR_GE:
-      libfunc = "__getf2";
+      libfunc = SGI_Quad ? "__q_ge" : "__getf2";
       break;
     case OPR_GT:
-      libfunc = "__gttf2";
+      libfunc = SGI_Quad ? "__q_gt" : "__gttf2";
       break;
     default:
       Fail_FmtAssertion ("em_quad_cmp: unsupported relational operator");
@@ -310,8 +324,8 @@ extern WN *em_quad_cmp(WN *block, WN *tree)
 
   // Bug 12866: These library functions return an integer that must be
   // compared to zero (using the matching comparison OP) to obtain the
-  // boolean answer.
-  wn = WN_Relational(WN_operator(tree), WN_rtype(wn),
+  // boolean answer. SGI's return the answer itself.
+  wn = WN_Relational(SGI_Quad ? OPR_NE : WN_operator(tree), WN_rtype(wn),
 		     wn, WN_Intconst(rtype, 0));
  
   return wn;
@@ -319,8 +333,78 @@ extern WN *em_quad_cmp(WN *block, WN *tree)
 
 
 // Handles intrinsic comparison operations
+// Calls an SGI quad comparison routine FUNC (two long double arguments,
+// returning 1 or 0) on the values in pregs ARG0 and ARG1, and returns
+// the result as RTYPE.
+static WN *sgi_quad_compare_call(WN *block, const char *func, TYPE_ID qtype,
+				 PREG_NUM arg0, PREG_NUM arg1, TYPE_ID rtype)
+{
+  ST *st = new_func_st(func, rtype);
+  WN *call = WN_Create(OPR_CALL, rtype, MTYPE_V, 2);
+  WN_st_idx(call) = ST_st_idx(st);
+  WN_kid(call, 0) = WN_CreateParm(qtype, WN_LdidPreg(qtype, arg0),
+				  MTYPE_TO_TY_array[qtype], 0);
+  WN_kid(call, 1) = WN_CreateParm(qtype, WN_LdidPreg(qtype, arg1),
+				  MTYPE_TO_TY_array[qtype], 0);
+  WN_INSERT_BlockLast(block, call);
+
+  const PREG_NUM result = Create_Preg(rtype, ".emulation_value");
+  WN *ldid = WN_Ldid(rtype, -1, Return_Val_Preg, MTYPE_TO_TY_array[rtype]);
+  WN_INSERT_BlockLast(block,
+		      WN_StidIntoPreg(rtype, result, MTYPE_To_PREG(rtype), ldid));
+  return WN_LdidPreg(rtype, result);
+}
+
+// isgreater() and the other quiet comparisons for SGI double-double.
+// __q_gt and friends return 0 when an operand is NaN, as these must;
+// unlike the C99 macros they may raise the invalid exception for it.
+static WN *sgi_quad_intrn_cmp(WN *block, WN *tree)
+{
+  WN *opnd0 = WN_kid0(tree);
+  WN *opnd1 = WN_kid1(tree);
+  const TYPE_ID qtype = WN_rtype(opnd0);
+  TYPE_ID rtype = WN_rtype(tree);
+  if (MTYPE_is_unsigned(rtype)) rtype = MTYPE_complement(rtype);
+
+  const PREG_NUM arg0 = Create_Preg(qtype, ".emulation_argument");
+  const PREG_NUM arg1 = Create_Preg(qtype, ".emulation_argument");
+  WN_INSERT_BlockLast(block, WN_StidIntoPreg(qtype, arg0,
+					     MTYPE_To_PREG(qtype), opnd0));
+  WN_INSERT_BlockLast(block, WN_StidIntoPreg(qtype, arg1,
+					     MTYPE_To_PREG(qtype), opnd1));
+
+  const char *func = NULL;
+  OPERATOR opr = OPR_NE;		// result != 0
+  switch ((INTRINSIC) WN_intrinsic(tree))
+  {
+    case INTRN_ISGREATER:      func = "__q_gt"; break;
+    case INTRN_ISGREATEREQUAL: func = "__q_ge"; break;
+    case INTRN_ISLESS:         func = "__q_lt"; break;
+    case INTRN_ISLESSEQUAL:    func = "__q_le"; break;
+    case INTRN_ISUNORDERED:    func = "_qunordered"; break;
+    case INTRN_ISORDERED:      func = "_qunordered"; opr = OPR_EQ; break;
+    case INTRN_ISLESSGREATER:
+      {
+	// less or greater: at most one of them is 1
+	WN *lt = sgi_quad_compare_call(block, "__q_lt", qtype, arg0, arg1,
+				       rtype);
+	WN *gt = sgi_quad_compare_call(block, "__q_gt", qtype, arg0, arg1,
+				       rtype);
+	return WN_Relational(OPR_NE, rtype, WN_Add(rtype, lt, gt),
+			     WN_Intconst(rtype, 0));
+      }
+    default:
+      Fail_FmtAssertion("em_quad_intrn_cmp: unsupported intrinsic op");
+  }
+  WN *wn = sgi_quad_compare_call(block, func, qtype, arg0, arg1, rtype);
+  return WN_Relational(opr, rtype, wn, WN_Intconst(rtype, 0));
+}
+
 extern WN *em_quad_intrn_cmp(WN *block, WN *tree)
 {
+  if (SGI_Quad)
+    return sgi_quad_intrn_cmp(block, tree);
+
   Is_True (WN_operator(tree) == OPR_INTRINSIC_OP,
 	   ("em_quad_intrn_cmp: compare intrinsic operator expected"));
 

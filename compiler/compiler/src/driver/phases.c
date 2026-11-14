@@ -391,6 +391,11 @@ add_targ_options ( string_list_t *args )
     add_string(args, "-TARG:abi=n64");
   }
 
+  // IRIX long double is SGI double-double, emulated by libc's __q_*
+  // routines, not IEEE quad from libgcc.
+  if (is_target_os_irix())
+    add_string(args, "-TARG:sgi_quad=on");
+
   // -TARG:processor=xxx
   if (target_cpu != NULL) {
     char buf[100];

@@ -175,22 +175,32 @@ typedef union QUAD_REPRESENTATION
    long double a_longdouble;
 } Quad_Representation;
 
+static long double R16_To_RLD(QUAD_TYPE qt);
+static QUAD_TYPE RLD_To_R16(long double q);
+
+/* A QUAD is SGI's double-double format: the value is hi + lo, where hi
+ * is the value rounded to double. A QUAD_TYPE holds the host's long
+ * double, so convert by value; reinterpreting the bytes was only right
+ * on SGI hosts, whose long double was itself double-double.
+ */
 static QUAD
 R16_To_RQ(QUAD_TYPE qt)
 {
-   Quad_Representation repr;
-   
-   repr.a_quadtype = qt;
-   return repr.a_quad;
+   long double ld = R16_To_RLD(qt);
+   QUAD q;
+
+   q.hi = (double) ld;
+   if (q.hi - q.hi != 0.0)	/* infinity or NaN */
+     q.lo = 0.0;
+   else
+     q.lo = (double) (ld - (long double) q.hi);
+   return q;
 }
 
 static QUAD_TYPE
 RQ_To_R16(QUAD q)
 {
-   Quad_Representation repr;
-   
-   repr.a_quad = q;
-   return repr.a_quadtype;
+   return RLD_To_R16((long double) q.hi + (long double) q.lo);
 }
 
 static long double

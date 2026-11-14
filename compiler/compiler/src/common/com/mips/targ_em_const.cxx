@@ -60,6 +60,7 @@
 #include "erglob.h"		    /* EC_Inv_Mtype */
 #include "errors.h"		    /* Is_True(), ErrMsg(), etc. */
 #include "config_asm.h"		    /* ASM_CMNT, etc. */
+#include "config_targ_opt.h"	    /* SGI_Quad */
 
 #ifndef QIKKI_BE
 #include "stab.h"		    /* TY */
@@ -356,6 +357,14 @@ Targ_Emit_Const (FILE *fl,	    /* File to which to write */
 	}
 
       case MTYPE_FQ: {
+	if (SGI_Quad) {
+	  // SGI double-double: the high double, then the low one.
+	  Targ_Emit_Const(fl, Extract_Quad_Hi(tc), FALSE, 1, loc);
+	  Targ_Emit_Const(fl, Extract_Quad_Lo(tc), FALSE, 1, loc + 8);
+	  loc += 16;
+	  --rc;
+	  break;
+	}
         char *p = (char *) & TCON_R16(tc);
 	emit_bytes( fl, p, sizeof(TCON_R16(tc)) );
 	// fprintf(fl, "\t%s quad %#Lg\n", ASM_CMNT, TCON_R16(tc) );
@@ -365,6 +374,13 @@ Targ_Emit_Const (FILE *fl,	    /* File to which to write */
 	}
 
       case MTYPE_CQ: {
+	if (SGI_Quad) {
+	  Targ_Emit_Const(fl, Extract_Complex_Real(tc), FALSE, 1, loc);
+	  Targ_Emit_Const(fl, Extract_Complex_Imag(tc), FALSE, 1, loc + 16);
+	  loc += 32;
+	  --rc;
+	  break;
+	}
 	INT i;
         char *p = (char *) & TCON_R16(tc);
 	emit_bytes( fl, p, sizeof(TCON_R16(tc)) );

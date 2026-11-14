@@ -1706,7 +1706,12 @@ static WN *em_quad_neg(WN *block, WN *tree)
     ST	*npreg = MTYPE_To_PREG(newType);
 
 #ifdef TARG_MIPS
-    wn = WN_LdidPreg(newType, qN);  // Bug 12895
+    // Bug 12895: with IEEE quad only the half holding the sign changes.
+    // SGI double-double (hi + lo) negates both halves.
+    if (SGI_Quad)
+      wn = WN_Neg(newType, WN_LdidPreg(newType, qN));
+    else
+      wn = WN_LdidPreg(newType, qN);
 #else
     wn = WN_Neg(newType, WN_LdidPreg(newType, qN));
 #endif
@@ -1737,6 +1742,25 @@ static WN *em_quad_abs(WN *block, WN *tree)
   Is_True(! MTYPE_is_complex(type), ("em_quad_abs emulates FQ not CQ"));
   newType = MTYPE_F8;
   qNlo = qN+1;
+
+#ifdef TARG_MIPS
+  if (SGI_Quad)
+  {
+    // SGI double-double: |hi + lo| negates both halves when hi < 0
+    // (lo can have either sign, so it is not simply |lo|).
+    ST	*npreg = MTYPE_To_PREG(newType);
+    WN	*cond = WN_LT(newType, WN_LdidPreg(newType, qN),
+		      Make_Const(Host_To_Targ_Float(newType, 0.0)));
+    WN	*wn = WN_Select(newType, cond,
+			WN_Neg(newType, WN_LdidPreg(newType, qNlo)),
+			WN_LdidPreg(newType, qNlo));
+    WN_INSERT_BlockLast(block, WN_StidIntoPreg(newType, qNlo, npreg, wn));
+    wn = WN_Abs(newType, WN_LdidPreg(newType, qN));
+    WN_INSERT_BlockLast(block, WN_StidIntoPreg(newType, qN, npreg, wn));
+    WN_Delete(tree);
+    return WN_LdidPreg(type, qN);
+  }
+#endif
 
   {
     WN	*wn, *st;
