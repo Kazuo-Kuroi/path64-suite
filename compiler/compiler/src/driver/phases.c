@@ -993,8 +993,16 @@ void add_std_includes(string_list_t *args) {
         }
     }
 
+    // The compiler's own headers (stdarg.h, stddef.h, float.h, ...) normally
+    // come after the system's, which works where libc ships none of them.
+    // IRIX has its own <stdarg.h>, written for MIPSpro's builtins and
+    // argument layout: with it, va_arg does not even compile. Search the
+    // compiler's headers first there, as GCC does on every system.
+    if (is_target_os_irix())
+        add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
     add_inc_path(args, target_include_path());
-    add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
+    if (!is_target_os_irix())
+        add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
     // The front end's built-in search list holds the build host's
     // /usr/include. When targeting IRIX, use only the directories above.
     if (is_target_os_irix()) {
