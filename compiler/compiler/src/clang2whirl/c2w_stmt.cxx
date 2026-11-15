@@ -2413,8 +2413,20 @@ WN *WhirlStmtBuilder::ConvertDeclStmt(const DeclStmt *stmt) {
   TRACE_FUNC();
   WN *block = WhirlBlockUtil::nwBlock();
   for (const auto *decl : stmt->decls()) {
+    // Path64: a declaration with a variably modified type fixes the
+    // array bounds here, and a local VLA gets its storage here.
+    const VarDecl *vla_decl = dyn_cast<VarDecl>(decl);
+    if (vla_decl && vla_decl->getType()->isVariablyModifiedType() &&
+        vla_decl->hasLocalStorage())
+      _builder->EmitVariablyModifiedType(vla_decl->getType());
+    else
+      vla_decl = NULL;
+
     WhirlDeclBuilder decl_builder(_builder);
     decl_builder.ConvertDecl(const_cast<Decl *>(decl));
+
+    if (vla_decl && vla_decl->getType()->isVariableArrayType())
+      _builder->Emit_vla_alloca(vla_decl, _builder->Get_decl_st(vla_decl), block);
 
     WN *ret = NULL;
     if (isa<VarDecl>(decl)) {

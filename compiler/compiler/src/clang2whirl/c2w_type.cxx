@@ -1539,7 +1539,9 @@ Build_vtable_pointer(const Type *type) {
     Is_True(false, ("References shouldn't get here"));
 
   case Type::Auto:
+#if LLVM_VERSION_MAJOR >= 7
   case Type::DeducedTemplateSpecialization:
+#endif
     Is_True(false, ("Undeduced type shouldn't get here"));
 
   case Type::Pipe:
@@ -1904,10 +1906,20 @@ Extract_pbase_flags(ASTContext *ctx, QualType &type) {
     Flags |= PTI_Incomplete;
 
   if (auto *Proto = type->getAs<FunctionProtoType>()) {
+#if LLVM_VERSION_MAJOR >= 7
     if (Proto->isNothrow()) {
       Flags |= PTI_Noexcept;
       type = ctx->getFunctionTypeWithExceptionSpec(type, EST_None);
     }
+#else
+    // as Clang 4.0's ItaniumCXXABI.cpp
+    if (Proto->isNothrow(*ctx)) {
+      Flags |= PTI_Noexcept;
+      type = ctx->getFunctionType(
+          Proto->getReturnType(), Proto->getParamTypes(),
+          Proto->getExtProtoInfo().withExceptionSpec(EST_None));
+    }
+#endif
   }
 
   return Flags;
@@ -2029,7 +2041,9 @@ WhirlTypeBuilder::ConvertRTTIForType(QualType qtype) {
     llvm_unreachable("References shouldn't get here");
 
   case Type::Auto:
+#if LLVM_VERSION_MAJOR >= 7
   case Type::DeducedTemplateSpecialization:
+#endif
     llvm_unreachable("Undeduced type shouldn't get here");
 
   case Type::Pipe:

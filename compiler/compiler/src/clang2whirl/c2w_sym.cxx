@@ -190,7 +190,16 @@ WhirlSymBuilder::ConvertFunction(const FunctionDecl *decl,
   else
     Is_True(false, ("unknown language"));
 
-  GVALinkage linkage = _builder->Context()->GetGVALinkageForFunction(decl);
+  // Clang 4.0 only answers this for a definition (it asserts on an
+  // inline function that is declared but has no body yet).
+  GVALinkage linkage = GVA_StrongExternal;
+  {
+    const FunctionDecl *def = NULL;
+    if (decl->doesThisDeclarationHaveABody())
+      linkage = _builder->Context()->GetGVALinkageForFunction(decl);
+    else if (decl->hasBody(def) && def->doesThisDeclarationHaveABody())
+      linkage = _builder->Context()->GetGVALinkageForFunction(def);
+  }
   BOOL hasAliasAttr = decl->hasAttr<AliasAttr>();
   BOOL hasInlineAttr = decl->hasAttr<AlwaysInlineAttr>();
   if (decl->isInlineSpecified() || decl->isInlined() || hasInlineAttr ||
@@ -308,6 +317,14 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
   }
   ST *st = New_ST(symtab);
   TY_IDX ty_idx = _builder->TB().ConvertType(decl->getType());
+  // Path64: alignment asked for on the declaration (_Alignas, alignas,
+  // __attribute__((aligned))), as wgen does for DECL_USER_ALIGN. The
+  // alignment is part of the TY_IDX, so this affects only this symbol.
+  if (decl->hasAttr<AlignedAttr>()) {
+    UINT align = _builder->Context()->getDeclAlign(decl).getQuantity();
+    if (align > TY_align(ty_idx))
+      Set_TY_align(ty_idx, align);
+  }
   ST_Init(st, str_idx, CLASS_VAR, sclass, eclass, ty_idx);
   GVALinkage linkage = _builder->Context()->GetGVALinkageForVariable(decl);
   if (eclass != EXPORT_LOCAL &&

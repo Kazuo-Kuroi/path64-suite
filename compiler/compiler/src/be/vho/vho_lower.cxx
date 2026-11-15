@@ -4200,6 +4200,19 @@ vho_lower_expr ( WN * wn, WN * block, BOOL_INFO * bool_info )
       WN_kid1(wn) = vho_lower_expr (WN_kid1(wn), block, NULL);
       break;
 
+    case OPR_ILDA:
+
+      // Address of a field through a pointer, from the Clang front end
+      // (as in upstream Open64): base + offset.
+      WN_kid0(wn) = vho_lower_expr (WN_kid0(wn), block, NULL);
+      if (WN_lda_offset(wn) == 0) {
+        wn = WN_kid0(wn);
+      } else {
+        wn = WN_Add(Pointer_Mtype, WN_kid0(wn),
+                    WN_Intconst(Pointer_Mtype, WN_lda_offset(wn)));
+      }
+      break;
+
     case OPR_ARRAY:
 
       WN_kid0(wn) = vho_lower_expr (WN_kid0(wn), block, NULL);
@@ -4636,7 +4649,18 @@ static WN *
 vho_lower_istore ( WN * wn, WN * block )
 {
   WN_kid0(wn) = vho_lower_expr ( WN_kid0(wn), block, NULL );
-  WN_kid1(wn) = vho_lower_expr ( WN_kid1(wn), block, NULL );
+  WN *kid1 = WN_kid1(wn);
+  if (WN_operator(kid1) == OPR_ILDA && WN_field_id(wn) == 0) {
+    // Store through the address of a field (as in upstream Open64):
+    // fold the ILDA's offset, type and field into the ISTORE.
+    WN_kid0(kid1) = vho_lower_expr ( WN_kid0(kid1), block, NULL );
+    WN_kid1(wn) = WN_kid0(kid1);
+    WN_store_offset(wn) = WN_lda_offset(kid1);
+    WN_set_ty(wn, WN_ty(kid1));
+    WN_set_field_id(wn, WN_field_id(kid1));
+  } else {
+    WN_kid1(wn) = vho_lower_expr ( kid1, block, NULL );
+  }
   
   return wn;
 } /* vho_lower_istore */

@@ -43,7 +43,7 @@
 #include "c2w_scope.h"
 #include "c2w_lambda.h"
 
-extern BOOL emit_exceptions;  // from driver.cxx
+extern BOOL emit_exceptions;  // from whirl_gen.cxx
 extern BOOL TARGET_64BIT;
 
 namespace wgen {
@@ -239,6 +239,11 @@ public:
   ST_IDX Get_decl_st(const clang::Decl *decl);
 
   ST_IDX Get_vla_bound_st(const clang::Expr *expr);
+
+  // variable-length arrays
+  void EmitVariablyModifiedType(clang::QualType type);
+  WN *Emit_vla_size(clang::QualType type);
+  void Emit_vla_alloca(const clang::VarDecl *decl, ST_IDX st_idx, WN *block);
 
   void EmitTopLevelDecl(const clang::Decl *D);
 

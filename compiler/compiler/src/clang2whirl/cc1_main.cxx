@@ -1,7 +1,8 @@
-//
-// Copyright (C) 2019-2020 XC5 Limited, Inc.  All Rights Reserved.
-//
-
+// Path64: this file is Clang 4.0.1's tools/driver/cc1_main.cpp (University of
+// Illinois/NCSA license, see the header below) with the parts that need
+// LLVM targets, the integrated assembler or object-file PCH containers
+// compiled out under CLANG_2_WHIRL, as upstream clang2whirl did for its
+// Clang 7 copy.
 //===-- cc1_main.cpp - Clang CC1 Compiler Frontend ------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -18,13 +19,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Option/Arg.h"
-
 #ifndef CLANG_2_WHIRL
 #include "clang/CodeGen/ObjectFilePCHContainerOperations.h"
 #endif
-
 #include "clang/Config/config.h"
-#include "clang/Basic/Stack.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -35,41 +33,24 @@
 #include "clang/Frontend/Utils.h"
 #include "clang/FrontendTool/Utils.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Config/llvm-config.h"
-
 #ifndef CLANG_2_WHIRL
 #include "llvm/LinkAllPasses.h"
 #endif
-
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Signals.h"
-
 #ifndef CLANG_2_WHIRL
 #include "llvm/Support/TargetSelect.h"
 #endif
-
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdio>
 
 #ifdef CLANG_HAVE_RLIMITS
-
 #include <sys/resource.h>
-
-#endif
-
-#if LLVM_VERSION_MAJOR == 11
-// a hack to unknown LLVM optioon 'pgo-warn-misexpect'
-namespace llvm {
-static cl::opt<bool> PGOWarnMisExpect(
-    "pgo-warn-misexpect", cl::init(false), cl::Hidden,
-    cl::desc("Use this option to turn on/off "
-             "warnings about incorrect usage of llvm.expect intrinsics."));
-}
 #endif
 
 using namespace clang;
@@ -81,14 +62,14 @@ using namespace llvm::opt;
 
 static void LLVMErrorHandler(void *UserData, const std::string &Message,
                              bool GenCrashDiag) {
-  DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine *>(UserData);
-  
+  DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
+
   Diags.Report(diag::err_fe_error_backend) << Message;
-  
+
   // Run the interrupt handlers to make sure any special cleanups get done, in
   // particular that we remove files registered with RemoveFileOnSignal.
   llvm::sys::RunInterruptHandlers();
-  
+
   // We cannot recover from llvm errors.  When reporting a fatal error, exit
   // with status 70 to generate crash diagnostics.  For BSD systems this is
   // defined as an internal software error.  Otherwise, exit with status 1.
@@ -102,6 +83,13 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 #endif
 
 #ifdef CLANG_HAVE_RLIMITS
+// The amount of stack we think is "sufficient". If less than this much is
+// available, we may be unable to reach our template instantiation depth
+// limit and other similar limits.
+// FIXME: Unify this with the stack we request when spawning a thread to build
+// a module.
+static const int kSufficientStack = 8 << 20;
+
 #if defined(__linux__) && defined(__PIE__)
 static size_t getCurrentStackAllocation() {
   // If we can't compute the current stack usage, allow for 512K of command
@@ -139,7 +127,7 @@ static size_t getCurrentStackAllocation() {
 #include <alloca.h>
 
 LLVM_ATTRIBUTE_NOINLINE
-static void ensureStackAddressSpace() {
+static void ensureStackAddressSpace(int ExtraChunks = 0) {
   // Linux kernels prior to 4.1 will sometimes locate the heap of a PIE binary
   // relatively close to the stack (they are only guaranteed to be 128MiB
   // apart). This results in crashes if we happen to heap-allocate more than
@@ -148,7 +136,7 @@ static void ensureStackAddressSpace() {
   // To avoid these crashes, ensure that we have sufficient virtual memory
   // pages allocated before we start running.
   size_t Curr = getCurrentStackAllocation();
-  const int kTargetStack = DesiredStackSize - 256 * 1024;
+  const int kTargetStack = kSufficientStack - 256 * 1024;
   if (Curr < kTargetStack) {
     volatile char *volatile Alloc =
         static_cast<volatile char *>(alloca(kTargetStack - Curr));
@@ -157,9 +145,7 @@ static void ensureStackAddressSpace() {
   }
 }
 #else
-
 static void ensureStackAddressSpace() {}
-
 #endif
 
 /// Attempt to ensure that we have at least 8MiB of usable stack space.
@@ -167,47 +153,44 @@ static void ensureSufficientStack() {
   struct rlimit rlim;
   if (getrlimit(RLIMIT_STACK, &rlim) != 0)
     return;
-  
+
   // Increase the soft stack limit to our desired level, if necessary and
   // possible.
-  if (rlim.rlim_cur != RLIM_INFINITY &&
-      rlim.rlim_cur < rlim_t(DesiredStackSize)) {
+  if (rlim.rlim_cur != RLIM_INFINITY && rlim.rlim_cur < kSufficientStack) {
     // Try to allocate sufficient stack.
-    if (rlim.rlim_max == RLIM_INFINITY ||
-        rlim.rlim_max >= rlim_t(DesiredStackSize))
-      rlim.rlim_cur = DesiredStackSize;
+    if (rlim.rlim_max == RLIM_INFINITY || rlim.rlim_max >= kSufficientStack)
+      rlim.rlim_cur = kSufficientStack;
     else if (rlim.rlim_cur == rlim.rlim_max)
       return;
     else
       rlim.rlim_cur = rlim.rlim_max;
-    
+
     if (setrlimit(RLIMIT_STACK, &rlim) != 0 ||
-        rlim.rlim_cur != DesiredStackSize)
+        rlim.rlim_cur != kSufficientStack)
       return;
   }
-  
-  // We should now have a stack of size at least DesiredStackSize. Ensure
+
+  // We should now have a stack of size at least kSufficientStack. Ensure
   // that we can actually use that much, if necessary.
   ensureStackAddressSpace();
 }
-
 #else
 static void ensureSufficientStack() {}
 #endif
 
 int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   ensureSufficientStack();
-  
+
   std::unique_ptr<CompilerInstance> Clang(new CompilerInstance());
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
 
-#ifndef CLANG_2_WHIRL
   // Register the support for object-file-wrapped Clang modules.
+#ifndef CLANG_2_WHIRL
   auto PCHOps = Clang->getPCHContainerOperations();
   PCHOps->registerWriter(llvm::make_unique<ObjectFilePCHContainerWriter>());
   PCHOps->registerReader(llvm::make_unique<ObjectFilePCHContainerReader>());
 #endif
-  
+
   // Initialize targets first, so that --version shows registered targets.
 #ifndef CLANG_2_WHIRL
   llvm::InitializeAllTargets();
@@ -220,60 +203,52 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
   polly::initializePollyPasses(Registry);
 #endif
-  
+
   // Buffer diagnostics from argument parsing so that we can output them using a
   // well formed diagnostic object.
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagsBuffer);
-#if LLVM_VERSION_MAJOR == 11
-  bool Success = CompilerInvocation::CreateFromArgs(Clang->getInvocation(),
-                                                    Argv, Diags, Argv0);
-#else
   bool Success = CompilerInvocation::CreateFromArgs(
-    Clang->getInvocation(), Argv.begin(), Argv.end(), Diags);
-#endif
+      Clang->getInvocation(), Argv.begin(), Argv.end(), Diags);
+
   // Infer the builtin include path if unspecified.
   if (Clang->getHeaderSearchOpts().UseBuiltinIncludes &&
       Clang->getHeaderSearchOpts().ResourceDir.empty())
     Clang->getHeaderSearchOpts().ResourceDir =
       CompilerInvocation::GetResourcesPath(Argv0, MainAddr);
-  
+
   // Create the actual diagnostics engine.
   Clang->createDiagnostics();
   if (!Clang->hasDiagnostics())
     return 1;
-  
+
   // Set an error handler, so that any LLVM backend diagnostics go through our
   // error handler.
   llvm::install_fatal_error_handler(LLVMErrorHandler,
-                                    static_cast<void *>(&Clang->getDiagnostics()));
-  
+                                  static_cast<void*>(&Clang->getDiagnostics()));
+
   DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
   if (!Success)
     return 1;
-  
+
   // Execute the frontend actions.
   Success = ExecuteCompilerInvocation(Clang.get());
-  
+
   // If any timers were active but haven't been destroyed yet, print their
   // results now.  This happens in -disable-free mode.
   llvm::TimerGroup::printAll(llvm::errs());
-  
+
   // Our error handler depends on the Diagnostics object, which we're
   // potentially about to delete. Uninstall the handler now so that any
   // later errors use the default handling behavior instead.
   llvm::remove_fatal_error_handler();
-  
+
   // When running with -disable-free, don't do any destruction or shutdown.
   if (Clang->getFrontendOpts().DisableFree) {
-#if LLVM_VERSION_MAJOR == 11
-    llvm::BuryPointer(std::move(Clang));
-#else
     BuryPointer(std::move(Clang));
-#endif
     return !Success;
   }
-  
+
   return !Success;
 }

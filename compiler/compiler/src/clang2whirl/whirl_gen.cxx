@@ -43,6 +43,11 @@
 // dummy implementation for Rewrite
 #include "clang/Rewrite/Frontend/FrontendActions.h"
 
+// Emit C++ exception handling. Upstream set this in its copy of Clang's
+// driver by looking for -fcxx-exceptions; take it from the language
+// options instead.
+BOOL emit_exceptions = FALSE;
+
 namespace clang {
 
 CodeGenAction::CodeGenAction(unsigned _Act, llvm::LLVMContext *_VMContext)
@@ -83,6 +88,7 @@ std::unique_ptr<ASTConsumer>
 CodeGenAction::CreateASTConsumer(CompilerInstance &CI,
                                  StringRef InFile) {
   TRACE_FUNC();
+  emit_exceptions = CI.getLangOpts().CXXExceptions;
   std::string OutFile = CI.getFrontendOpts().OutputFile;
   if (OutFile.empty())
     OutFile = InFile.substr(0, InFile.rfind('.')).str() + ".B";

@@ -367,6 +367,22 @@ WhirlExprBuilder::ConvertArraySubscriptExpr(const ArraySubscriptExpr *expr) {
     ret_ty = Make_Pointer_Type(ty);
   }
 
+  // Path64: the element is itself a variable-length array (a[i] of
+  // int a[n][m]), so its size is not a constant: scale the index by the
+  // run-time size. (Upstream scaled by the array type's size, which is 0.)
+  if (expr->getType()->isArrayType() &&
+      expr->getType()->isVariablyModifiedType()) {
+    WN *idx = wn2;
+    if (MTYPE_byte_size(WN_rtype(idx)) < MTYPE_byte_size(Pointer_Mtype))
+      idx = WN_Cvt(WN_rtype(idx),
+                   MTYPE_is_signed(WN_rtype(idx)) ? MTYPE_I8 : MTYPE_U8, idx);
+    WN *ofst = WN_Mpy(Pointer_Mtype, idx,
+                      _builder->Emit_vla_size(expr->getType()));
+    Result r = Result::nwNode(WN_Add(Pointer_Mtype, wn0, ofst), ret_ty);
+    r.SetArray();
+    return r;
+  }
+
   // handle non-array and vector type
   if (TY_kind(obj_ty) != KIND_ARRAY ||
       TY_kind(ty) == KIND_ARRAY && TY_size(ty) >= TY_size(obj_ty)) {
@@ -661,10 +677,26 @@ Gen_wn_for_cmp(OPERATOR opr, TYPE_ID mtyp, TYPE_ID lhs_mtyp, TYPE_ID rhs_mtyp,
   return ret;
 }
 
+// Path64: for arithmetic on a pointer to a variable-length array, the
+// run-time size of the pointee; NULL otherwise.
+static WN *
+Vla_pointee_size(WhirlBuilder *builder, QualType t1, QualType t2) {
+  QualType types[2] = { t1, t2 };
+  for (int i = 0; i < 2; i++) {
+    if (const PointerType *ptr = types[i]->getAs<PointerType>()) {
+      QualType pointee = ptr->getPointeeType();
+      if (pointee->isArrayType() && pointee->isVariablyModifiedType())
+        return builder->Emit_vla_size(pointee);
+    }
+  }
+  return NULL;
+}
+
 // generate wn for BO_Add/BO_Sub/BO_AddAssign/BO_SubAssign
+// (vla_size: see Vla_pointee_size)
 static WN *
 Gen_wn_for_add_and_sub(BinaryOperatorKind opcode, TY_IDX ty_idx, TY_IDX lhs_ty, TY_IDX rhs_ty,
-                       WN *lhs, WN *rhs) {
+                       WN *lhs, WN *rhs, WN *vla_size = NULL) {
   Is_True((lhs != NULL && rhs != NULL),
           ("WN for Gen_wn_for_add_and_sub can not be NULL"));
   Is_True(ty_idx != (TY_IDX)0 && lhs_ty != (TY_IDX)0 && rhs_ty != (TY_IDX)0,
@@ -684,11 +716,13 @@ Gen_wn_for_add_and_sub(BinaryOperatorKind opcode, TY_IDX ty_idx, TY_IDX lhs_ty, 
                  TY_kind(rhs_ty) == KIND_POINTER &&
                  TY_kind(ty_idx) == KIND_SCALAR) {
     TY_IDX ty = TY_pointed(lhs_ty);
-    Is_True(TY_IDX_index(ty) == TY_IDX_index(TY_pointed(rhs_ty)),
-            ("should point to the same type"));
-
     TYPE_ID mtyp = TY_mtype(ty_idx);
     WN *diff = WN_Sub(mtyp, lhs, rhs);
+    // (two spellings of one VLA type can have different TY entries)
+    if (vla_size)
+      return WN_Div(mtyp, diff, vla_size);
+    Is_True(TY_IDX_index(ty) == TY_IDX_index(TY_pointed(rhs_ty)),
+            ("should point to the same type"));
     // don't generate DIV for void ty
     if (TY_size(ty) == 0)
       return diff;
@@ -717,6 +751,14 @@ Gen_wn_for_add_and_sub(BinaryOperatorKind opcode, TY_IDX ty_idx, TY_IDX lhs_ty, 
     TY_IDX pointed_ty = TY_pointed(ty_idx);
     // a fix for void pointed type: such as: (void *)c + 4
     UINT64 ty_size = TY_mtype(pointed_ty) == MTYPE_V ? 1 : TY_size(pointed_ty);
+    if (vla_size) {
+      if (MTYPE_byte_size(WN_rtype(adjust)) < MTYPE_byte_size(WN_rtype(base)))
+        adjust = WN_Cvt(WN_rtype(adjust),
+                        MTYPE_is_signed(WN_rtype(adjust)) ? MTYPE_I8 : MTYPE_U8,
+                        adjust);
+      lhs = base;
+      rhs = WN_Mpy(WN_rtype(base), adjust, vla_size);
+    } else
     if (WN_operator(adjust) != OPR_INTCONST) {
       WN *ofst = ty_size == 1 ? adjust
                               : WN_Mpy(WN_rtype(base), adjust,
@@ -760,7 +802,7 @@ WhirlExprBuilder::ConvertCXXMFPFromFA(const UnaryOperator* expr, INT64 ofst) {
   Is_True(TY_kind(ty) == KIND_STRUCT &&
           TY_size(ty) == 2 * MTYPE_byte_size(Pointer_Mtype),
           ("not member function type"));
-  ST_Init(tmp_st, Save_Str(".mpt.init"), CLASS_VAR,
+  ST_Init(tmp_st, Save_Unique_Str(".mpt.init"), CLASS_VAR,
           CURRENT_SYMTAB == GLOBAL_SYMTAB ? SCLASS_FSTATIC : SCLASS_AUTO,
           EXPORT_LOCAL, ty);
   const CXXMethodDecl *method = cast<CXXMethodDecl>(decl);
@@ -807,7 +849,7 @@ WhirlExprBuilder::ConvertCXXMFPFromWhirl(WN *value, TY_IDX ty, INT64 ofst) {
           ("not member function type"));
   // create a temp
   ST *tmp_st = New_ST(CURRENT_SYMTAB);
-  ST_Init(tmp_st, Save_Str(".mpt.temp"), CLASS_VAR,
+  ST_Init(tmp_st, Save_Unique_Str(".mpt.temp"), CLASS_VAR,
           CURRENT_SYMTAB == GLOBAL_SYMTAB ? SCLASS_FSTATIC : SCLASS_AUTO,
           EXPORT_LOCAL, ty);
   Set_ST_is_temp_var(tmp_st);
@@ -1022,7 +1064,8 @@ WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
       Update_pointee_ty(lhs_type, lhs_ty);
       Update_pointee_ty(rhs_type, rhs_ty);
       ret = Gen_wn_for_add_and_sub(opcode, ty_idx, lhs_ty,
-                                   rhs_ty, lhs, rhs);
+                                   rhs_ty, lhs, rhs,
+                                   Vla_pointee_size(_builder, lhs_type, rhs_type));
       break;
     }
     case clang::BO_Mul:
@@ -1453,7 +1496,10 @@ WhirlExprBuilder::ConvertCompoundAssignOperator(const CompoundAssignOperator *ex
     Update_pointee_ty(expr->getLHS()->getType(), lhs_ty);
     Update_pointee_ty(expr->getRHS()->getType(), rhs_ty);
     wn = Gen_wn_for_add_and_sub(opcode, compute_ty, lhs_ty,
-                                rhs_ty, cvt_lhs, rhs);
+                                rhs_ty, cvt_lhs, rhs,
+                                Vla_pointee_size(_builder,
+                                                 expr->getLHS()->getType(),
+                                                 expr->getRHS()->getType()));
     break;
   }
   case BO_AndAssign:
@@ -1480,7 +1526,7 @@ WhirlExprBuilder::ConvertCompoundAssignOperator(const CompoundAssignOperator *ex
 static ST_IDX Gen_local_var_st(TY_IDX ty_idx) {
   Is_True(ty_idx != (TY_IDX)0, ("invalid ty idx"));
   ST *st = New_ST(CURRENT_SYMTAB);
-  ST_Init(st, Save_Str(".init"), CLASS_VAR, SCLASS_PSTATIC, EXPORT_LOCAL, ty_idx);
+  ST_Init(st, Save_Unique_Str(".init"), CLASS_VAR, SCLASS_PSTATIC, EXPORT_LOCAL, ty_idx);
   return ST_st_idx(st);
 }
 
@@ -2016,6 +2062,8 @@ WhirlExprBuilder::EmitCXXNewDeleteCall(const CallExpr *expr,
         WN *comma = WGEN_CreateComma(ret_mtype, call_blk, ret);
         return Result::nwNode(comma, ret_ty_idx);
       }
+  Is_True(false, ("no matching deallocation function"));
+  return Result::nwNone();
 }
 
 Result
@@ -2429,7 +2477,7 @@ WhirlExprBuilder::ConvertCXXFunctionalCastExpr(const CXXFunctionalCastExpr *expr
 static ST_IDX
 GenINITOForCXXMFP(TY_IDX ty, INT64 ofst) {
   ST *tmp_st = New_ST(CURRENT_SYMTAB);
-  ST_Init(tmp_st, Save_Str(".init"), CLASS_VAR,
+  ST_Init(tmp_st, Save_Unique_Str(".init"), CLASS_VAR,
           SCLASS_PSTATIC, EXPORT_LOCAL, ty);
   Set_ST_is_initialized(tmp_st);
 
@@ -3222,6 +3270,18 @@ WhirlExprBuilder::ConvertDeclRefExpr(const DeclRefExpr *expr) {
 
   ST_IDX st_idx = _builder->Get_decl_st(value);
   Is_True(st_idx != ST_IDX_ZERO, ("bad st"));
+
+  // Path64: a local variable-length array lives in alloca'd storage; its
+  // symbol is based on the pointer to it (WhirlBuilder::Emit_vla_alloca),
+  // and, as in wgen, a reference to it is that pointer's value.
+  if (value->getType()->isVariableArrayType() &&
+      ST_base_idx(ST_ptr(st_idx)) != st_idx) {
+    ST *base = ST_base(ST_ptr(st_idx));
+    Result r = Result::nwNode(WN_Ldid(Pointer_Mtype, 0, base, ST_type(base)),
+                              ST_type(base));
+    r.SetArray();
+    return r;
+  }
 
   TY_IDX ty_idx = _builder->TB().ConvertType(value->getType());
   Result r = Result::nwSym(st_idx, ty_idx);
@@ -4848,33 +4908,11 @@ WhirlExprBuilder::ConvertPrePostIncDec(
     }
     else if (const PointerType *ptr = type->getAs<PointerType>()) {
       QualType ptree = ptr->getPointeeType();
-      if (const VariableArrayType *VAT =
-            _builder->Context()->getAsVariableArrayType(ptree)) {
-        // handle Array upper bound for VariableArrayType
-        WN *length = ConvertToNode(VAT->getSizeExpr());
-        TY_IDX rty = WN_type(length);
-        TYPE_ID mtyp = TY_mtype(rty);
-        ST *leng_st = Gen_Temp_Symbol(rty, "__save_expr");
-        WN *st_wn = WN_Stid(mtyp, 0, leng_st, rty, length);
-        WN_INSERT_BlockLast(block, st_wn);
-        WN_Set_Linenum(st_wn, spos);
-
-        TYPE_ID bound_type = Widen_mtype(mtyp);
-        TY_IDX bound_ty = MTYPE_To_TY(bound_type);
-        WN *ldid = WN_CreateLdid(OPR_LDID, bound_type, mtyp, 0, leng_st, rty);
-        WN *sub = WN_Binary(OPR_SUB, TY_mtype(rty), ldid,
-                            WN_Intconst(bound_type, 1));
-        ST *bound_st = Gen_Temp_Symbol(bound_ty, "__vla_bound");
-        WN *stid = WN_Stid(bound_type, 0, bound_st, bound_ty, sub);
-        WN_INSERT_BlockLast(block, stid);
-        WN_Set_Linenum(stid, spos);
-
-        WN *pragma = WN_CreateXpragma(WN_PRAGMA_COPYIN_BOUND, (ST_IDX)NULL, 1);
-        WN_kid0(pragma) = WN_Ldid(bound_type, 0, bound_st, bound_ty);
-        WN_INSERT_BlockLast(block, pragma);
-        WN_Set_Linenum(pragma, spos);
-
-        one = WN_COPY_Tree(ldid);
+      if (ptree->isArrayType() && ptree->isVariablyModifiedType()) {
+        // Path64: step by the run-time size of the VLA pointed to, from
+        // the saved bounds (upstream re-evaluated the size expression
+        // and stepped by the element count).
+        one = _builder->Emit_vla_size(ptree);
       }
       else {
         Is_True(!type->isFunctionType(), ("func ptr ++?"));
@@ -5658,14 +5696,14 @@ WhirlExprBuilder::ConvertUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr
   TY_IDX ty_idx = _builder->TB().ConvertType(expr->getType());
   if (expr->getKind() == UETT_SizeOf) {
     QualType type_to_size = expr->getTypeOfArgument();
-    if (const VariableArrayType *VAT =
-        _builder->Context()->getAsVariableArrayType(type_to_size)) {
-      TY_IDX ety = _builder->TB().ConvertType(VAT->getElementType());
-      WN *elem_cnt = ConvertToNode(VAT->getSizeExpr());
-      INT64 ty_size = TY_size(ety) ? TY_size(ety) : 1;
-      WN *size_cnt = WN_Mpy(TY_mtype(ty_idx), elem_cnt,
-                            WN_Intconst(TY_mtype(ty_idx), ty_size));
-      return Result::nwNode(size_cnt, ty_idx);
+    // Path64: every variably modified array type, from the saved bounds
+    // (upstream re-evaluated the size expression and handled only the
+    // outermost dimension)
+    if (type_to_size->isVariablyModifiedType() && type_to_size->isArrayType()) {
+      WN *size = _builder->Emit_vla_size(type_to_size);
+      if (WN_rtype(size) != TY_mtype(ty_idx))
+        size = WN_Cvt(WN_rtype(size), TY_mtype(ty_idx), size);
+      return Result::nwNode(size, ty_idx);
     }
   } else if (expr->getKind() == UETT_OpenMPRequiredSimdAlign) {
     Is_True(false, ("unsupported UETT_OpenMPRequiredSimdAlign for UnaryExprOrTypeTraitExpr"));

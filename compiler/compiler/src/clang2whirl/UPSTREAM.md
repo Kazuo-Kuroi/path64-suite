@@ -11,4 +11,7 @@ Futurewei Technologies:
 
 Upstream targets Clang 7.0.1 / 11.0.0 and the upstream Open64 WHIRL.
 Later commits in this tree port it to Clang 4.0.1 and to Path64's WHIRL;
-see `doc/frontend/clang-feasibility.md`.
+see `doc/frontend/clang-feasibility.md`, sections 7 and 8. Changes made
+for the port are marked "Path64" in comments. `c2w_path64.h/.cxx` hold
+the upstream-Open64 interfaces Path64 lacks. `driver.cxx` and
+`cc1_main.cxx` are Clang 4.0.1's own driver sources (NCSA license).

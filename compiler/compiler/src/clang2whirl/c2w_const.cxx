@@ -102,7 +102,7 @@ static ST_IDX
 Gen_local_var_st(TY_IDX ty_idx, SRCPOS spos) {
   Is_True(ty_idx != (TY_IDX)0, ("invalid ty idx"));
   ST *st = New_ST(CURRENT_SYMTAB);
-  ST_Init(st, Save_Str(".init"), CLASS_VAR, SCLASS_PSTATIC, EXPORT_LOCAL, ty_idx);
+  ST_Init(st, Save_Unique_Str(".init"), CLASS_VAR, SCLASS_PSTATIC, EXPORT_LOCAL, ty_idx);
   Set_ST_is_initialized(st);
   Set_ST_Srcpos(*st, spos);
   return ST_st_idx(st);
@@ -118,6 +118,28 @@ WhirlConstBuilder::ConvertCastExpr(const CastExpr *expr, QualType type) {
   TY_IDX to_ty = _builder->TB().ConvertType(to_type);
 
   CastKind kind = expr->getCastKind();
+
+  // Path64: let Clang evaluate constant conversions that involve floating
+  // point, so the value is converted, whatever the operand is. (Upstream
+  // converted literals only: (double) of a float constant such as
+  // __builtin_inff() kept the float's bit pattern.)
+  if ((kind == CK_FloatingCast || kind == CK_IntegralToFloating ||
+       kind == CK_FloatingToIntegral) &&
+      (to_type->isRealFloatingType() || to_type->isIntegerType())) {
+    Expr::EvalResult ev;
+    if (expr->EvaluateAsRValue(ev, *_builder->Context()) &&
+        !ev.HasSideEffects) {
+      if (ev.Val.isFloat() && to_type->isRealFloatingType())
+        return Result::nwTcon(Convert_float_to_tcon(to_ty, ev.Val.getFloat()),
+                              to_ty);
+      if (ev.Val.isInt() && to_type->isIntegerType())
+        return Result::nwIntConst(ev.Val.getInt().isSigned()
+                                    ? ev.Val.getInt().getSExtValue()
+                                    : (INT64) ev.Val.getInt().getZExtValue(),
+                                  to_ty);
+    }
+  }
+
   switch (kind) {
   case CK_FloatingCast:
   case CK_IntegralCast:

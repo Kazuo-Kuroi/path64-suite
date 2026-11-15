@@ -34,6 +34,7 @@ inline void Set_ST_Srcpos(ST &, SRCPOS) {}
 // Path64's back end does not use it.
 inline void Set_ST_is_odr(ST *) {}
 inline void Set_ST_is_vtable(ST *) {}
+inline void Set_ST_is_rtti(ST *) {}
 inline void Set_PU_is_constructor(PU &) {}
 inline void Set_FLD_is_virtual(FLD_HANDLE) {}
 
@@ -66,6 +67,11 @@ extern WN *WN_COPY_Tree_Without_Commas(WN *wn);
 // intrinsic, return the one for an operand of SIZE bytes; 1- and 2-byte
 // operands are reported as unsupported.
 extern INTRINSIC Sync_Intrinsic_For_Size(INTRINSIC i4, UINT size);
+
+// A fresh name "<prefix>.<n>" for a compiler-generated static. Path64's
+// emitter does not qualify static names that contain a '.', taking them
+// to be unique already, so each such symbol needs its own name.
+extern STR_IDX Save_Unique_Str(const char *prefix);
 
 #define BZERO(p, n) memset((p), 0, (n))
 

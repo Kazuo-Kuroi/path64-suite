@@ -1,4 +1,5 @@
-# clangfe: the Clang-based C/C++ front end, Clang AST -> WHIRL.
+# psclang: the Clang-based C/C++ front end, Clang AST -> WHIRL. The driver
+# runs it for -fpsclang.
 #
 # Built when PATH64_ENABLE_CLANG_FE is on. It needs a Clang/LLVM 4.0.1
 # build tree: set PATH64_CLANG_BUILD_DIR to the build directory and
@@ -23,9 +24,14 @@ endif()
 # All LLVM archives present in the build; the linker takes only what the
 # Clang libraries need (they are linked as one group).
 file(GLOB llvm_libfiles "${PATH64_CLANG_BUILD_DIR}/lib/libLLVM*.a")
-execute_process(COMMAND ${llvm_config} --system-libs
-                OUTPUT_VARIABLE llvm_system_libs OUTPUT_STRIP_TRAILING_WHITESPACE)
-separate_arguments(llvm_system_libs)
+# (llvm-config --system-libs refuses to answer when the build tree holds
+# only the libraries clang needs, so name them here.)
+find_package(Threads REQUIRED)
+find_package(ZLIB)
+set(llvm_system_libs ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+if(ZLIB_FOUND)
+    list(APPEND llvm_system_libs ${ZLIB_LIBRARIES})
+endif()
 
 set(clang_libs
     clangFrontendTool clangFrontend clangDriver clangSerialization
@@ -132,7 +138,7 @@ if(x8664_enabled)
     set(tg clangfe-${arch})
     path64_add_executable_for_arch(${tg} ${arch}
                                    ${clangfe_common_sources} ${clangfe_sources})
-    set_property(TARGET ${tg} PROPERTY OUTPUT_NAME clangfe)
+    set_property(TARGET ${tg} PROPERTY OUTPUT_NAME psclang)
     target_compile_definitions(${tg} PRIVATE ${clangfe_defs})
     target_include_directories(${tg} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -158,4 +164,14 @@ if(x8664_enabled)
         comutil-${arch} targinfo-${arch}
         -Wl,--start-group ${clang_libfiles} ${llvm_libfiles} -Wl,--end-group
         iberty cmplrs m ${llvm_system_libs})
+
+    # Clang's builtin headers, where the driver's -resource-dir points.
+    set(clang_resource_dir ${Path64_BINARY_DIR}/lib/clang)
+    add_custom_command(TARGET ${tg} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${PATH64_CLANG_BUILD_DIR}/lib/clang/${llvm_version}/include
+                ${clang_resource_dir}/include)
+    install(TARGETS ${tg} RUNTIME DESTINATION ${PATH64_LIB_PATH}/${arch})
+    install(DIRECTORY ${clang_resource_dir}/include
+            DESTINATION ${PATH64_LIB_PATH}/clang)
 endif()

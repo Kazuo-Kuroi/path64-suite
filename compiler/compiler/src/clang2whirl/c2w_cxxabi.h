@@ -58,6 +58,7 @@ inline clang::CXXCtorType toCXXCtorType(StructorType T) {
       REL_ASSERT(false, ("cannot have a deleting ctor"));
   }
   REL_ASSERT(false, ("not a StructorType"));
+  return clang::Ctor_Complete;
 }
 
 inline StructorType getFromCtorType(clang::CXXCtorType T) {
@@ -73,6 +74,7 @@ inline StructorType getFromCtorType(clang::CXXCtorType T) {
       REL_ASSERT(false, ("not expecting a closure"));
   }
   REL_ASSERT(false, ("not a CXXCtorType"));
+  return StructorType::Complete;
 }
 
 inline clang::CXXDtorType toCXXDtorType(StructorType T) {
@@ -85,6 +87,7 @@ inline clang::CXXDtorType toCXXDtorType(StructorType T) {
       return clang::Dtor_Deleting;
   }
   REL_ASSERT(false, ("not a StructorType"));
+  return clang::Dtor_Complete;
 }
 
 inline StructorType getFromDtorType(clang::CXXDtorType T) {
@@ -99,6 +102,7 @@ inline StructorType getFromDtorType(clang::CXXDtorType T) {
       REL_ASSERT(false, ("not expecting a COMDAT"));
   }
   REL_ASSERT(false, ("not a CXXDtorType"));
+  return StructorType::Complete;
 }
 
 class CXXABI {

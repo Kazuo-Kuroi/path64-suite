@@ -645,6 +645,184 @@ WhirlBuilder::Get_label_idx(const LabelDecl *decl) {
   return label_idx;
 }
 
+// Capture all the sizes for the VLA expressions in
+// the given variably-modified type and store them in _vla_size_map.
+void WhirlBuilder::EmitVariablyModifiedType(QualType type) {
+  Is_True(type->isVariablyModifiedType(),
+          ("Must pass variably modified type to EmitVariablyModifiedType"));
+
+  // We're going to walk down into the type and look for VLA
+  // expressions.
+  do {
+    Is_True(type->isVariablyModifiedType(),
+            ("should be variably modified type"));
+
+    const Type *ty = type.getTypePtr();
+    switch (ty->getTypeClass()) {
+    // These types are never variably-modified.
+    case Type::Builtin:
+    case Type::Complex:
+    case Type::Vector:
+    case Type::ExtVector:
+    case Type::Record:
+    case Type::Enum:
+    case Type::Elaborated:
+    case Type::TemplateSpecialization:
+    case Type::ObjCTypeParam:
+    case Type::ObjCObject:
+    case Type::ObjCInterface:
+    case Type::ObjCObjectPointer:
+      Is_True(false, ("type class is never variably-modified!"));
+
+    case Type::Adjusted:
+      type = cast<AdjustedType>(ty)->getAdjustedType();
+      break;
+
+    case Type::Decayed:
+      type = cast<DecayedType>(ty)->getPointeeType();
+      break;
+
+    case Type::Pointer:
+      type = cast<PointerType>(ty)->getPointeeType();
+      break;
+
+    case Type::BlockPointer:
+      type = cast<BlockPointerType>(ty)->getPointeeType();
+      break;
+
+    case Type::LValueReference:
+    case Type::RValueReference:
+      type = cast<ReferenceType>(ty)->getPointeeType();
+      break;
+
+    case Type::MemberPointer:
+      type = cast<MemberPointerType>(ty)->getPointeeType();
+      break;
+
+    case Type::ConstantArray:
+    case Type::IncompleteArray:
+      // Losing element qualification here is fine.
+      type = cast<ArrayType>(ty)->getElementType();
+      break;
+
+    case Type::VariableArray: {
+      const VariableArrayType *vat = cast<VariableArrayType>(ty);
+
+      if (const Expr *size = vat->getSizeExpr()) {
+        WhirlExprBuilder bldr(this);
+        WN *wn = bldr.ConvertToNode(size);
+        // Path64: store the bound whenever the array type refers to the
+        // bound temporary, which is unless the size is an integer
+        // literal (see ConvertVariableArrayType); upstream skipped any
+        // size that folded to a constant and left the temporary unset.
+        if (!isa<IntegerLiteral>(size)) {
+          TYPE_ID mtyp = WN_rtype(wn);
+          // get vla bound st for size expr
+          ST_IDX tmp_st = Get_vla_bound_st(size);
+          WN *st_wn = WN_Stid(mtyp, 0, ST_ptr(tmp_st), MTYPE_To_TY(mtyp),
+                              WN_Sub(mtyp, wn, WN_Intconst(mtyp, 1)));
+          WN_Set_Linenum(st_wn, ST_Srcpos(tmp_st));
+          WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), st_wn);
+        }
+      }
+      type = vat->getElementType();
+      break;
+    }
+
+    case Type::FunctionProto:
+    case Type::FunctionNoProto:
+      type = cast<FunctionType>(ty)->getReturnType();
+      break;
+
+    case Type::Paren:
+    case Type::TypeOf:
+    case Type::UnaryTransform:
+    case Type::Attributed:
+    case Type::SubstTemplateTypeParm:
+    case Type::PackExpansion:
+      // Keep walking after single level desugaring.
+      type = type.getSingleStepDesugaredType(*(Context()));
+      break;
+
+    case Type::Typedef:
+    case Type::Decltype:
+    case Type::Auto:
+#if LLVM_VERSION_MAJOR >= 7
+    case Type::DeducedTemplateSpecialization:
+#endif
+      // Stop walking: nothing to do.
+      return;
+
+    case Type::TypeOfExpr:
+    {
+      // Stop walking: emit typeof expression.
+      WhirlExprBuilder bldr(this);
+      bldr.ConvertToNode(cast<TypeOfExprType>(ty)->getUnderlyingExpr(),
+                         Result::nwNone(), FALSE);
+      return;
+    }
+
+    case Type::Atomic:
+      type = cast<AtomicType>(ty)->getValueType();
+      break;
+
+    case Type::Pipe:
+      type = cast<PipeType>(ty)->getElementType();
+      break;
+
+    default:
+      Is_True(false, ("unexpected dependent type"));
+    }
+  } while (type->isVariablyModifiedType());
+}
+
+// Path64: the size in bytes of a (possibly variably modified) type, using
+// the bounds saved by EmitVariablyModifiedType, so that the size is the
+// one fixed when the declaration was reached.
+WN *WhirlBuilder::Emit_vla_size(QualType type) {
+  const TYPE_ID mt = MTYPE_U8;
+  if (const VariableArrayType *vat = Context()->getAsVariableArrayType(type)) {
+    WN *count;
+    const Expr *size = vat->getSizeExpr();
+    if (const IntegerLiteral *lit = dyn_cast<IntegerLiteral>(size))
+      count = WN_Intconst(mt, lit->getValue().getZExtValue());
+    else {
+      ST_IDX bound = Get_vla_bound_st(size);
+      TY_IDX bty = ST_type(bound);
+      WN *ld = WN_Ldid(TY_mtype(bty), 0, bound, bty);
+      if (MTYPE_byte_size(TY_mtype(bty)) < 8)
+        ld = WN_Cvt(TY_mtype(bty), MTYPE_I8, ld);
+      count = WN_Add(mt, ld, WN_Intconst(mt, 1));   // bound is size - 1
+    }
+    return WN_Mpy(mt, count, Emit_vla_size(vat->getElementType()));
+  }
+  if (type->isVariablyModifiedType())
+    if (const ConstantArrayType *cat = Context()->getAsConstantArrayType(type))
+      return WN_Mpy(mt, WN_Intconst(mt, cat->getSize().getZExtValue()),
+                    Emit_vla_size(cat->getElementType()));
+  // constant size (a pointer to a VLA is just a pointer)
+  return WN_Intconst(mt, Context()->getTypeSizeInChars(type).getQuantity());
+}
+
+// Path64: allocate a local variable-length array, as wgen does: the
+// storage comes from alloca and the array's symbol is based on the
+// pointer to it. Call after EmitVariablyModifiedType. (The storage is
+// released when the function returns, not at the end of the block.)
+void WhirlBuilder::Emit_vla_alloca(const VarDecl *decl, ST_IDX st_idx, WN *block) {
+  ST *st = ST_ptr(st_idx);
+  ST *alloca_st = New_ST(CURRENT_SYMTAB);
+  ST_Init(alloca_st, Save_Str2(ST_name(st), ".vla"), CLASS_VAR, SCLASS_AUTO,
+          EXPORT_LOCAL, Make_Pointer_Type(ST_type(st), FALSE));
+  Set_ST_is_temp_var(alloca_st);
+  Set_ST_pt_to_unique_mem(alloca_st);
+  Set_ST_base_idx(st, ST_st_idx(alloca_st));
+  WN *wn = WN_CreateAlloca(Emit_vla_size(decl->getType()));
+  wn = WN_Stid(Pointer_Mtype, 0, alloca_st, ST_type(alloca_st), wn);
+  WN_Set_Linenum(wn, SetSrcPos(getLocation(decl)));
+  WN_INSERT_BlockLast(block, wn);
+  Set_PU_has_alloca(Get_Current_PU());
+}
+
 ST_IDX
 WhirlBuilder::Get_vla_bound_st(const Expr *expr) {
   VLA_SIZE_MAP::iterator it = _vla_size_map.find(expr);

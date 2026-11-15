@@ -76,6 +76,7 @@ public:
     if (fp == NULL)
       return NULL;
     RegisterFile(name, fp, kind, FS_ACTIVE);
+    return fp;
   }
   
   static FILE *DefaultTraceFile() {

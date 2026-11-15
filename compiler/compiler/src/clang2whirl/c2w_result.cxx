@@ -287,6 +287,7 @@ Result::ConvertToRValue(TY_IDX rty) {
     // TODO
     return Result::nwNone();
   }
+  return Result::nwNone();
 }
 
 

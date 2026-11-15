@@ -1038,6 +1038,20 @@ void add_std_includes(string_list_t *args) {
 #endif // PATH64_ENABLE_PSCRUNTIME
 
 
+// Points psclang at its builtin headers (stddef.h, stdarg.h, intrinsics),
+// which are Clang's own and are staged in lib/<version>/clang.
+static void add_psclang_resource_dir(string_list_t *args) {
+    char *exe_dir = get_executable_dir();
+    char *root = directory_path(exe_dir);
+    char *dir = NULL;
+    free(exe_dir);
+    asprintf(&dir, "%s/lib/" PSC_FULL_VERSION "/clang", root);
+    free(root);
+    add_string(args, "-resource-dir");
+    add_string(args, dir);
+    free(dir);
+}
+
 // Adds language args for psclang
 void add_psclang_language_args(string_list_t *args) {
     add_string(args, "-x");
@@ -1309,6 +1323,7 @@ add_file_args (string_list_t *args, phases_t index)
         
         // language
         add_psclang_language_args(args);
+        add_psclang_resource_dir(args);
 
         if (source_lang == L_CC) {
             add_string(args, "-D_GNU_SOURCE");
@@ -1628,6 +1643,7 @@ add_file_args (string_list_t *args, phases_t index)
         
         add_abi(args);
         add_psclang_language_args(args);
+        add_psclang_resource_dir(args);
         
         if (!option_was_seen(O_ffreestanding) && !fbuiltin)
             add_string(args, "-fno-builtin" );
@@ -1635,10 +1651,15 @@ add_file_args (string_list_t *args, phases_t index)
         if (!fmath_errno)
             add_string(args, "-fno-math-errno");
 
-        add_string(args, "-Wno-all");
+        // (PathScale's psclang got -Wno-all here. That also turns off the
+        // warnings that -pedantic-errors promotes to errors, such as
+        // implicit function declarations in C99, so it is not passed.)
         add_string(args, "-c");
         add_string(args, "-fcolor-diagnostics");
-        add_string(args, "-whirl");
+        // psclang is Clang's driver with its code generator replaced by
+        // the WHIRL generator (src/clang2whirl), so "emit LLVM" means
+        // "emit WHIRL". PathScale's own psclang took -whirl here.
+        add_string(args, "-emit-llvm");
         
         add_string(args, input_source);
         

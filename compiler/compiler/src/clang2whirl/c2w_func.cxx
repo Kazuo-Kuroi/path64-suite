@@ -720,133 +720,6 @@ WhirlFuncBuilder::EmitVTableFieldInitialization(WN *blk, const CXXRecordDecl *de
   }
 }
 
-// Capture all the sizes for the VLA expressions in
-// the given variably-modified type and store them in _vla_size_map.
-void WhirlFuncBuilder::EmitVariablyModifiedType(QualType type) {
-  Is_True(type->isVariablyModifiedType(),
-          ("Must pass variably modified type to EmitVariablyModifiedType"));
-
-  // We're going to walk down into the type and look for VLA
-  // expressions.
-  do {
-    Is_True(type->isVariablyModifiedType(),
-            ("should be variably modified type"));
-
-    const Type *ty = type.getTypePtr();
-    switch (ty->getTypeClass()) {
-    // These types are never variably-modified.
-    case Type::Builtin:
-    case Type::Complex:
-    case Type::Vector:
-    case Type::ExtVector:
-    case Type::Record:
-    case Type::Enum:
-    case Type::Elaborated:
-    case Type::TemplateSpecialization:
-    case Type::ObjCTypeParam:
-    case Type::ObjCObject:
-    case Type::ObjCInterface:
-    case Type::ObjCObjectPointer:
-      Is_True(false, ("type class is never variably-modified!"));
-
-    case Type::Adjusted:
-      type = cast<AdjustedType>(ty)->getAdjustedType();
-      break;
-
-    case Type::Decayed:
-      type = cast<DecayedType>(ty)->getPointeeType();
-      break;
-
-    case Type::Pointer:
-      type = cast<PointerType>(ty)->getPointeeType();
-      break;
-
-    case Type::BlockPointer:
-      type = cast<BlockPointerType>(ty)->getPointeeType();
-      break;
-
-    case Type::LValueReference:
-    case Type::RValueReference:
-      type = cast<ReferenceType>(ty)->getPointeeType();
-      break;
-
-    case Type::MemberPointer:
-      type = cast<MemberPointerType>(ty)->getPointeeType();
-      break;
-
-    case Type::ConstantArray:
-    case Type::IncompleteArray:
-      // Losing element qualification here is fine.
-      type = cast<ArrayType>(ty)->getElementType();
-      break;
-
-    case Type::VariableArray: {
-      const VariableArrayType *vat = cast<VariableArrayType>(ty);
-
-      if (const Expr *size = vat->getSizeExpr()) {
-        WhirlExprBuilder bldr(_builder);
-        WN *wn = bldr.ConvertToNode(size);
-        if (WN_operator(wn) != OPR_INTCONST) {
-          TYPE_ID mtyp = WN_rtype(wn);
-          // get vla bound st for size expr
-          ST_IDX tmp_st = _builder->Get_vla_bound_st(size);
-          WN *st_wn = WN_Stid(mtyp, 0, ST_ptr(tmp_st), MTYPE_To_TY(mtyp),
-                              WN_Sub(mtyp, wn, WN_Intconst(mtyp, 1)));
-          WN_Set_Linenum(st_wn, ST_Srcpos(tmp_st));
-          WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), st_wn);
-        }
-      }
-      type = vat->getElementType();
-      break;
-    }
-
-    case Type::FunctionProto:
-    case Type::FunctionNoProto:
-      type = cast<FunctionType>(ty)->getReturnType();
-      break;
-
-    case Type::Paren:
-    case Type::TypeOf:
-    case Type::UnaryTransform:
-    case Type::Attributed:
-    case Type::SubstTemplateTypeParm:
-    case Type::PackExpansion:
-      // Keep walking after single level desugaring.
-      type = type.getSingleStepDesugaredType(*(_builder->Context()));
-      break;
-
-    case Type::Typedef:
-    case Type::Decltype:
-    case Type::Auto:
-#if LLVM_VERSION_MAJOR >= 7
-    case Type::DeducedTemplateSpecialization:
-#endif
-      // Stop walking: nothing to do.
-      return;
-
-    case Type::TypeOfExpr:
-    {
-      // Stop walking: emit typeof expression.
-      WhirlExprBuilder bldr(_builder);
-      bldr.ConvertToNode(cast<TypeOfExprType>(ty)->getUnderlyingExpr(),
-                         Result::nwNone(), FALSE);
-      return;
-    }
-
-    case Type::Atomic:
-      type = cast<AtomicType>(ty)->getValueType();
-      break;
-
-    case Type::Pipe:
-      type = cast<PipeType>(ty)->getElementType();
-      break;
-
-    default:
-      Is_True(false, ("unexpected dependent type"));
-    }
-  } while (type->isVariablyModifiedType());
-}
-
 PU_Info *
 WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   const FunctionDecl *decl = cast<FunctionDecl>(gd.getDecl());
@@ -955,7 +828,7 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     // make sure to emit the type size.
     QualType parm_type = parm->getOriginalType();
     if (parm_type->isVariablyModifiedType()) {
-      EmitVariablyModifiedType(parm_type);
+      _builder->EmitVariablyModifiedType(parm_type);
     }
 
     TY_IDX fty_idx = _builder->TB().ConvertType(parm->getType());

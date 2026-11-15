@@ -690,7 +690,7 @@ Convert_complex_float_to_tcon(TY_IDX ty_idx, const llvm::APFloat real, const llv
     Is_True(&real.getSemantics() == &llvm::APFloat::IEEEdouble() &&
             &imag.getSemantics() == &llvm::APFloat::IEEEdouble(),
            ("not IEEE double"));
-    tcon = Host_To_Targ_Complex(MTYPE_C8, real.convertToDouble(), real.convertToDouble());
+    tcon = Host_To_Targ_Complex(MTYPE_C8, real.convertToDouble(), imag.convertToDouble());  // Path64: was real twice
     break;
   case 24:
   case 32:

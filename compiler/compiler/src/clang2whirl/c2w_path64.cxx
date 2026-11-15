@@ -10,6 +10,7 @@
 #include "c2w_path64.h"
 #include "errors.h"
 #include "erglob.h"
+#include "strtab.h"
 
 static std::map<TY_IDX, ST_IDX> ty_vtable;
 static std::map<ST_IDX, TY_IDX> vtable_ty;
@@ -34,6 +35,12 @@ TY_IDX ST_vtable_ty_idx(const ST *st)
 void Set_ST_vtable_ty_idx(ST *st, TY_IDX ty)
 {
   vtable_ty[ST_st_idx(st)] = ty;
+}
+
+STR_IDX Save_Unique_Str(const char *prefix)
+{
+  static UINT32 counter;
+  return Save_Str2i(prefix, ".", ++counter);
 }
 
 void Set_INITV_lab_flags(INITV_IDX, INT16 flags)

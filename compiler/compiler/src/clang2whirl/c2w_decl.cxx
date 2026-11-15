@@ -379,7 +379,7 @@ WhirlDeclBuilder::ConvertAPValue(QualType type, const APValue *value, INT repeat
                     TY_kind(r.Ty()) == KIND_STRUCT, ("not array type or struct type"));
             if (TY_kind(ty) == KIND_POINTER) {
               ST *st = New_ST(CURRENT_SYMTAB);
-              ST_Init(st, Save_Str(".init"), CLASS_VAR, SCLASS_PSTATIC, EXPORT_LOCAL, r.Ty());
+              ST_Init(st, Save_Unique_Str(".init"), CLASS_VAR, SCLASS_PSTATIC, EXPORT_LOCAL, r.Ty());
               Set_ST_is_initialized(st);
               New_INITO(ST_st_idx(st), r.InitV());
               inv = New_INITV();
@@ -1071,6 +1071,17 @@ WhirlDeclBuilder::ConvertFunction(GlobalDecl gd) {
   TRACE_FUNC();
 
   const FunctionDecl *decl = cast<FunctionDecl>(gd.getDecl());
+  // Path64: a use names the most recent declaration, which need not be
+  // the one with the body (C99: "inline int f() {...}" followed by
+  // "extern inline int f();"). Convert the definition.
+  if (!decl->doesThisDeclarationHaveABody() &&
+      !isa<CXXConstructorDecl>(decl) && !isa<CXXDestructorDecl>(decl)) {
+    const FunctionDecl *def = NULL;
+    if (decl->hasBody(def) && def->doesThisDeclarationHaveABody()) {
+      decl = def;
+      gd = GlobalDecl(def);
+    }
+  }
   ST_IDX st_idx = (ST_IDX) 0;
   if (decl->doesThisDeclarationHaveABody() ||
       decl->doesDeclarationForceExternallyVisibleDefinition()) {

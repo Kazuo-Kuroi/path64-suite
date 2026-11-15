@@ -278,6 +278,91 @@ The work that remains is semantic:
 * the IRIX target and MIPS `va_arg`;
 * validation against wgen's output.
 
+## 8. Phase 1 status: C through the Clang front end (November 2026)
+
+clang2whirl is in `compiler/compiler/src/clang2whirl`, ported to Clang
+4.0.1 and Path64's WHIRL, and builds as `psclang`. `pathcc -fpsclang`
+runs it through the driver's existing psclang phases; the default is
+still the GCC front end. x86-64 only so far.
+
+Build it by adding to the cmake command:
+
+    -DPATH64_ENABLE_CLANG_FE=ON
+    -DPATH64_CLANG_SOURCE_DIR=<llvm-4.0.1.src, with clang in tools/clang>
+    -DPATH64_CLANG_BUILD_DIR=<its build directory>
+
+psclang is Clang's own driver and cc1 with the LLVM code generator
+replaced: it links Clang's libraries except clangCodeGen, and
+`whirl_gen.cxx` provides `clang::CodeGenAction`. The driver therefore
+asks it to "emit LLVM" (`-emit-llvm`) to get a `.B` file, and passes
+`-resource-dir` for Clang's builtin headers, staged in
+`lib/<version>/clang/include`.
+
+**Results on x86-64** (same tests as the GCC front end, `-O0` and `-O2`):
+
+| Test | GCC 4.2 front end | Clang front end |
+|---|---|---|
+| C probes (20) | 15 pass; five C11 ones fail | 18 pass |
+| compiler-rt unit tests (108, also `-O3`) | 70 pass | 70 pass, the same ones |
+| ABI cross-tests with GCC 14 (3 sets, 4 caller/callee pairs) | all match | all match |
+
+* The C probes that now pass and can't with GCC 4.2: `_Generic`,
+  `_Static_assert` and `_Thread_local`.
+* The two that fail:
+  * `_Alignas(32)` on a local variable: the x86-64 back end doesn't
+    realign the stack beyond 16 bytes. The GCC front end's
+    `__attribute__((aligned(32)))` behaves the same.
+  * `<stdatomic.h>`: C11 and `__atomic_*` operations are not mapped to
+    Path64's intrinsics yet (compile-time failure).
+* The 38 compiler-rt tests that fail under both are the 128-bit integer
+  tests.
+
+**What the port needed**, beyond the mechanical fixes of section 7:
+
+* *Missing in upstream, written here:*
+  * local variable-length arrays: allocation with `alloca` as wgen does,
+    bounds saved at the declaration, `sizeof`, indexing and pointer
+    arithmetic on multi-dimensional VLAs;
+  * `_Alignas`/`aligned` on variables;
+  * `__builtin_bswap*`, `isnormal`, `isinf_sign`, `signbit` and
+    `__builtin_object_size` as WHIRL expressions (upstream used
+    intrinsics Path64 lacks, or glibc-internal functions).
+* *Upstream bugs fixed:*
+  * constant conversions between floating types kept the source's bit
+    pattern unless the operand was a literal (`double d = INFINITY;`);
+  * `double _Complex` constants used the real part twice;
+  * a C99 `inline` definition followed by `extern inline` was not emitted;
+  * `-pedantic-errors` could not reject anything, because the driver
+    passed `-Wno-all`.
+* *Path64 back end:*
+  * the `ILDA` operator (address of a field through a pointer), which
+    upstream Open64 added and clang2whirl emits, is now lowered in VHO
+    as upstream does;
+  * the symbol-table verifier accepts unnamed array types.
+* *Clang 4.0 differences:* `GetGVALinkageForFunction` only accepts
+  definitions; the builtin ranges, deduced template specializations and
+  fixed-point types of Clang 7 are compiled out.
+
+**Known gaps** (C):
+
+* C11 atomics; `__sync_*` on 1- and 2-byte operands (Path64 has 4- and
+  8-byte intrinsics).
+* A VLA declared in a loop body is released when the function returns,
+  not at the end of each iteration (wgen saves and restores the stack
+  pointer per scope).
+* Static initializers with label differences (`&&a - &&b`).
+* OpenMP; debug information is minimal (section 3).
+* Several library builtins map to glibc-internal names (`__isnan`,
+  `__finite`, `__fpclassify`): fine on Linux, to be replaced for IRIX.
+* `-O` level, `-g` and most `-f` options are not yet passed through to
+  psclang's WHIRL generation the way they are to wgen.
+* C++ compiles in upstream but hasn't been exercised here. One thing to
+  fix first: upstream marks inline/template functions local and relies
+  on an "ODR" symbol flag Path64 doesn't have.
+
+**Next:** phase 2 is the rest of C (atomics, VLA scopes, options, debug
+info) and a larger C corpus, then the IRIX `TargetInfo`. Phase 3 is C++.
+
 ## Sources
 
 * PathScale EKOPath 5 announcement, 5 December 2013:

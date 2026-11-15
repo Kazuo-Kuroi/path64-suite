@@ -354,6 +354,105 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   BOOL intrinsic_call = FALSE;
   BOOL whirl_generated = FALSE;
 
+  // Path64: builtins upstream maps to intrinsics that Path64 lacks, or to
+  // glibc-internal functions; expanded here as WHIRL expressions.
+  switch (builtin_id) {
+  case Builtin::BI__builtin_bswap16:
+  case Builtin::BI__builtin_bswap32:
+  case Builtin::BI__builtin_bswap64:
+  case Builtin::BI__builtin_isinf_sign:
+  case Builtin::BI__builtin_isnormal:
+  case Builtin::BI__builtin_signbit:
+  case Builtin::BI__builtin_signbitf:
+  case Builtin::BI__builtin_signbitl:
+    {
+      // evaluate the operand once, into a temporary
+      const Expr *arg = expr->getArg(0);
+      TY_IDX arg_ty = _builder->TB().ConvertType(arg->getType());
+      TYPE_ID amt = TY_mtype(arg_ty);
+      WN *blk = WN_CreateBlock();
+      WN *stid = WGEN_StidTemp(arg_ty, ConvertToNode(arg), ".builtin.arg");
+      WN_Set_Linenum(stid, GetSrcPos());
+      WN_INSERT_BlockLast(blk, stid);
+#define C2W_ARG() WN_Ldid(amt, WN_offset(stid), WN_st(stid), arg_ty)
+      WN *val = NULL;
+      TYPE_ID vmt = MTYPE_I4;
+      if (builtin_id == Builtin::BI__builtin_bswap16 ||
+          builtin_id == Builtin::BI__builtin_bswap32 ||
+          builtin_id == Builtin::BI__builtin_bswap64) {
+        INT bytes = TY_size(arg_ty);
+        vmt = bytes == 8 ? MTYPE_U8 : MTYPE_U4;
+        for (INT i = 0; i < bytes; i++) {
+          // byte i moves to byte (bytes - 1 - i)
+          WN *b = WN_Band(vmt, WN_Lshr(vmt, C2W_ARG(), WN_Intconst(MTYPE_I4, 8 * i)),
+                          WN_Intconst(vmt, 0xff));
+          b = WN_Shl(vmt, b, WN_Intconst(MTYPE_I4, 8 * (bytes - 1 - i)));
+          val = val ? WN_Bior(vmt, val, b) : b;
+        }
+      }
+      else if (builtin_id == Builtin::BI__builtin_signbit ||
+               builtin_id == Builtin::BI__builtin_signbitf ||
+               builtin_id == Builtin::BI__builtin_signbitl) {
+        // The sign bit of the representation (this also holds for -0 and
+        // NaN); converting long double to double keeps the sign.
+        WN *x = C2W_ARG();
+        TYPE_ID fmt = amt;
+        if (fmt != MTYPE_F4 && fmt != MTYPE_F8) {
+          x = WN_Cvt(fmt, MTYPE_F8, x);
+          fmt = MTYPE_F8;
+        }
+        TYPE_ID umt = fmt == MTYPE_F4 ? MTYPE_U4 : MTYPE_U8;
+        val = WN_Lshr(umt, WN_Tas(umt, MTYPE_To_TY(umt), x),
+                      WN_Intconst(MTYPE_I4, MTYPE_bit_size(umt) - 1));
+        if (umt == MTYPE_U8)
+          val = WN_Cvt(MTYPE_U8, MTYPE_I4, val);
+      }
+      else {
+        const llvm::fltSemantics &sem =
+          _builder->Context()->getFloatTypeSemantics(arg->getType());
+#define C2W_FCONST(v) \
+        WN_CreateConst(OPR_CONST, amt, MTYPE_V, \
+                       New_Const_Sym(Convert_float_to_tcon(arg_ty, v), arg_ty))
+        if (builtin_id == Builtin::BI__builtin_isinf_sign) {
+          // (x == +inf) - (x == -inf)
+          val = WN_Sub(MTYPE_I4,
+                       WN_EQ(amt, C2W_ARG(), C2W_FCONST(llvm::APFloat::getInf(sem, false))),
+                       WN_EQ(amt, C2W_ARG(), C2W_FCONST(llvm::APFloat::getInf(sem, true))));
+        } else {
+          // isnormal: smallest normal <= |x| <= largest finite
+          // (false for NaN, infinity, zero and subnormals)
+          val = WN_Band(MTYPE_I4,
+                        WN_GE(amt, WN_Abs(amt, C2W_ARG()),
+                              C2W_FCONST(llvm::APFloat::getSmallestNormalized(sem))),
+                        WN_LE(amt, WN_Abs(amt, C2W_ARG()),
+                              C2W_FCONST(llvm::APFloat::getLargest(sem))));
+        }
+#undef C2W_FCONST
+      }
+#undef C2W_ARG
+      return Result::nwNode(WGEN_CreateComma(vmt, blk, val), ty);
+    }
+
+  case Builtin::BI__builtin_object_size:
+    {
+      // Clang folds this when it can; otherwise the documented "don't
+      // know" answers: (size_t)-1 for types 0 and 1, 0 for 2 and 3.
+      llvm::APSInt v;
+      INT64 size;
+      if (expr->EvaluateAsInt(v, *_builder->Context()))
+        size = v.getSExtValue();
+      else {
+        llvm::APSInt kind =
+          expr->getArg(1)->EvaluateKnownConstInt(*_builder->Context());
+        size = (kind.getZExtValue() & 2) ? 0 : -1;
+      }
+      return Result::nwNode(WN_Intconst(Mtype_comparison(TY_mtype(ty)), size), ty);
+    }
+
+  default:
+    break;
+  }
+
   // check clang/Basic/Builtins.def for all builtins
   switch (builtin_id) {
   // here we uses GNU extionsion for case range
@@ -456,10 +555,6 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       return GenerateCall(fname, ret_ty, 1, parm, retv);
     }
 
-  case Builtin::BI__builtin_isinf_sign:
-    Is_True(FALSE, ("__builtin_isinf_sign is handled already"));
-    return Result::nwNone();
-
   case Builtin::BI__builtin_isnan:
     {
       Is_True(expr->getNumArgs() == 1, ("invalid arg num"));
@@ -478,28 +573,7 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       return GenerateCall(fname, ret_ty, 1, parm, retv);
     }
 
-  case Builtin::BI__builtin_isnormal:
-    Is_True(FALSE, ("__builtin_isinf_sign is handled already"));
-    return Result::nwNone();
-
   // FP signbit builtins
-  case Builtin::BI__builtin_signbit ... Builtin::BI__builtin_signbitl:
-    {
-      Is_True(expr->getNumArgs() == 1, ("invalid arg num"));
-      const Expr *arg = expr->getArg(0);
-      TY_IDX ret_ty = _builder->TB().ConvertType(expr->getType());
-      const char *fname = NULL;
-      switch (builtin_id) {
-      case Builtin::BI__builtin_signbit:  fname = "__signbit";  break;
-      case Builtin::BI__builtin_signbitf: fname = "__signbitf"; break;
-      case Builtin::BI__builtin_signbitl: fname = "__signbitl"; break;
-      default:
-        Is_True(FALSE, ("unsupported builtin %d", builtin_id));
-      }
-      const Expr *parm[1] = { arg };
-      return GenerateCall(fname, ret_ty, 1, parm, retv);
-    }
-
   // Special FP builtins
   case Builtin::BI__builtin_canonicalize ... Builtin::BI__builtin_canonicalizel:
     return Result::nwNone();
@@ -796,11 +870,13 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
 
   // ignore MS builtins
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BIva_start:                         // C99 atdarg.h
   case Builtin::BIva_end:
   case Builtin::BIva_copy:
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
+#endif
 
   // generate nornal CALL for below intrinsics
 #if LLVM_VERSION_MAJOR >= 7
@@ -879,7 +955,11 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     Is_True(expr->getNumArgs() == 3, ("invalid arg num"));
     return GenerateCall("memchr", ty, 3, expr->getArgs(), retv);
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BI__builtin_dump_struct:
+#else
+  case Builtin::NotBuiltin:
+#endif
     Is_True(false,
             ("unsupported builtin %d\n for clang builtin", builtin_id));
 
@@ -908,7 +988,9 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   case Builtin::BI__builtin_os_log_format_buffer_size:
   case Builtin::BI__builtin_os_log_format:
 #endif
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BIomp_is_initial_device:
+#endif
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
 

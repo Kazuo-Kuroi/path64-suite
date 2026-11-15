@@ -176,7 +176,7 @@ public:
       return _scopes.front()._dst;
     const Scope &scope = _scopes.back();
     if (DST_IS_NULL(scope._dst))
-      CreateDst(scope);
+      return CreateDst(scope);
     else
       return scope._dst;
   }

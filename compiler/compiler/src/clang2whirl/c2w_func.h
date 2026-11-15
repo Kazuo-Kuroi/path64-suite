@@ -72,8 +72,6 @@ private:
 
   WN  *EmitAdjustThunk(WN *wn, clang::ThunkInfo thunk_info, BOOL adjust_this);
 
-  void EmitVariablyModifiedType(clang::QualType type);
-
 public:
   PU_Info *ConvertFunction(clang::GlobalDecl gd, ST_IDX st_idx);
 
