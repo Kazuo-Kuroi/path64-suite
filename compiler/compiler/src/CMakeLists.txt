@@ -37,6 +37,12 @@ ENDIF()
 
 IF(PATH64_ENABLE_GNU_FRONTEND)
     ADD_SUBDIRECTORY(wgen)
+endif()
+
+# Clang-based C/C++ front end (experimental; see doc/frontend).
+option(PATH64_ENABLE_CLANG_FE "Build clangfe, the Clang 4.0.1-based front end" OFF)
+if(PATH64_ENABLE_CLANG_FE)
+    ADD_SUBDIRECTORY(clang2whirl)
 ENDIF()
 
 ADD_SUBDIRECTORY(ipa)

@@ -65,6 +65,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/GlobalDecl.h"
+#include "clang/AST/VTableBuilder.h"
 // clang Expr
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"

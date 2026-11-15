@@ -56,6 +56,8 @@ INTRINSIC TargX86BuiltinTable[X86::LastTSBuiltin - X86::LastTIBuiltin];
 void
 WhirlExprBuilder::InitializeBuiltinTable() {
   // initialize builtin table, in alphabeta order
+  // Path64 has no intrinsics for bswap, isinf_sign, isnormal,
+  // object_size or pow; those builtins are not in the table.
   using namespace clang::Builtin;
   BuiltinTable[BI__builtin_clzs]  = INTRN_CLZ32;
   BuiltinTable[BI__builtin_clz]   = INTRN_CLZ32;
@@ -66,31 +68,19 @@ WhirlExprBuilder::InitializeBuiltinTable() {
   BuiltinTable[BI__builtin_ctzl]  = INTRN_CTZ;
   BuiltinTable[BI__builtin_ctzll] = INTRN_CTZ64;
 
-  BuiltinTable[BI__builtin_bswap16] = INTRN_BSWAP16;
-  BuiltinTable[BI__builtin_bswap32] = INTRN_BSWAP32;
-  BuiltinTable[BI__builtin_bswap64] = INTRN_BSWAP64;
 
   BuiltinTable[BI__builtin_isgreater]      = INTRN_ISGREATER;
   BuiltinTable[BI__builtin_isgreaterequal] = INTRN_ISGREATEREQUAL;
-  BuiltinTable[BI__builtin_isinf_sign]     = INTRN_ISINF_SIGN;
   BuiltinTable[BI__builtin_isless]         = INTRN_ISLESS;
   BuiltinTable[BI__builtin_islessequal]    = INTRN_ISLESSEQUAL;
   BuiltinTable[BI__builtin_islessgreater]  = INTRN_ISLESSGREATER;
-  BuiltinTable[BI__builtin_isnormal]       = INTRN_ISNORMAL;
   BuiltinTable[BI__builtin_isunordered]    = INTRN_ISUNORDERED;
 
-  BuiltinTable[BI__builtin_object_size] = INTRN_OBJECT_SIZE;
 
   BuiltinTable[BI__builtin_popcount]   = INTRN_I4POPCNT;
   BuiltinTable[BI__builtin_popcountl]  = INTRN_I8POPCNT;
   BuiltinTable[BI__builtin_popcountll] = INTRN_I8POPCNT;
 
-  BuiltinTable[BI__builtin_powi]  = INTRN_POW;
-  BuiltinTable[BI__builtin_pow]   = INTRN_POW;
-  BuiltinTable[BI__builtin_powif] = INTRN_POWF;
-  BuiltinTable[BI__builtin_powf]  = INTRN_POWF;
-  BuiltinTable[BI__builtin_powil] = INTRN_POWL;
-  BuiltinTable[BI__builtin_powl]  = INTRN_POWL;
 
   BuiltinTable[BI__builtin_return_address] = INTRN_RETURN_ADDRESS;
   BuiltinTable[BI__builtin_extract_return_addr] = INTRN_RETURN_ADDRESS;
@@ -106,124 +96,124 @@ WhirlExprBuilder::InitializeBuiltinTable() {
 
   // __sync_xxx builtin table
   // always use _I1 and adjust intrinsic op according to the pointee size
-  SyncBuiltinTable[BI__sync_fetch_and_add    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_add_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_add_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_add_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_add_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_add_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I1;
+  SyncBuiltinTable[BI__sync_fetch_and_add    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_add_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_add_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_add_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_add_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_add_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_ADD_I4;
 
-  SyncBuiltinTable[BI__sync_fetch_and_sub    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_sub_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_sub_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_sub_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_sub_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_sub_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I1;
+  SyncBuiltinTable[BI__sync_fetch_and_sub    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_sub_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_sub_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_sub_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_sub_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_sub_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_SUB_I4;
 
-  SyncBuiltinTable[BI__sync_fetch_and_or    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_or_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_or_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_or_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_or_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_or_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I1;
+  SyncBuiltinTable[BI__sync_fetch_and_or    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_or_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_or_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_or_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_or_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_or_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_OR_I4;
 
-  SyncBuiltinTable[BI__sync_fetch_and_and    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_and_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_and_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_and_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_and_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_and_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I1;
+  SyncBuiltinTable[BI__sync_fetch_and_and    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_and_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_and_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_and_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_and_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_and_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_AND_I4;
 
-  SyncBuiltinTable[BI__sync_fetch_and_xor    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_xor_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_xor_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_xor_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_xor_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_xor_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I1;
+  SyncBuiltinTable[BI__sync_fetch_and_xor    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_xor_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_xor_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_xor_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_xor_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_xor_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_XOR_I4;
 
-  SyncBuiltinTable[BI__sync_fetch_and_nand    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_nand_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_nand_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_nand_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_nand_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I1;
-  SyncBuiltinTable[BI__sync_fetch_and_nand_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I1;
+  SyncBuiltinTable[BI__sync_fetch_and_nand    - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_nand_1  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_nand_2  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_nand_4  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_nand_8  - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I4;
+  SyncBuiltinTable[BI__sync_fetch_and_nand_16 - BI__sync_fetch_and_add] = INTRN_FETCH_AND_NAND_I4;
 
-  SyncBuiltinTable[BI__sync_add_and_fetch    - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_add_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_add_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_add_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_add_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_add_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I1;
+  SyncBuiltinTable[BI__sync_add_and_fetch    - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_add_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_add_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_add_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_add_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_add_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_ADD_AND_FETCH_I4;
 
-  SyncBuiltinTable[BI__sync_sub_and_fetch    - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_sub_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_sub_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_sub_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_sub_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_sub_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I1;
+  SyncBuiltinTable[BI__sync_sub_and_fetch    - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_sub_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_sub_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_sub_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_sub_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_sub_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_SUB_AND_FETCH_I4;
 
-  SyncBuiltinTable[BI__sync_or_and_fetch    - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_or_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_or_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_or_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_or_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_or_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I1;
+  SyncBuiltinTable[BI__sync_or_and_fetch    - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_or_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_or_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_or_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_or_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_or_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_OR_AND_FETCH_I4;
 
-  SyncBuiltinTable[BI__sync_and_and_fetch    - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_and_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_and_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_and_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_and_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_and_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I1;
+  SyncBuiltinTable[BI__sync_and_and_fetch    - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_and_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_and_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_and_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_and_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_and_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_AND_AND_FETCH_I4;
 
-  SyncBuiltinTable[BI__sync_xor_and_fetch    - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_xor_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_xor_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_xor_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_xor_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_xor_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I1;
+  SyncBuiltinTable[BI__sync_xor_and_fetch    - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_xor_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_xor_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_xor_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_xor_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_xor_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_XOR_AND_FETCH_I4;
 
-  SyncBuiltinTable[BI__sync_nand_and_fetch    - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_nand_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_nand_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_nand_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_nand_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I1;
-  SyncBuiltinTable[BI__sync_nand_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I1;
+  SyncBuiltinTable[BI__sync_nand_and_fetch    - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_nand_and_fetch_1  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_nand_and_fetch_2  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_nand_and_fetch_4  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_nand_and_fetch_8  - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I4;
+  SyncBuiltinTable[BI__sync_nand_and_fetch_16 - BI__sync_fetch_and_add] = INTRN_NAND_AND_FETCH_I4;
 
-  SyncBuiltinTable[BI__sync_bool_compare_and_swap    - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_bool_compare_and_swap_1  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_bool_compare_and_swap_2  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_bool_compare_and_swap_4  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_bool_compare_and_swap_8  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_bool_compare_and_swap_16 - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I1;
+  SyncBuiltinTable[BI__sync_bool_compare_and_swap    - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_bool_compare_and_swap_1  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_bool_compare_and_swap_2  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_bool_compare_and_swap_4  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_bool_compare_and_swap_8  - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_bool_compare_and_swap_16 - BI__sync_fetch_and_add] = INTRN_BOOL_COMPARE_AND_SWAP_I4;
 
-  SyncBuiltinTable[BI__sync_val_compare_and_swap    - BI__sync_fetch_and_add] = INTRN_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_val_compare_and_swap_1  - BI__sync_fetch_and_add] = INTRN_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_val_compare_and_swap_2  - BI__sync_fetch_and_add] = INTRN_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_val_compare_and_swap_4  - BI__sync_fetch_and_add] = INTRN_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_val_compare_and_swap_8  - BI__sync_fetch_and_add] = INTRN_COMPARE_AND_SWAP_I1;
-  SyncBuiltinTable[BI__sync_val_compare_and_swap_16 - BI__sync_fetch_and_add] = INTRN_COMPARE_AND_SWAP_I1;
+  SyncBuiltinTable[BI__sync_val_compare_and_swap    - BI__sync_fetch_and_add] = INTRN_VAL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_val_compare_and_swap_1  - BI__sync_fetch_and_add] = INTRN_VAL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_val_compare_and_swap_2  - BI__sync_fetch_and_add] = INTRN_VAL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_val_compare_and_swap_4  - BI__sync_fetch_and_add] = INTRN_VAL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_val_compare_and_swap_8  - BI__sync_fetch_and_add] = INTRN_VAL_COMPARE_AND_SWAP_I4;
+  SyncBuiltinTable[BI__sync_val_compare_and_swap_16 - BI__sync_fetch_and_add] = INTRN_VAL_COMPARE_AND_SWAP_I4;
 
-  SyncBuiltinTable[BI__sync_lock_test_and_set    - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_lock_test_and_set_1  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_lock_test_and_set_2  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_lock_test_and_set_4  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_lock_test_and_set_8  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_lock_test_and_set_16 - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
+  SyncBuiltinTable[BI__sync_lock_test_and_set    - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_lock_test_and_set_1  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_lock_test_and_set_2  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_lock_test_and_set_4  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_lock_test_and_set_8  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_lock_test_and_set_16 - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
 
-  SyncBuiltinTable[BI__sync_lock_release    - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I1;
-  SyncBuiltinTable[BI__sync_lock_release_1  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I1;
-  SyncBuiltinTable[BI__sync_lock_release_2  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I1;
-  SyncBuiltinTable[BI__sync_lock_release_4  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I1;
-  SyncBuiltinTable[BI__sync_lock_release_8  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I1;
-  SyncBuiltinTable[BI__sync_lock_release_16 - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I1;
+  SyncBuiltinTable[BI__sync_lock_release    - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I4;
+  SyncBuiltinTable[BI__sync_lock_release_1  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I4;
+  SyncBuiltinTable[BI__sync_lock_release_2  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I4;
+  SyncBuiltinTable[BI__sync_lock_release_4  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I4;
+  SyncBuiltinTable[BI__sync_lock_release_8  - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I4;
+  SyncBuiltinTable[BI__sync_lock_release_16 - BI__sync_fetch_and_add] = INTRN_LOCK_RELEASE_I4;
 
-  SyncBuiltinTable[BI__sync_swap    - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1; // test_and_set?
-  SyncBuiltinTable[BI__sync_swap_1  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_swap_2  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_swap_4  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_swap_8  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
-  SyncBuiltinTable[BI__sync_swap_16 - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I1;
+  SyncBuiltinTable[BI__sync_swap    - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4; // test_and_set?
+  SyncBuiltinTable[BI__sync_swap_1  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_swap_2  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_swap_4  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_swap_8  - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
+  SyncBuiltinTable[BI__sync_swap_16 - BI__sync_fetch_and_add] = INTRN_LOCK_TEST_AND_SET_I4;
 
   // initialize target specfic builtin table
 
@@ -282,7 +272,7 @@ WhirlExprBuilder::GenerateIntrinsic(const CallExpr *expr, TY_IDX rtype, INTRINSI
                               kid_wn, kid_ty);
   }
   // fix param 1 for BI__atomic_test_and_set
-  if (iopc == INTRN_LOCK_TEST_AND_SET_I1) {
+  if (0) {  // Path64: no INTRN_LOCK_TEST_AND_SET_I1
     Is_True(args_num == 2, ("wrong arg num for atomc_test_and_set"));
     kids[1] = WGEN_CreateParm(MTYPE_I4, WN_Intconst(MTYPE_I4, 1),
                               MTYPE_To_TY(MTYPE_I4));
@@ -367,7 +357,11 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   // check clang/Basic/Builtins.def for all builtins
   switch (builtin_id) {
   // here we uses GNU extionsion for case range
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BI__builtin_huge_val ... Builtin::BI__builtin_inff128:
+#else
+  case Builtin::BI__builtin_huge_val ... Builtin::BI__builtin_infl:
+#endif
     {
       const llvm::fltSemantics &sem =
         _builder->Context()->getFloatTypeSemantics(expr->getType());
@@ -386,10 +380,18 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   case Builtin::BI__builtin_atan2 ... Builtin::BI__builtin_frexpl:  // libc/libm
   case Builtin::BI__builtin_ldexp ... Builtin::BI__builtin_modfl:
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BI__builtin_nan ... Builtin::BI__builtin_nanf128:
+#else
+  case Builtin::BI__builtin_nan ... Builtin::BI__builtin_nanl:
+#endif
     return EvaluateBuiltinNaN(expr->getType(), expr->getArg(0), false);
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BI__builtin_nans ... Builtin::BI__builtin_nansf128:
+#else
+  case Builtin::BI__builtin_nans ... Builtin::BI__builtin_nansl:
+#endif
     return EvaluateBuiltinNaN(expr->getType(), expr->getArg(0), true);
 
   case Builtin::BI__builtin_acos ... Builtin::BI__builtin_truncl: // libc/libm float/double/long variants
@@ -410,7 +412,7 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       switch (TY_mtype(arg_ty)) {
       case MTYPE_F4:  fname = "__fpclassifyf";  break;
       case MTYPE_F8:  fname = "__fpclassify";   break;
-      case MTYPE_F10: fname = "__fpclassifyl";  break;
+      case MTYPE_FQ: fname = "__fpclassifyl";  break;
       default:
         Is_True(FALSE, ("unsupported mtype %d", TY_mtype(arg_ty)));
       }
@@ -428,7 +430,7 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       switch (TY_mtype(arg_ty)) {
       case MTYPE_F4:  fname = "__finitef";  break;
       case MTYPE_F8:  fname = "__finite";   break;
-      case MTYPE_F10: fname = "__finitel";  break;
+      case MTYPE_FQ: fname = "__finitel";  break;
       default:
         Is_True(FALSE, ("unsupported mtype %d", TY_mtype(arg_ty)));
       }
@@ -446,7 +448,7 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       switch (TY_mtype(arg_ty)) {
       case MTYPE_F4:  fname = "__isinff";  break;
       case MTYPE_F8:  fname = "__isinf";   break;
-      case MTYPE_F10: fname = "__isinfl";  break;
+      case MTYPE_FQ: fname = "__isinfl";  break;
       default:
         Is_True(FALSE, ("unsupported mtype %d", TY_mtype(arg_ty)));
       }
@@ -468,7 +470,7 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       switch (TY_mtype(arg_ty)) {
       case MTYPE_F4:  fname = "__isnanf";  break;
       case MTYPE_F8:  fname = "__isnan";   break;
-      case MTYPE_F10: fname = "__isnanl";  break;
+      case MTYPE_FQ: fname = "__isnanl";  break;
       default:
         Is_True(FALSE, ("unsupported mtype %d", TY_mtype(arg_ty)));
       }
@@ -684,15 +686,10 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     {
       TY_IDX ptr_ty = _builder->TB().ConvertType(expr->getArg(0)->getType());
       Is_True(TY_kind(ptr_ty) == KIND_POINTER, ("not pointer type"));
-      iopc = SyncBuiltinTable[builtin_id - Builtin::BI__sync_fetch_and_add];
-      switch (TY_size(TY_pointed(ptr_ty))) {
-      case 1:  break;                                 // keep using _I1
-      case 2:  iopc = (INTRINSIC)(iopc + 1);  break;  // switch to use _I2
-      case 4:  iopc = (INTRINSIC)(iopc + 2);  break;  // switch to use _I4
-      case 8:  iopc = (INTRINSIC)(iopc + 3);  break;  // switch to use _I8
-      default:
-        Is_True(FALSE, ("TODO: not supported mtype"));
-      }
+      // Path64 has 4- and 8-byte forms; the table holds the 4-byte one.
+      iopc = Sync_Intrinsic_For_Size(
+               SyncBuiltinTable[builtin_id - Builtin::BI__sync_fetch_and_add],
+               TY_size(TY_pointed(ptr_ty)));
       intrinsic_call = TRUE;
     }
     break;
@@ -721,7 +718,8 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     {
       TY_IDX ptr_ty = _builder->TB().ConvertType(expr->getArg(0)->getType());
       Is_True(TY_kind(ptr_ty) == KIND_POINTER, ("not pointer type"));
-      iopc = INTRN_LOCK_TEST_AND_SET_I1;
+      iopc = Sync_Intrinsic_For_Size(INTRN_LOCK_TEST_AND_SET_I4,
+                                     TY_size(TY_pointed(ptr_ty)));
       intrinsic_call = TRUE;
     }
     break;
@@ -732,7 +730,8 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     {
       TY_IDX ptr_ty = _builder->TB().ConvertType(expr->getArg(0)->getType());
       Is_True(TY_kind(ptr_ty) == KIND_POINTER, ("not pointer type"));
-      iopc = INTRN_LOCK_RELEASE_I1;
+      iopc = Sync_Intrinsic_For_Size(INTRN_LOCK_RELEASE_I4,
+                                     TY_size(TY_pointed(ptr_ty)));
       intrinsic_call = TRUE;
     }
     break;
@@ -741,7 +740,8 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   case Builtin::BI__atomic_thread_fence:
     // INTRN_THREAD_FENCE
     Is_True(expr->getNumArgs() == 1, ("wrong arg num for thread_fence"));
-    iopc = INTRN_ATOM_THREAD_FENCE;
+    // Path64: no ordered fences; use the full barrier.
+    iopc = INTRN_SYNCHRONIZE;
     intrinsic_call = TRUE;
     break;
 
@@ -749,25 +749,27 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   case Builtin::BI__atomic_signal_fence:
     // INTRN_SIGNAL_FENCE
     Is_True(expr->getNumArgs() == 1, ("wrong arg num for thread_fence"));
-    iopc = INTRN_ATOM_SIGNAL_FENCE;
+    // Path64: a signal fence only orders the compiler; use the full barrier.
+    iopc = INTRN_SYNCHRONIZE;
     intrinsic_call = TRUE;
     break;
 
   case Builtin::BI__atomic_always_lock_free:
     // ALWAYS_LOCK_FREE
     Is_True(expr->getNumArgs() >= 1, ("wrong arg num for always_lock_free"));
-    iopc = INTRN_ATOM_ALWAYS_LOCK_FREE;
-    intrinsic_op = TRUE;
+    ErrMsg(EC_Unimplemented_Feature, "__atomic_always_lock_free");
+    return Result::nwNone();
     break;
 
   case Builtin::BI__c11_atomic_is_lock_free:  // c11 atomic builtin
   case Builtin::BI__atomic_is_lock_free:
     // ALWAYS_LOCK_FREE
     Is_True(expr->getNumArgs() >= 1, ("wrong arg num for lock_free"));
-    iopc = INTRN_ATOM_LOCK_FREE;
-    intrinsic_op = TRUE;
+    ErrMsg(EC_Unimplemented_Feature, "__atomic_is_lock_free");
+    return Result::nwNone();
     break;
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BI__opencl_atomic_init ... Builtin::BI__opencl_atomic_fetch_max: // opencl builtin
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
@@ -776,6 +778,7 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   case Builtin::BI__atomic_fetch_max:
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
+#endif
 
   case Builtin::BI__sync_synchronize:
   case Builtin::BI__sync_fetch_and_min:
@@ -800,9 +803,17 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     return Result::nwNone();
 
   // generate nornal CALL for below intrinsics
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BIabort ... Builtin::BIstrtoull:    // C99 stdlib.h
+#else
+  case Builtin::BIabort ... Builtin::BIrealloc:     // C99 stdlib.h
+#endif
   case Builtin::BImemcpy ... Builtin::BIstrlen:     // C99 string.h
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BIprintf ... Builtin::BIfwrite:     // C99 stdio.h
+#else
+  case Builtin::BIprintf ... Builtin::BIvsscanf:    // C99 stdio.h
+#endif
   case Builtin::BIisalnum ... Builtin::BItoupper:   // C99 ctype.h
   case Builtin::BIwcschr ... Builtin::BIwmemcmp:    // C99 wchar.h
   case Builtin::BIsetjmp ... Builtin::BIlongjmp:    // C99 sjlj
@@ -885,12 +896,18 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BIread_pipe ... Builtin::BI__builtin_load_halff:  // opencl
+#else
+  case Builtin::BIread_pipe ... Builtin::BIget_kernel_preferred_work_group_size_multiple:  // opencl
+#endif
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
 
+#if LLVM_VERSION_MAJOR >= 7
   case Builtin::BI__builtin_os_log_format_buffer_size:
   case Builtin::BI__builtin_os_log_format:
+#endif
   case Builtin::BIomp_is_initial_device:
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
@@ -931,6 +948,12 @@ WhirlExprBuilder::ConvertTargetBuiltinExpr(const CallExpr *expr, const FunctionD
 
 Result
 WhirlExprBuilder::ConvertAtomicExpr(const AtomicExpr *expr, BOOL retv) {
+  // Path64: C11/GNU __atomic builtins need intrinsics Path64 does not
+  // have yet (INTRN_ATOM_*, 1/2-byte and float forms). Upstream's
+  // lowering is kept below, disabled, as the starting point.
+  ErrMsg(EC_Unimplemented_Feature, "C11 / __atomic builtins");
+  return Result::nwNone();
+#if 0 // upstream
   TRACE_FUNC();
   QualType AtomicTy = expr->getPtr()->getType()->getPointeeType();
   QualType MemTy = AtomicTy;
@@ -1471,7 +1494,7 @@ WhirlExprBuilder::ConvertAtomicExpr(const AtomicExpr *expr, BOOL retv) {
     Set_TY_align(ty_idx, 1);
 
     // set return type
-    TYLIST tylist_idx;
+    TYLIST_IDX tylist_idx;
     Set_TYLIST_type(New_TYLIST(tylist_idx), rtype_idx);
     Set_TY_tylist(ty_idx, tylist_idx);
     Set_TYLIST_type(New_TYLIST(tylist_idx), 0);
@@ -1515,6 +1538,7 @@ WhirlExprBuilder::ConvertAtomicExpr(const AtomicExpr *expr, BOOL retv) {
   WN *comma = WGEN_CreateComma(WN_rtype(ret), blk, ret);
 
   return Result::nwNode(comma, rtype_idx);
+#endif
 }
 
 } // namespace wgen

@@ -562,7 +562,7 @@ extern void dump_INITV_idx(INITV_IDX idx)
 }
 
 
-static UINT
+UINT
 Get_INITV_Size (INITV_IDX inv)
 {
 	UINT size;

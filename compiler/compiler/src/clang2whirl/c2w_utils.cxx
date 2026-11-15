@@ -131,7 +131,7 @@ Create_function(const char* name, TY_IDX ret_ty, ...) {
   Set_TY_align(ty_idx, 1);
 
   // set return type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   Set_TYLIST_type(New_TYLIST(tylist_idx), ret_ty);
   Set_TY_tylist(ty_idx, tylist_idx);
 
@@ -166,7 +166,7 @@ Create_function(const char* name, TY_IDX ret_ty, INT parm_cnt, TY_IDX *parm_ty) 
   Set_TY_align(ty_idx, 1);
 
   // set return type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   Set_TYLIST_type(New_TYLIST(tylist_idx), ret_ty);
   Set_TY_tylist(ty_idx, tylist_idx);
 
@@ -441,7 +441,7 @@ Gen_null_const(TY_IDX ty_idx) {
         break;
       case 24:
       case 32:
-        tcon = Host_To_Targ_Complex_10(MTYPE_C10, 0, 0);
+        tcon = Host_To_Targ_Complex_Quad(0, 0);
         break;
       default:
         Is_True(false, ("unexpected size for complex constant"));
@@ -457,7 +457,7 @@ Gen_null_const(TY_IDX ty_idx) {
       break;
     case 12:
     case 16:
-      tcon = Host_To_Targ_Float_10(MTYPE_F10, 0);
+      tcon = Host_To_Targ_Quad(0);
       break;
     default:
       Is_True(false, ("unexpected size for intconstant"));
@@ -637,8 +637,8 @@ createTconFromValue(TY_IDX ty_idx, long double value) {
     case MTYPE_F8:
       tcon = Host_To_Targ_Float(MTYPE_F8, (double) value);
       break;
-    case MTYPE_F10:
-      tcon = Host_To_Targ_Float_10(MTYPE_F10, value);
+    case MTYPE_FQ:
+      tcon = Host_To_Targ_Quad(value);
       break;
     case MTYPE_I1:
     case MTYPE_I2:
@@ -697,8 +697,7 @@ Convert_complex_float_to_tcon(TY_IDX ty_idx, const llvm::APFloat real, const llv
     Is_True(&real.getSemantics() == &llvm::APFloat::x87DoubleExtended() &&
             &imag.getSemantics() == &llvm::APFloat::x87DoubleExtended(),
             ("not x87 long double"));
-    tcon = Host_To_Targ_Complex_10(MTYPE_C10,
-                                   convertToLongDouble(real),
+    tcon = Host_To_Targ_Complex_Quad(convertToLongDouble(real),
                                    convertToLongDouble(imag));
     break;
   default:
@@ -747,7 +746,7 @@ Gen_complex_tcon(TY_IDX ty_idx, UINT64 real_val, long double imagin_val) {
       break;
     case 24:
     case 32:
-      tcon = Host_To_Targ_Complex_10(MTYPE_C10, real_val, imagin_val);
+      tcon = Host_To_Targ_Complex_Quad(real_val, imagin_val);
       break;
     default:
       Is_True(false, ("unexpected size for complex constant"));
@@ -821,7 +820,7 @@ public:
   INITBUF(UINT64 i): ival(i) {}
   ~INITBUF(void) {}
   mUINT8 NthByte(INT i) { // i must be from 0 to 7
-    INT rshft_amt = (Target_Byte_Sex == BIG_ENDIAN) ? 7-i : i;
+    INT rshft_amt = (!Target_Is_Little_Endian) ? 7-i : i;
     return (ival >> (rshft_amt * 8)) & 0xff;
   }
 };
@@ -846,7 +845,7 @@ AddBitfieldInitvForTree(INT64 val, FLD_HANDLE fld,
   // truncate ival according to the bitfield size and leave it left-justified
   ib.ival = ib.ival << (64 - bsize);
   // shift the value back right to the precise position within INITBUF
-  if (Target_Byte_Sex == BIG_ENDIAN)
+  if (!Target_Is_Little_Endian)
     ib.ival = ib.ival >> bofst;
   else
     ib.ival = ib.ival >> (64 - bofst - bsize);

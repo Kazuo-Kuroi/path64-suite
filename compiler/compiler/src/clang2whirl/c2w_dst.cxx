@@ -239,7 +239,7 @@ WhirlDstBuilder::CreateDstForCompileUnit() {
 DST_INFO_IDX
 WhirlDstBuilder::CreateDstForStmt(const Stmt *stmt) {
   TRACE_FUNC();
-  DST_INFO_IDX dst_idx = DST_mk_lexical_block(NULL, (ST_IDX) 0, (ST_IDX) 0, DST_INVALID_IDX);
+  DST_INFO_IDX dst_idx = DST_mk_lexical_block(NULL, (void *) 0, (void *) 0, DST_INVALID_IDX);
   return dst_idx;
 }
 
@@ -252,7 +252,7 @@ WhirlDstBuilder::CreateDstForFunc(ST_IDX st, TY_IDX rtype) {
                                             const_cast<char *>(ST_name(st)),
                                             type_dst,
                                             DST_INVALID_IDX,
-                                            st,
+                                            (void *) (INTPTR) st,
                                             DW_INL_not_inlined,
                                             DW_VIRTUALITY_none,
                                             0,                    // vtbl index
@@ -280,7 +280,7 @@ WhirlDstBuilder::CreateDstForFunctionDecl(GlobalDecl gd) {
                            const_cast<char *>(name_str),
                            type_dst,
                            DST_INVALID_IDX,
-                           st_idx,
+                           (void *) (INTPTR) st_idx,
                            DW_INL_not_inlined, // TODO
                            DW_VIRTUALITY_none, // TODO
                            0,                  // vtbl index

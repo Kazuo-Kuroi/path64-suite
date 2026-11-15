@@ -645,11 +645,11 @@ WhirlDeclBuilder::ConvertAPValue(QualType type, const APValue *value, INT repeat
       inv = New_INITV();
       INITV_Init_Block(inv, INITV_Next_Idx(), repeat);
       INITV_IDX lhs_inv = New_INITV();
-      INITV_Init_Label(lhs_inv, lhs_label, 1,
-                       INITVLABELFLAGS_VALUES_FIRST, Pointer_Mtype);
+      INITV_Init_Label(lhs_inv, lhs_label, 1);
+  Set_INITV_lab_flags(lhs_inv, INITVLABELFLAGS_VALUES_FIRST);  // Path64: no label flags
       INITV_IDX rhs_inv = New_INITV();
-      INITV_Init_Label(rhs_inv, rhs_label, 1,
-                       INITVLABELFLAGS_VALUES_LAST, Pointer_Mtype);
+      INITV_Init_Label(rhs_inv, rhs_label, 1);
+  Set_INITV_lab_flags(rhs_inv, INITVLABELFLAGS_VALUES_LAST);  // Path64: no label flags
       Set_INITV_next(lhs_inv, rhs_inv);
       Set_LABEL_addr_saved(lhs_label);
       Set_LABEL_addr_saved(rhs_label);
@@ -905,7 +905,7 @@ WhirlDeclBuilder::ConvertVTableComponent(const VTableLayout &layout, unsigned id
     case VTableComponent::CK_FunctionPointer:
     case VTableComponent::CK_CompleteDtorPointer:
     case VTableComponent::CK_DeletingDtorPointer: {
-      GlobalDecl GD = component.getGlobalDecl();
+      GlobalDecl GD = getVTableComponentGlobalDecl(component);
       // Pure virtual member functions.
       if (cast<CXXMethodDecl>(GD.getDecl())->isPure()) {
         ST_IDX st_idx = _builder->SB().EmitCXXPureVirtualST();
@@ -1947,7 +1947,11 @@ WhirlDeclBuilder::Call_nothrow(const Decl *decl) {
     const FunctionProtoType *proto = func_decl->getType()->getAs<FunctionProtoType>();
     if (proto) {
       ExceptionSpecificationType est = proto->getExceptionSpecType();
-      if (isNoexceptExceptionSpec(est) && proto->canThrow() == CT_Cannot)
+      if (isNoexceptExceptionSpec(est) && proto->canThrow(
+#if LLVM_VERSION_MAJOR < 7
+                                                         *_builder->Context()
+#endif
+                                                        ) == CT_Cannot)
         return TRUE;
       else if (est == EST_Dynamic || est == EST_DynamicNone) {
         if (!proto->getNumExceptions())

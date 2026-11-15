@@ -44,17 +44,10 @@ class TY;
 
 class FLD_HANDLE;
 
-// forward declaration for open64 type definitions
-typedef unsigned int UINT32;
-typedef unsigned long long UINT64;
-typedef unsigned int FLD_IDX;
-typedef unsigned int LABEL_IDX;
-typedef unsigned int ST_IDX;
-typedef unsigned long long STR_IDX;
-typedef unsigned char SYMTAB_IDX;
-typedef unsigned int TCON_IDX;
-typedef unsigned int TY_IDX;
-typedef unsigned int TYPE_ID;
-typedef unsigned int INITV_IDX;
+// open64 type definitions: use Path64's own, whose widths differ from
+// upstream Open64's (ST_IDX is pointer-sized, TY_IDX and STR_IDX 64-bit).
+#include "defs.h"
+#include "symtab_idx.h"
+#include "mtypes.h"
 
 #endif /* OPEN64DECL_H */

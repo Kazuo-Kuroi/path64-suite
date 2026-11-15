@@ -253,7 +253,7 @@ WhirlFuncBuilder::EmitCXXGlobalInitialization(ST_IDX st_idx, int priority_size) 
   TY_Init(func, 0, KIND_FUNCTION, MTYPE_UNKNOWN, 0);
   Set_TY_align(ty_idx, 1);
   // void return type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   TY_IDX rty = MTYPE_To_TY(MTYPE_V);
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(ty_idx, tylist_idx);
@@ -367,7 +367,7 @@ WhirlFuncBuilder::EmitDtorPtr(const VarDecl *decl, ST_IDX &dtor_st_idx) {
   TY_Init(func, 0, KIND_FUNCTION, MTYPE_UNKNOWN, 0);
   Set_TY_align(ty_idx, 1);
   // return type & param type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   TY_IDX rty = MTYPE_To_TY(MTYPE_V);
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(ty_idx, tylist_idx);
@@ -818,7 +818,9 @@ void WhirlFuncBuilder::EmitVariablyModifiedType(QualType type) {
     case Type::Typedef:
     case Type::Decltype:
     case Type::Auto:
+#if LLVM_VERSION_MAJOR >= 7
     case Type::DeducedTemplateSpecialization:
+#endif
       // Stop walking: nothing to do.
       return;
 

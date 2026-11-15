@@ -206,7 +206,9 @@ WhirlTypeBuilder::ConvertBuiltinType(const BuiltinType *type) {
       break;
     case BuiltinType::LongDouble:
     case BuiltinType::Float128:
-      mtype = MTYPE_F10;
+      // Path64 represents long double as MTYPE_FQ (x87 extended on
+      // x86-64, double-double on IRIX), not upstream's MTYPE_F10.
+      mtype = MTYPE_FQ;
       break;
     case BuiltinType::NullPtr:
       mtype = Pointer_Mtype;
@@ -252,7 +254,7 @@ WhirlTypeBuilder::ConvertComplexType(const ComplexType *type) {
     // so it can support float_128
     case 24:
     case 32:
-      mtype = MTYPE_C10;
+      mtype = MTYPE_CQ;   // Path64: complex long double
       break;
     default:  Is_True(false, ("unexpected size"));
   }
@@ -309,7 +311,7 @@ WhirlTypeBuilder::EmitGlobalInitializerType() {
   TY_Init(func, 0, KIND_FUNCTION, MTYPE_UNKNOWN, 0);
   Set_TY_align(ty_idx, 1);
   // void return type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   TY_IDX rty = MTYPE_To_TY(MTYPE_V);
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(ty_idx, tylist_idx);
@@ -329,7 +331,7 @@ WhirlTypeBuilder::EmitCXXPureVirtualType() {
   TY_Init(func, 0, KIND_FUNCTION, MTYPE_UNKNOWN, 0);
   Set_TY_align(ty_idx, 1);
   // void return type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   TY_IDX rty = MTYPE_To_TY(MTYPE_V);
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(ty_idx, tylist_idx);
@@ -368,7 +370,7 @@ WhirlTypeBuilder::ConvertFunctionType(const FunctionType *type, const Type *reco
   }
 
   // return type
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   TY_IDX rty = ConvertType(type->getReturnType());
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(ty_idx, tylist_idx);
@@ -534,7 +536,7 @@ WhirlTypeBuilder::ConvertVectorType(const VectorType *type) {
     case 1:
       if (elem_mtype == MTYPE_I8 ||
           elem_mtype == MTYPE_U8)
-        mtype = MTYPE_V8I8;
+        mtype = MTYPE_I8;   // Path64 has no MTYPE_V8I8
     case 2:
       if (elem_mtype == MTYPE_I1 ||
           elem_mtype == MTYPE_U1)
@@ -1146,9 +1148,11 @@ Type_info_is_in_standard_library(const BuiltinType *type) {
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:
+#if LLVM_VERSION_MAJOR >= 7
     case BuiltinType::Float16:
-    case BuiltinType::Float128:
     case BuiltinType::Char8:
+#endif
+    case BuiltinType::Float128:
     case BuiltinType::Char16:
     case BuiltinType::Char32:
     case BuiltinType::Int128:
@@ -1163,6 +1167,7 @@ Type_info_is_in_standard_library(const BuiltinType *type) {
     case BuiltinType::OCLClkEvent:
     case BuiltinType::OCLQueue:
     case BuiltinType::OCLReserveID:
+#if LLVM_VERSION_MAJOR >= 7
     case BuiltinType::ShortAccum:
     case BuiltinType::Accum:
     case BuiltinType::LongAccum:
@@ -1187,6 +1192,7 @@ Type_info_is_in_standard_library(const BuiltinType *type) {
     case BuiltinType::SatUShortFract:
     case BuiltinType::SatUFract:
     case BuiltinType::SatULongFract:
+#endif
       return false;
 
     case BuiltinType::Dependent:
@@ -1634,7 +1640,7 @@ Build_vtable_pointer(const Type *type) {
   TY &func = New_TY(pu_idx);
   TY_Init(func, 0, KIND_FUNCTION, MTYPE_UNKNOWN, 0);
   Set_TY_align(pu_idx, 1);
-  TYLIST tylist_idx;
+  TYLIST_IDX tylist_idx;
   TY_IDX rty = MTYPE_To_TY(MTYPE_I4);
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(pu_idx, tylist_idx);

@@ -31,7 +31,7 @@
 #ifndef CLANG2WHIRL_VERIFIER_H
 #define CLANG2WHIRL_VERIFIER_H
 
-#define DBG_VERIFY_WHIRL_IR(wn) WN_verifier(wn)
+#define DBG_VERIFY_WHIRL_IR(wn) WN_verifier(&Get_Current_PU(), wn)  // Path64: takes the PU
 #define DBG_VERIFY_WHIRL_SYM()
 
 

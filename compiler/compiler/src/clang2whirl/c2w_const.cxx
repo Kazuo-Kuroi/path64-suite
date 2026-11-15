@@ -150,7 +150,7 @@ WhirlConstBuilder::ConvertCastExpr(const CastExpr *expr, QualType type) {
       TCON &c = Tcon_Table[r.Tcon()];
       if (!MTYPE_is_float(TCON_ty(c)))
         return r;
-      INT64 val = (TCON_ty(c) == MTYPE_F4) ? c.vals.fval : c.vals.dval;
+      INT64 val = (TCON_ty(c) == MTYPE_F4) ? c.vals.f.fval : c.vals.dval;
       return Result::nwIntConst(val, to_ty);
     }
 
@@ -1141,7 +1141,8 @@ WhirlConstBuilder::ConvertAddrLabelExpr(const AddrLabelExpr *expr) {
   INITV_IDX inv = New_INITV();
   INT16 flag = INITVLABELFLAGS_UNUSED;
   mTYPE_ID mtype = MTYPE_UNKNOWN;
-  INITV_Init_Label(inv, label_idx, 1, flag, mtype);
+  INITV_Init_Label(inv, label_idx, 1);
+  Set_INITV_lab_flags(inv, flag);  // Path64: no label flags
   Set_LABEL_addr_saved(label_idx);
   Set_PU_no_inline(Get_Current_PU());
 

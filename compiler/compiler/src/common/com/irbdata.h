@@ -395,6 +395,10 @@ Append_INITV (INITV_IDX inv, INITO_IDX ino, INITV_IDX prev_inv)
 inline INITV_IDX
 INITV_Next_Idx(void) { return Initv_Table.Size(); }
 
+// return size of an initv (and what it contains)
+extern UINT
+Get_INITV_Size (INITV_IDX inv);
+
 // return total size of initvs under inito
 extern UINT
 Get_INITO_Size (INITO_IDX ino);

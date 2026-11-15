@@ -45,11 +45,13 @@
 #include "symtab_verify.h"
 #include "pu_info.h"
 #include "wn_map.h"
-#include "elf_stuff.h"
+// Path64 has no elf_stuff.h; elf_defines.h (via pu_info.h) covers it.
 #include "ir_reader.h"
 #include "ir_bwrite.h"
 #include "const.h"
 #include "targ_sim.h"
 #include "intrn_info.h"
+#include "wn_util.h"
+#include "c2w_path64.h"
 
 #endif /* OPEN64INC_H */

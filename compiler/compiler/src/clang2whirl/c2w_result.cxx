@@ -76,7 +76,7 @@ Result::GetLValue() {
       TY_IDX sty = TY_pointed(ty);
       Is_True(TY_kind(sty) == KIND_STRUCT, ("not struct type"));
       UINT64 ofst = 0;
-      IDTYPE fld = 0;
+      UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
       FLD_HANDLE fh = get_fld_and_offset(ty, FieldId(), fld, ofst);
       Is_True(!fh.Is_Null(), ("not find the field"));
       if (IsDot() && WN_operator(wn) == OPR_ILOAD) {
@@ -95,7 +95,7 @@ Result::GetLValue() {
     UINT64 ofst = 0;
     TY_IDX ty = ST_type(st);
     if (FieldId()) {
-      IDTYPE fld = 0;
+      UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
       FLD_HANDLE fh = get_fld_and_offset(ty, FieldId(), fld, ofst);
       Is_True(!fh.Is_Null(), ("not find the field"));
     }
@@ -151,7 +151,7 @@ Result::GetRValue() {
     if (FieldId()) {
       if (TY_kind(sty) == KIND_ARRAY)
         sty = TY_etype(sty);
-      IDTYPE fld = 0;
+      UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
       FLD_HANDLE fh = get_fld_and_offset(sty, FieldId(), fld, ofst);
       Is_True(!fh.Is_Null(), ("not find the field"));
       if (TY_kind(FLD_type(fh)) == KIND_ARRAY) {
@@ -214,7 +214,7 @@ Result::ConvertToRValue(TY_IDX rty) {
       TYPE_ID desc = TY_mtype(rty);
       TYPE_ID rtype = Mtype_comparison(desc);
       if (FieldId()) {
-        IDTYPE fld = 0;
+        UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
         Is_True(TY_kind(lty) == KIND_STRUCT, ("not struct type"));
         FLD_HANDLE fh = get_fld_and_offset(lty, FieldId(), fld, ofst);
         Is_True(!fh.Is_Null(), ("not find the field"));
@@ -264,7 +264,7 @@ Result::ConvertToRValue(TY_IDX rty) {
       TY_IDX lty = TY_pointed(Ty());
       UINT64 ofst = 0;
       if (FieldId()) {
-        IDTYPE fld = 0;
+        UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
         Is_True(TY_kind(lty) == KIND_STRUCT, ("not struct type"));
         FLD_HANDLE fh = get_fld_and_offset(lty, FieldId(), fld, ofst);
         Is_True(!fh.Is_Null(), ("not find the field"));

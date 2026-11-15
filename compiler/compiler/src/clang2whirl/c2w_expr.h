@@ -98,7 +98,7 @@ private:
 
   Result GenerateCall(const char* fname, TY_IDX rtype, INT parm_cnt, const clang::Expr * const *parm, BOOL retv);
 
-  Result GenerateIntrinsic(const clang::CallExpr *expr, TYPE_ID rtype, INTRINSIC iopc, BOOL is_op, BOOL retv);
+  Result GenerateIntrinsic(const clang::CallExpr *expr, TY_IDX rtype, INTRINSIC iopc, BOOL is_op, BOOL retv);
 
   Result EvaluateBuiltinNaN(clang::QualType, const clang::Expr*, bool);
 private:

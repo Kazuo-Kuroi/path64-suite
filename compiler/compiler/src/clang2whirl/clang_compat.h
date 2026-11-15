@@ -94,6 +94,8 @@ static inline clang::ASTConsumer *
 createASTDumper() {
 #if LLVM_VERSION_MAJOR == 11
   return clang::CreateASTDumper(nullptr, "all", true, false, false, false, clang::ADOF_Default).release();
+#elif LLVM_VERSION_MAJOR == 4
+  return clang::CreateASTDumper("", true, false).release();
 #else
   return clang::CreateASTDumper(nullptr, "all", true, false, false).release();
 #endif
@@ -148,6 +150,41 @@ getArraySize(const clang::CXXNewExpr *expr) {
   return expr->getArraySize().getValue();
 #else
   return expr->getArraySize();
+#endif
+}
+
+//
+// Path64: Clang 4.0 equivalents of later Decl / VTableComponent APIs
+//
+// Decl::isTemplated() (Clang 7+): a template, or in a dependent context.
+static inline bool
+isTemplatedDecl(const clang::Decl *D) {
+#if LLVM_VERSION_MAJOR >= 7
+  return D->isTemplated();
+#else
+  if (D->getDescribedTemplate())
+    return true;
+  if (const clang::DeclContext *DC = D->getDeclContext())
+    if (DC->isDependentContext())
+      return true;
+  return false;
+#endif
+}
+
+// VTableComponent::getGlobalDecl() (Clang 7+).
+static inline clang::GlobalDecl
+getVTableComponentGlobalDecl(const clang::VTableComponent &C) {
+#if LLVM_VERSION_MAJOR >= 7
+  return C.getGlobalDecl();
+#else
+  switch (C.getKind()) {
+  case clang::VTableComponent::CK_CompleteDtorPointer:
+    return clang::GlobalDecl(C.getDestructorDecl(), clang::Dtor_Complete);
+  case clang::VTableComponent::CK_DeletingDtorPointer:
+    return clang::GlobalDecl(C.getDestructorDecl(), clang::Dtor_Deleting);
+  default:
+    return clang::GlobalDecl(C.getFunctionDecl());
+  }
 #endif
 }
 

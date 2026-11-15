@@ -332,7 +332,7 @@ WhirlBuilder::EmitTopLevelDecl(const Decl *D) {
   TRACE_FUNC();
 
   // ignore dependent declarations.
-  if (D->isTemplated())
+  if (isTemplatedDecl(D))
     return;
 
   // refer CodeGenModule::EmitTopLevelDecl CodeGenModule.cpp:3048

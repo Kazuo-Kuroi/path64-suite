@@ -532,7 +532,7 @@ WhirlExprBuilder::EmitAssignNode(Result lhs, Result rhs, TY_IDX ty, RV rv) {
       UINT64 ofst = 0;
       UINT32 fid_id = lhs.FieldId();
       if (fid_id) {
-        IDTYPE fld = 0;
+        UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
         Is_True(TY_kind(lty) == KIND_STRUCT, ("not struct type"));
         FLD_HANDLE fh = get_fld_and_offset(lty, fid_id, fld, ofst);
         Is_True(!fh.Is_Null(), ("not find the field"));
@@ -569,7 +569,7 @@ WhirlExprBuilder::EmitAssignNode(Result lhs, Result rhs, TY_IDX ty, RV rv) {
     else {
       UINT64 ofst = 0;
       if (lhs.FieldId()) {
-        IDTYPE fld = 0;
+        UINT32 fld = 0;  // field id (Path64: IDTYPE is pointer-sized)
         FLD_HANDLE fh = get_fld_and_offset(lhs.Ty(), lhs.FieldId(), fld, ofst);
         Is_True(!fh.Is_Null(), ("not find the field"));
         if (FLD_is_bit_field(fh)) {
@@ -1115,7 +1115,9 @@ WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
       }
       ret = rhs;
       break;
+#if LLVM_VERSION_MAJOR >= 7
     case clang::BO_Cmp:
+#endif
       Is_True(false, ("TODO: unsupported BO_Cmp/BO_PtrMemD"));
     case clang::BO_PtrMemD:
       {
@@ -5419,7 +5421,7 @@ WhirlExprBuilder::ConvertVAArgExpr(const VAArgExpr *expr) {
   //TODO: Fix_TY_mtype here?
   TYPE_ID mtype = TY_mtype(ty_idx);
 #ifdef TARG_X8664
-  if (mtype != MTYPE_F10 && mtype != MTYPE_M &&
+  if (mtype != MTYPE_FQ && mtype != MTYPE_M &&
       !MTYPE_is_complex(mtype)) {
     wn = Gen_x8664_va_arg(ap_wn, MTYPE_float(mtype), ty_idx, FALSE, spos);
     wn = WN_CreateIload(OPR_ILOAD, Widen_mtype(mtype), mtype, 0,
@@ -5427,7 +5429,7 @@ WhirlExprBuilder::ConvertVAArgExpr(const VAArgExpr *expr) {
   }
   else if (MTYPE_is_complex(mtype)) {
     Is_True((mtype == MTYPE_C4 || mtype == MTYPE_C8 ||
-             mtype == MTYPE_C10 || mtype == MTYPE_C16 ||
+             mtype == MTYPE_CQ || mtype == MTYPE_C16 ||
              mtype == MTYPE_CQ),
              ("unexpected complex type"));
     wn = Gen_x8664_va_arg(ap_wn, MTYPE_float(mtype), ty_idx, FALSE, spos);
@@ -5439,8 +5441,8 @@ WhirlExprBuilder::ConvertVAArgExpr(const VAArgExpr *expr) {
     INT n = Classify_Aggregate(ty_idx, classes);
     // handle X87 X87UP and COMPLEX_X87 cases
     if (n != 0 && (classes[0] == X86_64_X87_CLASS ||
-                   classes[0] == X86_64_X87UP_CLASS ||
-                   classes[0] == X86_64_COMPLEX_X87_CLASS)) {
+                   classes[0] == X86_64_X87UP_CLASS)) {
+       // (Path64's Classify_Aggregate has no COMPLEX_X87 class)
        // x87, x87up and complex_x87 are passed in memory
        n = 0;
     }
@@ -5486,7 +5488,7 @@ WhirlExprBuilder::ConvertVAArgExpr(const VAArgExpr *expr) {
       }
     }
 
-    if( mtype == MTYPE_F10 )
+    if( mtype == MTYPE_FQ )
       wn = WN_CreateIload(OPR_ILOAD, Widen_mtype (mtype), mtype, 0,
                           ty_idx, Make_Pointer_Type(ty_idx), wn);
     else
