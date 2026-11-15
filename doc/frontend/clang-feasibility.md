@@ -57,10 +57,11 @@ preopt run before Mid WHIRL and need the high-level structure.
   Clang AST to WHIRL." `whirl_gen.cxx` implements the CodeGen interface,
   and a `WhirlGenConsumer` does the conversion.
 * It supports Clang 7.0.1 and 11.0.0, builds into the upstream
-  open64-compiler/open64 tree, targets x86-64 only, and is listed as GPL-2.0.
-  The README carries a Mulan PSL v2 header, so the license needs
-  confirming before any code is reused.
-* It has 61 files, including `c2w_cxxabi`, `c2w_expr`, `c2w_stmt`,
+  open64-compiler/open64 tree and targets x86-64 only. Every source file
+  says "version 2 of the GNU General Public License" (copyright XC5
+  Limited, 2019–2020). The Mulan PSL v2 header is only on the
+  repository's top-level README.
+* It has 61 files and 27,000 lines, including `c2w_cxxabi`, `c2w_expr`, `c2w_stmt`,
   `c2w_type`, `c2w_decl`, `c2w_init`, `c2w_lambda` and `c2w_target`. The
   repository has 21 commits and little activity.
 * Its WHIRL is upstream Open64's, which has drifted from Path64's
@@ -109,11 +110,9 @@ Clang:
 | Debug information | `wgen_dst.cxx` → DST | **ours**, from Clang decls and types |
 | OpenMP | `OMP_*` trees → `wgen_omp_*` | `OMP*Directive` AST nodes; lowering to WHIRL pragmas is **ours** (port of wgen's) |
 
-The record layout, mangling and vtable-layout rows reflect how Clang's
-sources are organized (`include/clang/AST/RecordLayout.h`, `Mangle.h`,
-`VTableBuilder.h`). The Clang 4.0 documentation pages read for this
-assessment don't cover them, so phase 0 should confirm them against the
-4.0 headers.
+The record layout, mangling and vtable-layout rows are confirmed in
+Clang 4.0.1's headers (`include/clang/AST/RecordLayout.h`, `Mangle.h`,
+`VTableBuilder.h`): they are part of libAST, not CodeGen. See section 7.
 
 The **ours** cells are the work. Expect something of wgen's size
 (33,700 lines, which can serve as a model for the WHIRL side), plus the
@@ -206,6 +205,78 @@ test.
 5. **OpenMP, IPA/inline, `-O3`.** Then retire cc142/cc1plus42, libspin
    and wgen, which also removes the GPL v3-labeled libspin from the
    build.
+
+## 7. Phase 0 results (November 2026)
+
+Sources, all kept outside the repository under `~/devel/src`:
+* LLVM and Clang 4.0.1 release tarballs, with good signatures from the
+  4.0.1 release key (Tom Stellard, `8F0871F202119294`);
+* clang2whirl at open64ark commit `1c83f88` (November 2020).
+
+**Clang 4.0.1 builds on this host** (GCC 14.3, CMake 3.31, Ninja) with
+targets X86 and Mips. It needs one patch:
+`~/devel/src/llvm-4.0.1/patches/0001-CGOpenMPRuntime-gcc14-lambda-capture.patch`.
+GCC 14 rejects three lambdas in `CGOpenMPRuntime.cpp` whose parameter
+`CGF` has the same name as a capture; the capture was dead, so the patch
+drops it.
+
+**Headers.**
+* x86-64 glibc: all C11 standard headers plus common POSIX ones parse
+  with no errors in C99 and C11 (`_Static_assert`, `_Generic`,
+  `<stdatomic.h>`, `<threads.h>`). GCC 14's libstdc++ headers parse in
+  C++11 and C++14 mode.
+* IRIX 6.5.30 sysroot: Clang 4.0 has no IRIX target, so this used
+  `-target mips64-unknown-unknown -mabi=n32 -march=mips4 -funsigned-char`
+  plus cc142's IRIX predefined macros. With those, 32 standard and POSIX
+  headers, plus `<rld_interface.h>`, parse with no errors in gnu99 and
+  C11. From C++98, C++11 and C++14 they parse with no errors too. That
+  defines what an IRIX `TargetInfo` must do:
+  * `char` unsigned;
+  * `long double` as double-double (`__LDBL_MANT_DIG__` 106; the generic
+    target gives IEEE quad, 113);
+  * `__mips` 4 and `_MIPS_ISA` `_MIPS_ISA_MIPS4`; the generic target
+    says MIPS64 even with `-march=mips4`, and IRIX's `<setjmp.h>` then
+    defines no `jmp_buf`;
+  * `__sgi`, `sgi`, `_SGI_SOURCE`, `_SVR4_SOURCE`, `__SYSTYPE_SVR4`,
+    `_LANGUAGE_C` (or `_LANGUAGE_C_PLUS_PLUS` in C++), `_LONGLONG`,
+    `_MODERN_C`, `__EXTENSIONS__`, `__DSO__`, `_COMPILER_VERSION`, and no
+    Linux macros;
+  * the driver's existing `__c99`, `__INTADDR__` and `__generic`
+    definitions;
+  * in C++: `_WCHAR_T` (IRIX headers otherwise `typedef long wchar_t`,
+    which GCC 4.2 tolerated in system headers and Clang doesn't), and
+    `restrict` as `__restrict`.
+
+**clang2whirl against Clang 4.0.1 and Path64's WHIRL headers.**
+* `-fsyntax-only` on its 23 source files gives 577 errors with 174
+  distinct messages; one file (`c2w_target.cxx`) is already clean. This
+  is a first pass: more errors will surface as these are fixed and when
+  linking.
+* About 210 errors are one include problem: Path64 has `WN_INSERT_Block*`
+  and `WN_COPY_Tree` in `common/com/wn_util.h`, which wasn't on the
+  include path.
+* About 120 come from Path64's wider symbol-table indexes. Path64 has
+  `ST_IDX` pointer-sized and `TY_IDX`/`STR_IDX` 64-bit; upstream Open64,
+  and clang2whirl's `open64decl.h`, use 32 bits. This is a real
+  difference between the two WHIRLs, but mechanical.
+* Upstream-Open64 additions missing in Path64: `ST_Srcpos`, vtable/RTTI/
+  ODR flags on symbols and types, `INITV` label flags, 1-byte `__sync`
+  intrinsics, x87 80-bit float constant helpers and
+  `X86_64_COMPLEX_X87_CLASS`. These can be added or stubbed.
+* 89 errors are Clang 7 → 4.0 API differences:
+  * C++17 deduced template specializations, fixed-point types and
+    OpenCL atomics are absent in 4.0;
+  * `StringRef` can no longer be built from `nullptr`;
+  * `driver.cxx`/`cc1_main.cxx` are copies of Clang 7's driver and
+    should be replaced with 4.0's.
+
+**Assessment.** Option D (start from clang2whirl) looks cheaper than
+writing from scratch. The backport is mostly mechanical at this level.
+The work that remains is semantic:
+* OpenMP, which clang2whirl lacks entirely;
+* fuller debug information (its DST code is a sixth of wgen's);
+* the IRIX target and MIPS `va_arg`;
+* validation against wgen's output.
 
 ## Sources
 
