@@ -1070,6 +1070,7 @@ int main ()
 	      "pavgw",
 	      "psadbw",
 	      "psadbw128",
+	      "pmaddwd128",
 	      "pextrw64",
 	      "pextrw128",
 	      "pinsrw64",

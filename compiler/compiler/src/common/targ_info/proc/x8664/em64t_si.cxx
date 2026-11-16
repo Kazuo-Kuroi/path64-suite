@@ -1308,6 +1308,7 @@ int main (int argc, char *argv[])
 		    TOP_fmin128v64,
 		    TOP_psadbw,
 		    TOP_psadbw128,
+		    TOP_pmaddwd128,
 				TOP_mpsadbw,
 		    TOP_UNDEFINED);
   Any_Operand_Access_Time(0);

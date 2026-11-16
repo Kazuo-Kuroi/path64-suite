@@ -3865,6 +3865,8 @@ static Addr_Mode_Group *Top_To_Addr_Mode_Group[TOP_count+1];
 // perform the same function but with different address modes.  Entries can be
 // listed in any order.  No duplicates allowed.  The table doesn't have to be
 // complete; it may list only those OPs that EBO can do something about.
+// (No rows for pextrb/d/q/w or extractps: their memory forms are stores,
+// with memory as the destination, so a load can't be folded into them.)
 static Addr_Mode_Group Addr_Mode_Group_Table[] = {
   // REG_MODE	BASE_MODE	BASE_INDEX_MODE	INDEX_MODE     N32_MODE (offset)
 
@@ -4019,9 +4021,6 @@ static Addr_Mode_Group Addr_Mode_Group_Table[] = {
   {TOP_pcmpistri, TOP_pcmpistrix, TOP_pcmpistrixx, TOP_pcmpistrixxx, TOP_UNDEFINED},
   {TOP_pcmpistrm, TOP_pcmpistrmx, TOP_pcmpistrmxx, TOP_pcmpistrmxxx, TOP_UNDEFINED},
   {TOP_pcmpgtq, TOP_pcmpgtqx, TOP_pcmpgtqxx, TOP_pcmpgtqxxx, TOP_UNDEFINED},
-  {TOP_pextrb, TOP_pextrbx, TOP_pextrbxx, TOP_pextrbxxx, TOP_UNDEFINED},
-  {TOP_pextrd, TOP_pextrdx, TOP_pextrdxx, TOP_pextrdxxx, TOP_UNDEFINED},
-  {TOP_pextrq, TOP_pextrqx, TOP_pextrqxx, TOP_pextrqxxx, TOP_UNDEFINED},
   {TOP_phminposuw, TOP_phminposuwx, TOP_phminposuwxx, TOP_phminposuwxxx, TOP_UNDEFINED},
   {TOP_pinsrb, TOP_pinsrbx, TOP_pinsrbxx, TOP_pinsrbxxx, TOP_UNDEFINED},
   {TOP_pinsrd, TOP_pinsrdx, TOP_pinsrdxx, TOP_pinsrdxxx, TOP_UNDEFINED},
@@ -5645,6 +5644,10 @@ BOOL EBO_load_in_2OP(TOP top){
 
 static
 BOOL EBO_Is_3opr(OP *op){
+   // (The SSE4 list below includes two-operand instructions, packusdw and
+   // extractps; the callers then read a third operand that isn't there.)
+   if (OP_opnds(op) < 3)
+     return FALSE;
    TOP top = (TOP)op->opr;
    // TODO: add more intructions beside these FMA4/XOP instructions below
    switch(top){
@@ -5857,6 +5860,17 @@ BOOL EBO_Load_Execution( OP* alu_op,
       return FALSE;
 
     opnd0_indx = 1;
+  }
+
+  // An unaligned 128-bit load can't become the memory operand of an SSE
+  // instruction: that operand must be 16-byte aligned (and folding one
+  // into packusdw crashed EBO).
+  switch( OP_code(ld_op) ){
+  case TOP_lddqu: case TOP_lddqux: case TOP_lddquxx: case TOP_lddqu_n32:
+  case TOP_ldups: case TOP_ldups_n32: case TOP_ldupd: case TOP_ldupd_n32:
+    return FALSE;
+  default:
+    break;
   }
 
   BB* bb = OP_bb( alu_op );

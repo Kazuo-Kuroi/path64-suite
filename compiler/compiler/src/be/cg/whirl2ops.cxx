@@ -2920,7 +2920,10 @@ Handle_Imm_Op (WN * expr, INT * kidno /* counted from 0 */)
 			if(WN_operator(wn_para2) == OPR_INTCONST)
 			{
 				*kidno = 2;
-				return Gen_Literal_TN(WN_const_val(wn_para2), 1);
+				// An 8-bit immediate, taken as signed: GCC's builtins pass it as an
+				// int (0xa5), Clang's as a char (-91); a 1-byte literal keeps
+				// 0xa5, which is out of range.
+				return Gen_Literal_TN((signed char) WN_const_val(wn_para2), 4);
 			}
 			else if(WN_operator(wn_para2) == OPR_LDID)
 			{
@@ -2991,7 +2994,10 @@ Handle_Imm_Op (WN * expr, INT * kidno /* counted from 0 */)
 			if(WN_operator(wn_para2) == OPR_INTCONST)
 			{
 				*kidno = 2;
-				return Gen_Literal_TN(WN_const_val(wn_para2), 1);
+				// An 8-bit immediate, taken as signed: GCC's builtins pass it as an
+				// int (0xa5), Clang's as a char (-91); a 1-byte literal keeps
+				// 0xa5, which is out of range.
+				return Gen_Literal_TN((signed char) WN_const_val(wn_para2), 4);
 			}
 			else if(WN_operator(wn_para2) == OPR_LDID)
 			{

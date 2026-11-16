@@ -3216,6 +3216,26 @@ Expand_Int_To_Float_Tas (TN *dest, TN *src, TYPE_ID fmtype, OPS *ops)
 void
 Expand_Int_To_Vect_Tas (TN *dest, TN *src, TYPE_ID vectype, OPS *ops)
 {
+  // A bit cast from or to an MMX vector (the Clang front end writes one
+  // for every cast between, say, __m64 and __v4hi) is a register copy, or
+  // a move between the MMX and SSE registers; the trip through memory
+  // below takes only integer and xmm sources.
+  ISA_REGISTER_CLASS src_rc = TN_is_register(src) ? TN_register_class(src)
+                                                  : ISA_REGISTER_CLASS_integer;
+  ISA_REGISTER_CLASS dest_rc = TN_register_class(dest);
+  if (src_rc == ISA_REGISTER_CLASS_mmx && dest_rc == ISA_REGISTER_CLASS_mmx) {
+    Exp_COPY(dest, src, ops);
+    return;
+  }
+  if (src_rc == ISA_REGISTER_CLASS_mmx && dest_rc == ISA_REGISTER_CLASS_float) {
+    Build_OP(TOP_movq2dq, dest, src, ops);
+    return;
+  }
+  if (src_rc == ISA_REGISTER_CLASS_float && dest_rc == ISA_REGISTER_CLASS_mmx) {
+    Build_OP(TOP_movdq2q, dest, src, ops);
+    return;
+  }
+
   UINT vectsize = MTYPE_byte_size(vectype);
   TYPE_ID mtype;
   switch (vectsize) {
@@ -7005,7 +7025,13 @@ void Expand_Intrinsic_Imm_Param(TOP opc, struct tn* result, struct tn *op0,
 										struct tn *op1, struct tn *op2, OPS *ops, int op_count)
 {
 
-	   if(TN_is_constant(op2))
+	   // The immediate is a signed 8-bit field; GCC's builtins pass it as
+	   // an int (0xa5, not -91), which was out of range. (A 4-byte
+	   // literal: one of 1 byte keeps only the unsigned byte, 0xa5 again.)
+	   if(TN_is_constant(op2) && TN_has_value(op2))
+		   Build_OP(opc, result, op0, op1,
+			    Gen_Literal_TN((signed char) TN_value(op2), 4), ops);
+	   else if(TN_is_constant(op2))
 		   Build_OP(opc, result, op0, op1, op2, ops);
 	   else
 	   {
@@ -7022,7 +7048,7 @@ void Expand_Intrinsic_Imm_Param(TOP opc, struct tn* result, struct tn *op0,
 		   {
 		   	   if(TN_is_constant(OP_opnd(op,0)))
 		   	   {
-			     tn = Gen_Literal_TN( TN_value(OP_opnd(op, 0)), 1);
+			     tn = Gen_Literal_TN( (signed char) TN_value(OP_opnd(op, 0)), 4);
 			     Build_OP(opc, result, op0, op1, tn, ops);
 		   	   }
 			   else
@@ -7542,9 +7568,79 @@ void Expand_Intrinsic_Imm_Param_2result(TOP opc, struct tn* result, struct tn* r
 }
 
 
+// The scalar SSE intrinsics (_mm_add_ss, _mm_cvtsi32_ss, _mm_move_sd,
+// ...) compute the low element and keep the others of their first
+// operand. The instructions expanded for them below are those of ordinary
+// float arithmetic, which leave the upper elements undefined (TOP_addss,
+// TOP_minss are commutative, TOP_movss is a one-operand copy, the
+// conversions write a fresh register). So the low element is computed in
+// a temporary and merged into the first operand: for 4 floats with two
+// SHUFPS, for 2 doubles with SHUFPD. Returns 4, 8, or 0 if ID is not one
+// of them.
+static int
+Scalar_SSE_Merge_Width (INTRINSIC id)
+{
+  switch (id) {
+  case INTRN_ADDSS: case INTRN_SUBSS: case INTRN_MULSS: case INTRN_DIVSS:
+  case INTRN_MAXSS: case INTRN_MINSS:
+  case INTRN_CMPEQSS: case INTRN_CMPLTSS: case INTRN_CMPLESS:
+  case INTRN_CMPUNORDSS: case INTRN_CMPNEQSS: case INTRN_CMPNLTSS:
+  case INTRN_CMPNLESS: case INTRN_CMPORDSS:
+  case INTRN_RCPSS: case INTRN_RSQRTSS: case INTRN_SQRTSS:
+  case INTRN_MOVSS: case INTRN_CVTSI2SS: case INTRN_CVTSI642SS:
+  case INTRN_CVTSD2SS:
+    return 4;
+  case INTRN_ADDSD: case INTRN_SUBSD: case INTRN_MULSD: case INTRN_DIVSD:
+  case INTRN_MAXSD: case INTRN_MINSD:
+  case INTRN_CMPEQSD: case INTRN_CMPLTSD: case INTRN_CMPLESD:
+  case INTRN_CMPUNORDSD: case INTRN_CMPNEQSD: case INTRN_CMPNLTSD:
+  case INTRN_CMPNLESD: case INTRN_CMPORDSD:
+  case INTRN_SQRTSD:
+  case INTRN_MOVSD: case INTRN_CVTSI2SD: case INTRN_CVTSI642SD:
+  case INTRN_CVTSS2SD:
+    return 8;
+  default:
+    return 0;
+  }
+}
+
 void
 Exp_Intrinsic_Op (INTRINSIC id, TN *result, TN *op0, TN *op1, TN *op2, TN *op3, TN *op4, TYPE_ID mtype, OPS *ops)
 {
+  static BOOL computing_low = FALSE;
+  int merge = computing_low ? 0 : Scalar_SSE_Merge_Width(id);
+  if (merge) {
+    TN *low = Build_TN_Like(result);
+    switch (id) {
+    case INTRN_MOVSS:
+    case INTRN_MOVSD:
+      low = op1;
+      break;
+    case INTRN_CVTSI2SS: case INTRN_CVTSI642SS: case INTRN_CVTSI2SD:
+    case INTRN_CVTSI642SD: case INTRN_CVTSD2SS: case INTRN_CVTSS2SD:
+      // (a, b): the conversion of b, in a's upper elements; the cases
+      // below convert their first operand
+      computing_low = TRUE;
+      Exp_Intrinsic_Op(id, low, op1, NULL, NULL, NULL, NULL, mtype, ops);
+      computing_low = FALSE;
+      break;
+    default:
+      computing_low = TRUE;
+      Exp_Intrinsic_Op(id, low, op0, op1, op2, op3, op4, mtype, ops);
+      computing_low = FALSE;
+      break;
+    }
+    if (merge == 8)   // { low[0], op0[1] }
+      Build_OP(TOP_shufpd, result, low, op0, Gen_Literal_TN(2, 4), ops);
+    else {            // { low[0], low[0], op0[1], op0[1] }, then
+                      // { that[0], that[2], op0[2], op0[3] }
+      TN *t = Build_TN_Like(result);
+      Build_OP(TOP_shufps, t, low, op0, Gen_Literal_TN(0x50, 4), ops);
+      Build_OP(TOP_shufps, result, t, op0, Gen_Literal_TN(0xe8, 4), ops);
+    }
+    return;
+  }
+
   TN* rflags = Rflags_TN();
   TN *result_tmp = Build_TN_Of_Mtype( MTYPE_U1 );
   const BOOL is_double = MTYPE_is_size_double(mtype);
@@ -8180,10 +8276,13 @@ Exp_Intrinsic_Op (INTRINSIC id, TN *result, TN *op0, TN *op1, TN *op2, TN *op3, 
     Build_OP( TOP_movsd, result, op0, op1, ops );
     break;
   case INTRN_MOVHLPS:
-    Build_OP( TOP_movhlps, result, op0, op1, ops );
+    // { b[2], b[3], a[2], a[3] }; TOP_movhlps takes one operand, so the
+    // second was lost
+    Build_OP( TOP_shufps, result, op1, op0, Gen_Literal_TN(0xee, 4), ops );
     break;
   case INTRN_MOVLHPS:
-    Build_OP( TOP_movlhps, result, op0, op1, ops );
+    // { a[0], a[1], b[0], b[1] }
+    Build_OP( TOP_shufps, result, op0, op1, Gen_Literal_TN(0x44, 4), ops );
     break;
   case INTRN_UNPCKHPS:
     Build_OP( TOP_unpckhps, result, op0, op1, ops );
@@ -8332,7 +8431,12 @@ Exp_Intrinsic_Op (INTRINSIC id, TN *result, TN *op0, TN *op1, TN *op2, TN *op3, 
     else Expand_Float_To_Int_Tas(result, op0, MTYPE_I8, ops);
     break;
   case INTRN_PMADDWD:
-    Build_OP( TOP_pmaddwd, result, op0, op1, ops );
+    // the MMX instruction, or for 128-bit operands (_mm_madd_epi16) the
+    // SSE2 one; with the MMX one the upper half was lost
+    if (TN_register_class(result) == ISA_REGISTER_CLASS_mmx)
+      Build_OP( TOP_pmaddwd, result, op0, op1, ops );
+    else
+      Build_OP( TOP_pmaddwd128, result, op0, op1, ops );
     break;
   case INTRN_PSLLW_MMX:
     Build_OP( TOP_psllw_mmx, result, op0, op1, ops );
@@ -8660,20 +8764,23 @@ Exp_Intrinsic_Op (INTRINSIC id, TN *result, TN *op0, TN *op1, TN *op2, TN *op3, 
     break;
    case INTRN_PEXTRB:
 	 {
-		TN *tn = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 4);
-   	Expand_Intrinsic_Imm_Param(TOP_pextrb, result, tn, op0, op1, ops, 4);
+		// (the first operand is the result's register: these are described
+		// as x86-style; a fresh, undefined TN there broke later passes)
+   	Expand_Intrinsic_Imm_Param(TOP_pextrb, result, result, op0, op1, ops, 4);
     break;
 	 }
    case INTRN_PEXTRD:
 	 {
-		TN *tn = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 4);
-   	Expand_Intrinsic_Imm_Param(TOP_pextrd, result, tn, op0, op1, ops, 4);
+		// (the first operand is the result's register: these are described
+		// as x86-style; a fresh, undefined TN there broke later passes)
+   	Expand_Intrinsic_Imm_Param(TOP_pextrd, result, result, op0, op1, ops, 4);
     break;
 	 }
    case INTRN_PEXTRQ:
 	 {
-		TN *tn = Gen_Register_TN(ISA_REGISTER_CLASS_integer, 8);
-   	Expand_Intrinsic_Imm_Param(TOP_pextrq, result, tn, op0, op1, ops, 4);
+		// (the first operand is the result's register: these are described
+		// as x86-style; a fresh, undefined TN there broke later passes)
+   	Expand_Intrinsic_Imm_Param(TOP_pextrq, result, result, op0, op1, ops, 4);
     break;
 	 }
    case INTRN_VEC_EXT_V4SF:

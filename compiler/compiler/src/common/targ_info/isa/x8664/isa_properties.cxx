@@ -2000,6 +2000,7 @@ int main()
 				 TOP_pavgb128,
 				 TOP_pavgw128,
 				 TOP_psadbw128,
+				 TOP_pmaddwd128,
 		     TOP_fhadd128v32,
 		     TOP_fhsub128v32,
 		     TOP_faddsub128v64,
@@ -3161,6 +3162,7 @@ int main()
 		     TOP_test32,
 		     TOP_test64,
 				 TOP_psadbw128,
+				 TOP_pmaddwd128,
 		     TOP_add32,
 		     TOP_adc32,
 		     TOP_add64,
@@ -3268,6 +3270,7 @@ int main()
   Instruction_Group( vector_op,
 		     TOP_faddsub128v32,
 				 TOP_psadbw128,
+				 TOP_pmaddwd128,
 		     TOP_fhadd128v32,
 		     TOP_fhsub128v32,
 		     TOP_faddsub128v64,
@@ -4019,12 +4022,16 @@ int main()
 
   /* ==== x86 style instructions ==== */
   // (Not the memory forms of pabsb/pabsw/pabsd: unlike palignr's, they
-  // write a separate destination. Marked x86-style, the register allocator
+  // write a separate destination; nor extractps, which writes a general
+  // register from an xmm one. pextrb/d/q stay: they are described with
+  // a dummy integer first operand that the result shares. Their memory
+  // forms (and extractps's) are stores, with no result. Marked x86-style, the register allocator
   // tried to copy the address register into the xmm result.)
   x86_style = ISA_Property_Create ("x86_style");
   Instruction_Group( x86_style,
 		     TOP_faddsub128v32,
 				 TOP_psadbw128,
+				 TOP_pmaddwd128,
 		     TOP_fhadd128v32,
 		     TOP_fhsub128v32,
 		     TOP_faddsub128v64,
@@ -4739,9 +4746,6 @@ int main()
       TOP_dppsx,
       TOP_dppsxx,
       TOP_dppsxxx,
-      TOP_extractpsx,
-      TOP_extractpsxx,
-      TOP_extractpsxxx,
       TOP_insertpsx,
       TOP_insertpsxx,
       TOP_insertpsxxx,
@@ -4774,18 +4778,6 @@ int main()
       TOP_pcmpgtqx,
       TOP_pcmpgtqxx,
       TOP_pcmpgtqxxx,
-      TOP_pextrbx,
-      TOP_pextrbxx,
-      TOP_pextrbxxx,
-      TOP_pextrdx,
-      TOP_pextrdxx,
-      TOP_pextrdxxx,
-      TOP_pextrqx,
-      TOP_pextrqxx,
-      TOP_pextrqxxx,
-      TOP_pextrwx,
-      TOP_pextrwxx,
-      TOP_pextrwxxx,
       TOP_phminposuwx,
       TOP_phminposuwxx,
       TOP_phminposuwxxx,
@@ -4881,7 +4873,6 @@ int main()
   	  TOP_pextrb,
   	  TOP_pextrd,
   	  TOP_pextrq,
-  	  TOP_extractps,
   	  TOP_pinsrb,
   	  TOP_pinsrd,
   	  TOP_pinsrq,

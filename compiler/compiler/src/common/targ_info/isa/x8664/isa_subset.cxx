@@ -1176,6 +1176,7 @@ int main()
 		    TOP_pavgb128,
 		    TOP_pavgw128,
 				TOP_psadbw128,
+				TOP_pmaddwd128,
 		    TOP_psadbw,
 		    TOP_max64v8,
 		    TOP_max64v16,

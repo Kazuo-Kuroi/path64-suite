@@ -319,6 +319,7 @@ int main()
 				 TOP_pavgb128,
 				 TOP_pavgw128,
 				 TOP_psadbw128,
+				 TOP_pmaddwd128,
 		     TOP_add128v8,
 		     TOP_add128v16,
 		     TOP_add128v32,
