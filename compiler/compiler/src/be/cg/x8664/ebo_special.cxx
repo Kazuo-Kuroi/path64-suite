@@ -4002,8 +4002,8 @@ static Addr_Mode_Group Addr_Mode_Group_Table[] = {
   /*sse4*/
   {TOP_blendpd, TOP_blendpdx, TOP_blendpdxx, TOP_blendpdxxx, TOP_UNDEFINED},
   {TOP_blendps, TOP_blendpsx, TOP_blendpsxx, TOP_blendpsxxx, TOP_UNDEFINED},
-  {TOP_blendvpd, TOP_blendvpdxx, TOP_blendvpdxx, TOP_blendvpdxxx, TOP_UNDEFINED},
-  {TOP_blendvps, TOP_blendvpsxx, TOP_blendvpsxx, TOP_blendvpsxxx, TOP_UNDEFINED},
+  {TOP_blendvpd, TOP_blendvpdx, TOP_blendvpdxx, TOP_blendvpdxxx, TOP_UNDEFINED},
+  {TOP_blendvps, TOP_blendvpsx, TOP_blendvpsxx, TOP_blendvpsxxx, TOP_UNDEFINED},
   // TODO: insertps and extractps support in ebo
   {TOP_crc32, TOP_crc32x, TOP_crc32xx,TOP_crc32xxx, TOP_UNDEFINED},
   {TOP_crc32_64, TOP_crc32_64x, TOP_crc32_64xx, TOP_crc32_64xxx, TOP_UNDEFINED},
@@ -4058,13 +4058,13 @@ static Addr_Mode_Group Addr_Mode_Group_Table[] = {
   {TOP_phaddd128, TOP_phadddx128, TOP_phadddxx128, TOP_phadddxxx128, TOP_UNDEFINED},
   {TOP_phaddsw128, TOP_phaddswx128, TOP_phaddswxx128, TOP_phaddswxxx128, TOP_UNDEFINED},
   {TOP_phaddw, TOP_phaddwx,TOP_phaddwxx,TOP_phaddwxxx, TOP_UNDEFINED},
-  {TOP_phaddd, TOP_phadddxx, TOP_phadddxx, TOP_phadddxxx, TOP_UNDEFINED},
+  {TOP_phaddd, TOP_phadddx, TOP_phadddxx, TOP_phadddxxx, TOP_UNDEFINED},
   {TOP_phaddsw, TOP_phaddswx, TOP_phaddswxx, TOP_phaddswxxx, TOP_UNDEFINED},
   {TOP_phsubw128, TOP_phsubwx128,TOP_phsubwxx128,TOP_phsubwxxx128, TOP_UNDEFINED},
   {TOP_phsubd128, TOP_phsubdx128, TOP_phsubdxx128, TOP_phsubdxxx128, TOP_UNDEFINED},
   {TOP_phsubsw128, TOP_phsubswx128, TOP_phsubswxx128, TOP_phsubswxxx128,TOP_UNDEFINED},
   {TOP_phsubw, TOP_phsubwx, TOP_phsubwxx, TOP_phsubwxxx, TOP_UNDEFINED},
-  {TOP_phsubd,TOP_phsubdxx, TOP_phsubdxx, TOP_phsubdxxx, TOP_UNDEFINED},
+  {TOP_phsubd, TOP_phsubdx, TOP_phsubdxx, TOP_phsubdxxx, TOP_UNDEFINED},
   {TOP_phsubsw, TOP_phsubswx, TOP_phsubswxx, TOP_phsubswxxx, TOP_UNDEFINED},
   {TOP_pabsb128, TOP_pabsbx128, TOP_pabsbxx128, TOP_pabsbxxx128, TOP_UNDEFINED},
   {TOP_pabsw128, TOP_pabswx128, TOP_pabswxx128, TOP_pabswxxx128, TOP_UNDEFINED},
@@ -4072,7 +4072,7 @@ static Addr_Mode_Group Addr_Mode_Group_Table[] = {
   {TOP_pabsb, TOP_pabsbx, TOP_pabsbxx, TOP_pabsbxxx, TOP_UNDEFINED},
   {TOP_pabsw, TOP_pabswx, TOP_pabswxx, TOP_pabswxxx, TOP_UNDEFINED},
   {TOP_pabsd, TOP_pabsdx, TOP_pabsdxx, TOP_pabsdxxx,TOP_UNDEFINED},
-  {TOP_pmaddubsw128,TOP_pmaddubswxx128,TOP_pmaddubswxx128,TOP_pmaddubswxxx128 ,TOP_UNDEFINED},
+  {TOP_pmaddubsw128, TOP_pmaddubswx128, TOP_pmaddubswxx128,TOP_pmaddubswxxx128 ,TOP_UNDEFINED},
   {TOP_pmaddubsw, TOP_pmaddubswx,TOP_pmaddubswxx,TOP_pmaddubswxxx, TOP_UNDEFINED},
   {TOP_pmulhrsw128, TOP_pmulhrswx128,TOP_pmulhrswxx128,TOP_pmulhrswxxx128, TOP_UNDEFINED},
   {TOP_pmulhrsw, TOP_pmulhrswx, TOP_pmulhrswxx, TOP_pmulhrswxxx, TOP_UNDEFINED},
@@ -5945,6 +5945,18 @@ BOOL EBO_Load_Execution( OP* alu_op,
 	return FALSE;
 
       opinfo = opinfo->same;
+    }
+  }
+
+  // The memory forms built below carry at most opnd0 and opnd1 of an
+  // ordinary (non-3-operand) instruction; a third operand, such as the
+  // immediate of palignr, shufps, blendps or pinsrw, would be dropped
+  // (palignr crashed EBO; the others would lose their immediate). Leave
+  // those alone.
+  if( !EBO_Is_3opr(alu_op) ){
+    for( int k = 2; k < OP_opnds(alu_op); k++ ){
+      if( TN_has_value(OP_opnd(alu_op, k)) )
+	return FALSE;
     }
   }
 

@@ -4018,6 +4018,9 @@ int main()
 		     TOP_UNDEFINED );
 
   /* ==== x86 style instructions ==== */
+  // (Not the memory forms of pabsb/pabsw/pabsd: unlike palignr's, they
+  // write a separate destination. Marked x86-style, the register allocator
+  // tried to copy the address register into the xmm result.)
   x86_style = ISA_Property_Create ("x86_style");
   Instruction_Group( x86_style,
 		     TOP_faddsub128v32,
@@ -4632,15 +4635,6 @@ int main()
 		     TOP_blendps,
 		     TOP_blendvpd,
 		     TOP_blendvps,
-		     TOP_pabsbx, 
-	TOP_pabsbxx, 
-	TOP_pabsbxxx, 
-	TOP_pabswx, 
-	TOP_pabswxx, 
-	TOP_pabswxxx, 
-	TOP_pabsdx, 
-	TOP_pabsdxx, 
-	TOP_pabsdxxx, 
 	TOP_palignrx, 
 	TOP_palignrxx, 
 	TOP_palignrxxx, 
@@ -4680,15 +4674,6 @@ int main()
 	TOP_psigndx, 
 	TOP_psigndxx, 
 	TOP_psigndxxx, 
-	TOP_pabsbx128, 
-	TOP_pabsbxx128, 
-	TOP_pabsbxxx128, 
-	TOP_pabswx128, 
-	TOP_pabswxx128, 
-	TOP_pabswxxx128, 
-	TOP_pabsdx128, 
-	TOP_pabsdxx128, 
-	TOP_pabsdxxx128, 
 	TOP_palignrx128, 
 	TOP_palignrxx128, 
 	TOP_palignrxxx128, 

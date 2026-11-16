@@ -2948,7 +2948,7 @@ int main()
 	Operand(0, fp128, opnd1);
 	Operand(1, int64, base);
 	Operand(2, simm32, offset);
-	Operand(3, simm8, opnd2);
+	Operand(3, simm8, opnd3);
 
 	Instruction_Group("ssse3 two fp128 and a const xx",
 						TOP_palignrxx128,
@@ -2959,7 +2959,7 @@ int main()
 	Operand(2, int64, index);
 	Operand(3, uimm8, scale);
 	Operand(4, simm32, offset);
-	Operand(5, simm8, opnd2);
+	Operand(5, simm8, opnd3);
 
 	Instruction_Group("ssse3 two fp128 and a const xxx",
 						TOP_palignrxxx128,
@@ -2969,7 +2969,7 @@ int main()
 	Operand(1, int64, index);
 	Operand(2, uimm8, scale);
 	Operand(3, simm32, offset);
-	Operand(4, simm8, opnd2);
+	Operand(4, simm8, opnd3);
 	
 	Instruction_Group("ssse3 two mmx and a const",
 						TOP_palignr,
