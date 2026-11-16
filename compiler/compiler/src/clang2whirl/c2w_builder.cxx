@@ -596,7 +596,9 @@ WhirlBuilder::HandleFunctionDecl(const clang::FunctionDecl *decl) {
   //  return;
   // emit if it's must be emitted (an alias declaration always is, as in
   // Clang's CodeGen, though it has no body and nothing may use it)
-  if (MustBeEmitted(decl) || decl->hasAttr<AliasAttr>()) {
+  if (MustBeEmitted(decl) || decl->hasAttr<AliasAttr>() ||
+      ((decl->hasAttr<ConstructorAttr>() || decl->hasAttr<DestructorAttr>()) &&
+       decl->doesThisDeclarationHaveABody())) {
     _decl_builder.ConvertDecl(decl);
     // continue add ctor and dtor for ctor_base/ctor_base
     if (!isa<CXXConstructorDecl>(decl) && !isa<CXXDestructorDecl>(decl))

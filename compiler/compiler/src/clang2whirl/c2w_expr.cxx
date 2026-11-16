@@ -35,6 +35,7 @@
 #include "c2w_tracer.h"
 #include "c2w_cxxabi.h"
 #include "c2w_utils.h"
+#include "c2w_path64.h"
 #include <vector>
 // clang header files
 #include "clanginc.h"
@@ -596,8 +597,34 @@ WhirlExprBuilder::EmitAssignNode(Result lhs, Result rhs, TY_IDX ty, RV rv) {
       TY_IDX pty = lhs.Ty();
       Is_True(TY_kind(pty) == KIND_POINTER, ("not pointer type"));
       TY_IDX lty = TY_pointed(pty);
-      WN* addr = lhs.GetLValue();
-      ret = WN_Istore(TY_mtype(ty), 0, pty, addr, rhs_wn);
+      if (lhs.FieldId()) {
+        // A field of the object a reference (or deref'ed symbol) names:
+        // store through the reference at the field's offset and id, so
+        // the ISTORE's type is the struct the field id belongs to.
+        UINT64 ofst = 0;
+        UINT32 fld = 0;
+        Is_True(TY_kind(lty) == KIND_STRUCT, ("not struct type"));
+        FLD_HANDLE fh = get_fld_and_offset(lty, lhs.FieldId(), fld, ofst);
+        Is_True(!fh.Is_Null(), ("not find the field"));
+        if (FLD_is_bit_field(fh)) {
+          ty = MTYPE_To_TY(MTYPE_BS);
+          ofst = 0;
+        }
+        ST *st = ST_ptr(lhs.Sym());
+        WN *base;
+        if (TY_kind(ST_type(st)) == KIND_POINTER && !lhs.IsConstSym())
+          base = WN_Ldid(Pointer_Mtype, 0, st, ST_type(st), 0);
+        else {
+          Set_ST_addr_saved(st);
+          base = WN_Lda(Pointer_Mtype, 0, st, 0);
+        }
+        ret = WN_Istore(TY_mtype(ty), ofst, pty, base, rhs_wn,
+                        lhs.FieldId());
+      }
+      else {
+        WN* addr = lhs.GetLValue();
+        ret = WN_Istore(TY_mtype(ty), 0, pty, addr, rhs_wn);
+      }
     }
     else {
       UINT64 ofst = 0;
@@ -1571,9 +1598,62 @@ WhirlExprBuilder::ConvertConvertVectorExpr(const ConvertVectorExpr *expr) {
   return Result::nwNode(WGEN_CreateComma(TY_mtype(ty_idx), blk, val), ty_idx);
 }
 
+// x op= v, ++x, x++ (and --) on an _Atomic integer lvalue: one atomic
+// read-modify-write (lock add/xadd/cmpxchg...), as Clang's own code
+// generator makes it. Returns NULL when the operation has no such form
+// (other operators, pointers, other sizes); the caller then does it
+// non-atomically.
+WN *
+WhirlExprBuilder::Gen_atomic_rmw(const Expr *lhs, const Expr *rhs, int op,
+                                 bool post, BOOL retv) {
+  QualType at = lhs->getType();
+  if (!at->isAtomicType())
+    return NULL;
+  QualType vt = at->getAs<AtomicType>()->getValueType();
+  if (!vt->isIntegerType())
+    return NULL;
+  TY_IDX ty = _builder->TB().ConvertType(vt);
+  UINT size = TY_size(ty);
+  if (size != 4 && size != 8)
+    return NULL;
+  INTRINSIC i4;
+  switch (op) {
+  case BO_AddAssign: i4 = post ? INTRN_FETCH_AND_ADD_I4 : INTRN_ADD_AND_FETCH_I4; break;
+  case BO_SubAssign: i4 = post ? INTRN_FETCH_AND_SUB_I4 : INTRN_SUB_AND_FETCH_I4; break;
+  case BO_AndAssign: i4 = INTRN_AND_AND_FETCH_I4; break;
+  case BO_OrAssign:  i4 = INTRN_OR_AND_FETCH_I4; break;
+  case BO_XorAssign: i4 = INTRN_XOR_AND_FETCH_I4; break;
+  default: return NULL;
+  }
+  TYPE_ID mty = TY_mtype(ty);
+  WN *addr = ConvertExpr(lhs).GetLValue();
+  WN *val = rhs ? WN_Type_Conversion(ConvertToNode(rhs), mty)
+                : WN_Intconst(mty, 1);
+  TY_IDX pty = Make_Pointer_Type(ty);
+  WN *kids[2];
+  kids[0] = WGEN_CreateParm(Pointer_Mtype, addr, pty);
+  kids[1] = WGEN_CreateParm(mty, val, ty);
+  WN *call = WN_Create_Intrinsic(OPR_INTRINSIC_CALL, mty, MTYPE_V,
+                                 Sync_Intrinsic_For_Size(i4, size), 2, kids);
+  WN_Set_Linenum(call, GetSrcPos());
+  if (!retv)
+    return call;
+  WN *blk = WN_CreateBlock();
+  WN_INSERT_BlockLast(blk, call);
+  WN *stid = WGEN_StidTemp(ty, WN_Ldid(mty, -1, Return_Val_Preg, ty),
+                           "atomic.ret");
+  WN_INSERT_BlockLast(blk, stid);
+  WN_Set_Linenum(stid, GetSrcPos());
+  WN *ldid = WN_Ldid(mty, WN_offset(stid), WN_st(stid), ty);
+  return WGEN_CreateComma(Mtype_comparison(mty), blk, ldid);
+}
+
 Result
 WhirlExprBuilder::ConvertCompoundAssignOperator(const CompoundAssignOperator *expr, BOOL retv) {
   TRACE_FUNC();
+  if (WN *rmw = Gen_atomic_rmw(expr->getLHS(), expr->getRHS(),
+                               expr->getOpcode(), false, retv))
+    return Result::nwNode(rmw, _builder->TB().ConvertType(expr->getType()));
 
   TY_IDX ty_idx = _builder->TB().ConvertType(expr->getType());
   TYPE_ID mtyp = TY_mtype(ty_idx);
@@ -2034,6 +2114,36 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
   WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), st_wn);
   WN_Set_Linenum(st_wn, spos);
 
+  // The array cookie (Itanium C++ ABI 2.7): the element count before the
+  // array when delete[] must destroy the elements or pass the size;
+  // never for placement new[]. delete[] reads it back.
+  bool need_cookie = false;
+  if (expr->isArray() && !nw_func->isReservedGlobalPlacementOperator()) {
+    QualType elem = _builder->Context()->getBaseElementType(type);
+    need_cookie = expr->doesUsualArrayDeleteWantSize() ||
+                  elem.isDestructedType() == QualType::DK_cxx_destructor;
+  }
+  if (need_cookie) {
+    WN *blk = WhirlBlockUtil::getCurrentBlock();
+    INT offset = MTYPE_byte_size(Pointer_Mtype);
+    TYPE_ID rtype = WN_rtype(size_wn);
+    size_wn = WN_Add(rtype, size_wn, WN_Intconst(rtype, offset));
+    WN_kid(call_wn, 0) = WGEN_CreateParm(machine_uint_ty, size_wn,
+                                         MTYPE_To_TY(machine_uint_ty));
+    WN *ldid = WN_Ldid(TY_mtype(ret_ty_idx), 0, tmp_st, ret_ty_idx);
+    WN *add_wn = WN_Add(Pointer_Mtype, ldid,
+                        WN_Intconst(Pointer_Mtype, offset));
+    WN *adj = WN_Stid(TY_mtype(ret_ty_idx), 0, tmp_st, ret_ty_idx, add_wn);
+    WN_INSERT_BlockLast(blk, adj);
+    WN_Set_Linenum(adj, spos);
+    TY_IDX ptr_ty = Make_Pointer_Type(MTYPE_To_TY(Pointer_Mtype));
+    ldid = WN_Ldid(TY_mtype(ret_ty_idx), 0, tmp_st, ret_ty_idx);
+    WN *istr_wn = WN_Istore(Pointer_Mtype, -offset, ptr_ty, ldid,
+                            WN_COPY_Tree(elem_count), 0);
+    WN_INSERT_BlockLast(blk, istr_wn);
+    WN_Set_Linenum(istr_wn, spos);
+  }
+
   if (!expr->hasInitializer()) {
     // done, return st contains the new result
     return Result::nwSym(ST_st_idx(tmp_st), ty_idx);
@@ -2120,27 +2230,7 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
     const CXXConstructorDecl *ctor_decl = ctor_expr->getConstructor();
     if (!ctor_decl->isTrivial()) {
       WN *blk = WhirlBlockUtil::getCurrentBlock();
-      // adjust allocation size to save the element count
-      INT offset = MTYPE_byte_size(Pointer_Mtype);
-      TYPE_ID rtype = WN_rtype(size_wn);
-      size_wn = WN_Add(rtype, size_wn,
-                       WN_Intconst(rtype, offset));
-      WN_kid(call_wn, 0) = WGEN_CreateParm(machine_uint_ty, size_wn,
-                                           MTYPE_To_TY(machine_uint_ty));
-      // adjust return memory pointer
-      WN *ldid = WN_Ldid(TY_mtype(ret_ty_idx), 0, tmp_st, ret_ty_idx);
-      WN *add_wn = WN_Add(Pointer_Mtype, ldid, WN_Intconst(Pointer_Mtype, offset));
-      WN *st_wn = WN_Stid(TY_mtype(ret_ty_idx), 0, tmp_st, ret_ty_idx, add_wn);
-      WN_INSERT_BlockLast(blk, st_wn);
-      WN_Set_Linenum(st_wn, spos);
-
-      // store element count
-      TY_IDX ptr_ty = Make_Pointer_Type(MTYPE_To_TY(Pointer_Mtype));
-      ldid = WN_Ldid(TY_mtype(ret_ty_idx), 0, tmp_st, ret_ty_idx);
-      WN *istr_wn = WN_Istore(Pointer_Mtype, -offset, ptr_ty, ldid,
-                              WN_COPY_Tree(elem_count), 0);
-      WN_INSERT_BlockLast(blk, istr_wn);
-      WN_Set_Linenum(istr_wn, spos);
+      // (the array cookie, if any, is already in place)
       // call ctor one-by-one
       GlobalDecl gd(ctor_decl, CXXCtorType::Ctor_Complete);
       ST_IDX st_idx = _builder->Get_func_st(gd);
@@ -2159,7 +2249,8 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
                                "nam.iter");
       WN_INSERT_BlockLast(blk, stid);
       WN_Set_Linenum(stid, spos);
-      ldid = WN_Ldid(Pointer_Mtype, WN_offset(st_wn), WN_st(st_wn), ty_idx);
+      // each element in turn: the loop advances nam.iter
+      WN *ldid = WN_Ldid(Pointer_Mtype, WN_offset(stid), WN_st(stid), ty_idx);
       WN_kid(ctor_call, 0) = WGEN_CreateParm(Pointer_Mtype,
                                              ldid, ty_idx);
       WN *parm[1] = { stid };
@@ -2323,10 +2414,58 @@ WhirlExprBuilder::ConvertCXXDeleteExpr(const clang::CXXDeleteExpr *expr) {
   ldid_wn = Handle_expr_for_copy(WhirlBlockUtil::getCurrentBlock(),
                                  ldid_wn, ptr_ty, spos, ".dl.ptr");
 
-  // call destructor before convert delete expr
   const Type *type = expr->getDestroyedType().getTypePtr();
   const CXXRecordDecl *record_decl = type->getAsCXXRecordDecl();
-  if (record_decl && !record_decl->hasTrivialDestructor()) {
+
+  // Nothing happens for a null pointer (no destructor, no operator
+  // delete): the work below goes in an IF on the pointer.
+  WN *null_test = WN_NE(Pointer_Mtype, WN_COPY_Tree(ldid_wn),
+                        Gen_null_const(MTYPE_To_TY(Pointer_Mtype)));
+  WN *body = WhirlBlockUtil::nwBlock();
+
+  // delete p with a virtual destructor: the deleting destructor (D0) from
+  // p's vtable destroys the complete object and frees it with the right
+  // operator delete (Itanium C++ ABI 2.5).
+  if (record_decl && !expr->isArrayForm() &&
+      record_decl->getDestructor() &&
+      record_decl->getDestructor()->isVirtual() &&
+      !record_decl->hasAttr<FinalAttr>()) {
+    const CXXDestructorDecl *dtor_decl = record_decl->getDestructor();
+    ItaniumVTableContext *vt_ctx =
+      cast<ItaniumVTableContext>(_builder->Context()->getVTableContext());
+    UINT64 slot = vt_ctx->getMethodVTableIndex(
+                    GlobalDecl(dtor_decl, CXXDtorType::Dtor_Deleting));
+    TYPE_ID uintptr_ty = _builder->TB().GetUIntPtrMType();
+    TY_IDX func_ty = _builder->TB().ConvertType(dtor_decl->getType());
+    WN *icall = WN_Icall(MTYPE_V, MTYPE_V, 2, func_ty);
+    WN_Set_Linenum(icall, spos);
+    WN_Set_Call_Default_Flags(icall);
+    WN_Set_Call_Is_Virtual(icall);
+    if (!_builder->DeclBuilder().Call_nothrow(dtor_decl))
+      Mark_call_region(icall);
+    WN_kid(icall, 0) = WGEN_CreateParm(Pointer_Mtype, WN_COPY_Tree(ldid_wn),
+                                       ptr_ty);
+    WN *vptr = WN_Iload(uintptr_ty, 0, ptr_ty, WN_COPY_Tree(ldid_wn), 0);
+    WN_kid(icall, 1) = WN_Iload(uintptr_ty, slot * MTYPE_byte_size(Pointer_Mtype),
+                                Make_Pointer_Type(func_ty), vptr, 0);
+    WN_INSERT_BlockLast(body, icall);
+    WhirlBlockUtil::popCurrentBlock();
+    WN *if_wn = WN_CreateIf(null_test, body, WN_CreateBlock());
+    WN_Set_Linenum(if_wn, spos);
+    return Result::nwNode(if_wn, 0);
+  }
+
+  // delete[] of an array with a cookie (see ConvertCXXNewExpr) that only
+  // records the size for operator delete[]: free from the cookie.
+  bool dtor_loop = record_decl && !record_decl->hasTrivialDestructor();
+  bool cookie = expr->isArrayForm() &&
+                (dtor_loop || expr->doesUsualArrayDeleteWantSize());
+  if (cookie && !dtor_loop)
+    ldid_wn = WN_Sub(Pointer_Mtype, ldid_wn,
+                     WN_Intconst(Pointer_Mtype, offset));
+
+  // call destructor before convert delete expr
+  if (dtor_loop) {
     const CXXDestructorDecl *dtor_decl = record_decl->getDestructor();
     GlobalDecl gd(dtor_decl, CXXDtorType::Dtor_Complete);
     ST_IDX st_idx = _builder->Get_func_st(gd);
@@ -2378,15 +2517,38 @@ WhirlExprBuilder::ConvertCXXDeleteExpr(const clang::CXXDeleteExpr *expr) {
       WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), dtor_call);
     }
   }
-  // call operator delete
-  WN *call_wn = WN_Create(OPR_CALL, TY_mtype(ret_ty_idx), MTYPE_V, 1);
+  // call operator delete (with the size, for operator delete(void *,
+  // size_t): the object's, or for an array the cookie's count times the
+  // element's plus the cookie)
+  UINT nparm = del_decl->getNumParams() >= 2 ? 2 : 1;
+  WN *call_wn = WN_Create(OPR_CALL, TY_mtype(ret_ty_idx), MTYPE_V, nparm);
   WN_Set_Linenum(call_wn, SetSrcPos(getLocation(del_decl)));
   WN_st_idx(call_wn) = del_func_sym_idx;
   if (!_builder->DeclBuilder().Call_nothrow(del_decl))
     Mark_call_region(call_wn);
 
+  if (nparm == 2) {
+    INT64 esz = _builder->Context()->getTypeSizeInChars(
+                  expr->getDestroyedType()).getQuantity();
+    WN *sz;
+    if (cookie) {
+      TY_IDX cp_ty = Make_Pointer_Type(MTYPE_To_TY(MTYPE_U8));
+      sz = WN_Add(MTYPE_U8,
+                  WN_Mpy(MTYPE_U8,
+                         WN_Iload(MTYPE_U8, 0, cp_ty, WN_COPY_Tree(ldid_wn)),
+                         WN_Intconst(MTYPE_U8, esz)),
+                  WN_Intconst(MTYPE_U8, offset));
+    }
+    else
+      sz = WN_Intconst(MTYPE_U8, esz);
+    WN_kid(call_wn, 1) = WGEN_CreateParm(MTYPE_U8, sz, MTYPE_To_TY(MTYPE_U8));
+  }
   WN_kid(call_wn, 0) = WGEN_CreateParm(TY_mtype(parm_ty), ldid_wn, parm_ty);
-  return Result::nwNode(call_wn, 0);
+  WN_INSERT_BlockLast(body, call_wn);
+  WhirlBlockUtil::popCurrentBlock();
+  WN *if_wn = WN_CreateIf(null_test, body, WN_CreateBlock());
+  WN_Set_Linenum(if_wn, spos);
+  return Result::nwNode(if_wn, 0);
 }
 
 Result
@@ -2607,6 +2769,42 @@ WhirlExprBuilder::ConvertCXXDynamicCastExpr(const CXXDynamicCastExpr *expr) {
     WN_Set_Linenum(call_wn, spos);
     WN *call_ret = WN_Ldid(Pointer_Mtype, -1, Return_Val_Preg, to_ty);
     value = WGEN_CreateComma(Pointer_Mtype, comma_blk, call_ret);
+  }
+
+  if (expr->isGLValue() && !expr_ty->isVoidType()) {
+    // dynamic_cast<T&>: the operand is not null; a failed cast throws
+    // std::bad_cast (__cxa_bad_cast), as Clang's code generator does.
+    static ST *bad_cast_st;
+    if (bad_cast_st == NULL)
+      bad_cast_st = Create_function("__cxa_bad_cast", MTYPE_To_TY(MTYPE_V),
+                                    TY_IDX_ZERO);
+    // (the call's block, with the return value read right after it)
+    Is_True(WN_operator(value) == OPR_COMMA, ("dynamic_cast: no call"));
+    WN *blk = WN_kid0(value);
+    WN *stid = WGEN_StidTemp(to_ty, WN_kid1(value), ".dyncast.ref");
+    WN_INSERT_BlockLast(blk, stid);
+    WN_Set_Linenum(stid, spos);
+    ST *tmp = WN_st(stid);
+    WN *throw_blk = WN_CreateBlock();
+    WN *call = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, 0);
+    WN_st_idx(call) = ST_st_idx(bad_cast_st);
+    WN_Set_Call_Default_Flags(call);
+    Mark_call_region(call);
+    WN_Set_Linenum(call, spos);
+    WN_INSERT_BlockLast(throw_blk, call);
+    WN *test = WN_EQ(Pointer_Mtype,
+                     WN_Ldid(Pointer_Mtype, WN_offset(stid), tmp, to_ty),
+                     Gen_null_const(MTYPE_To_TY(Pointer_Mtype)));
+    WN *if_wn = WN_CreateIf(test, throw_blk, WN_CreateBlock());
+    WN_Set_Linenum(if_wn, spos);
+    WN_INSERT_BlockLast(blk, if_wn);
+    WN *ret = WGEN_CreateComma(Pointer_Mtype, blk,
+                               WN_Ldid(Pointer_Mtype, WN_offset(stid), tmp,
+                                       to_ty));
+    // the object's address, as for a call returning a reference
+    Result r = Result::nwNode(ret, to_ty);
+    r.SetRef();
+    return r;
   }
 
   // create null for check fail
@@ -3764,6 +3962,14 @@ WhirlExprBuilder::ConvertCastExpr(const CastExpr *expr, Result dest) {
   case CK_FloatingCast:
     from_wn = ConvertToNode(sub);
     to_wn = WN_Type_Conversion(from_wn, TY_mtype(to_ty));
+    // Signed to wider unsigned (int -> unsigned long): sign-extend to the
+    // signed type (I8I4CVT), which is what wgen gives the back end; WOPT
+    // turns a U8I4CVT of an expression into a zero extension.
+    if (WN_operator(to_wn) == OPR_CVT &&
+        MTYPE_is_integral(WN_desc(to_wn)) && MTYPE_signed(WN_desc(to_wn)) &&
+        MTYPE_is_integral(WN_rtype(to_wn)) && !MTYPE_signed(WN_rtype(to_wn)) &&
+        MTYPE_bit_size(WN_rtype(to_wn)) > MTYPE_bit_size(WN_desc(to_wn)))
+      WN_set_rtype(to_wn, Mtype_TransferSign(WN_desc(to_wn), WN_rtype(to_wn)));
     if (WN_operator(to_wn) == OPR_INTCONST) {
       WN_set_rtype(to_wn, Mtype_comparison(TY_mtype(to_ty)));
     } else if (OPCODE_is_load(WN_opcode(to_wn)) &&
@@ -3898,8 +4104,13 @@ WhirlExprBuilder::ConvertCastExpr(const CastExpr *expr, Result dest) {
 
   case CK_NonAtomicToAtomic:
   case CK_AtomicToNonAtomic:
-    // TODO
-    Is_True(FALSE, ("unsupported CK_NonAtomicToAtomic or CK_AtomicToNonAtomic"));
+    // _Atomic(T) has T's representation (the type builder drops the
+    // _Atomic); the value is the same. Aligned loads and stores of up to
+    // 8 bytes are atomic on x86-64. Read-modify-write operators on an
+    // _Atomic lvalue are done atomically where they are converted.
+    from_wn = ConvertToNode(sub);
+    to_wn = WN_Type_Conversion(from_wn, TY_mtype(to_ty));
+    return Result::nwNode(to_wn, to_ty);
 
   case CK_Dynamic:
     // TODO
@@ -4534,8 +4745,10 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
   BOOL is_ref = FALSE;
   const ValueDecl *decl = expr->getExtendingDecl();
   Is_True(decl == NULL || isa<VarDecl>(decl), ("not var decl"));
-  if (decl && isa<VarDecl>(decl) && decl->getType()->isReferenceType()
-                                 && !decl->getType()->isLValueReferenceType()) {
+  // A temporary bound to a reference variable (T&& or const T&) lives
+  // as long as the reference, in a temp of its own the reference points to.
+  if (decl && isa<VarDecl>(decl) && decl->getType()->isReferenceType() &&
+      dest.isSym() && dest.IsRef()) {
     is_ref = TRUE;
   }
 
@@ -4554,13 +4767,24 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
     if (decl && isa<VarDecl>(decl) &&
         dyn_cast<VarDecl>(decl)->hasGlobalStorage())
       symtab = GLOBAL_SYMTAB;
-    ST *tmp_st = New_ST(symtab);
-    ST_Init(tmp_st, Save_Str(tmp_name), CLASS_VAR,
-            symtab == GLOBAL_SYMTAB ? SCLASS_FSTATIC : SCLASS_AUTO,
-            EXPORT_LOCAL, ty);
+    // one made up front, with its __tcf (see the global var init)
+    ST_IDX pre_st = symtab == GLOBAL_SYMTAB
+                      ? _builder->DeclBuilder().GetGlobalTempST(expr)
+                      : ST_IDX_ZERO;
+    ST *tmp_st;
+    if (pre_st)
+      tmp_st = ST_ptr(pre_st);
+    else {
+      tmp_st = New_ST(symtab);
+      ST_Init(tmp_st, Save_Str(tmp_name), CLASS_VAR,
+              symtab == GLOBAL_SYMTAB ? SCLASS_FSTATIC : SCLASS_AUTO,
+              EXPORT_LOCAL, ty);
+    }
     tmp_dest = Result::nwSym(ST_st_idx(tmp_st), ty);
     // check if we need destruct materialize temporary obj
-    if (expr->getType()->isRecordType()) {
+    if (pre_st)
+      ;   // destroyed at exit by its __tcf
+    else if (expr->getType()->isRecordType()) {
       const CXXRecordDecl *record_decl = expr->getType()->getAsCXXRecordDecl();
       if (record_decl && !record_decl->hasTrivialDestructor()) {
         if (decl && isa<VarDecl>(decl))
@@ -4588,8 +4812,17 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
     Is_True(dest.isSym(), ("invalid ret R"));
     if (dest.Sym() != ret.Sym()) {
       if (is_ref) {
-        WN *rhs = ret.IsLValue() ? ret.GetLValue() : ret.GetRValue();
-        WN *stid = WN_Istore(WN_rtype(rhs), 0, pty, dest.GetLValue(), rhs);
+        // The value is in the temp (copied there if it is elsewhere);
+        // the reference gets the temp's address.
+        if (ret.Sym() != tmp_dest.Sym()) {
+          WN *val = WN_Stid(TY_mtype(ty), 0, ST_ptr(tmp_dest.Sym()), ty,
+                            ret.GetRValue());
+          WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), val);
+          WN_Set_Linenum(val, spos);
+        }
+        ST *dest_st = ST_ptr(dest.Sym());
+        WN *stid = WN_Stid(Pointer_Mtype, 0, dest_st, ST_type(dest_st),
+                           tmp_dest.GetLValue());
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
         WN_Set_Linenum(stid, spos);
         return dest;
@@ -4608,7 +4841,20 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
     }
     else if (OPERATOR_is_expression(WN_operator(tmp_wn))) {
       WN *lhs = dest.GetLValue();
-      if (WN_has_sym(tmp_wn) && WN_has_sym(lhs) &&
+      if (is_ref) {
+        // the value goes in the temp; the reference gets its address
+        // (also for a value with a symbol, such as a floating CONST)
+        WN *tmp_stid = WN_Stid(TY_mtype(ty), 0, ST_ptr(tmp_dest.Sym()), ty,
+                               tmp_wn);
+        WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), tmp_stid);
+        WN_Set_Linenum(tmp_stid, spos);
+        ST *dest_st = ST_ptr(dest.Sym());
+        WN *stid = WN_Stid(Pointer_Mtype, 0, dest_st, ST_type(dest_st),
+                           tmp_dest.GetLValue());
+        WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
+        WN_Set_Linenum(stid, spos);
+      }
+      else if (WN_has_sym(tmp_wn) && WN_has_sym(lhs) &&
           WN_st(tmp_wn) != WN_st(lhs)) {
         WN *store = WN_Istore(TY_mtype(ty), 0, pty, lhs, tmp_wn, 0);
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), store);
@@ -4621,7 +4867,8 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
           WN_Set_Linenum(tmp_stid, spos);
           tmp_wn = tmp_dest.GetLValue();
         }
-        WN *stid = WN_Stid(WN_rtype(tmp_wn), 0, WN_st(lhs), ty, tmp_wn);
+        WN *stid = WN_Stid(WN_rtype(tmp_wn), 0, WN_st(lhs),
+                           is_ref ? ST_type(WN_st(lhs)) : ty, tmp_wn);
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
         WN_Set_Linenum(stid, spos);
       }
@@ -5241,6 +5488,12 @@ WhirlExprBuilder::ConvertPrePostIncDec(
 Result
 WhirlExprBuilder::ConvertUnaryOperator(const UnaryOperator *expr, BOOL retv) {
   TRACE_FUNC();
+  if (expr->isIncrementDecrementOp()) {
+    int op = expr->isIncrementOp() ? BO_AddAssign : BO_SubAssign;
+    if (WN *rmw = Gen_atomic_rmw(expr->getSubExpr(), NULL, op,
+                                 expr->isPostfix(), retv))
+      return Result::nwNode(rmw, _builder->TB().ConvertType(expr->getType()));
+  }
   if (expr->getOpcode() == clang::UO_AddrOf) {
     Result r = ConvertExpr(expr->getSubExpr());
     if (r.IsDeref()) {

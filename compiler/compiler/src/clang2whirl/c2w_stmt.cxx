@@ -217,11 +217,12 @@ void WhirlStmtBuilder::Build_eh_type_info() {
   {
     // generate INITV for filter symbol, filter value
     INITV_IDX st = New_INITV();
+    // A symoff to the typeinfo object (zero for catch-all), as wgen
+    // makes it and as PU::Get_type_info_table reads it.
     if (type_filter_vector[i].st)
-      INITV_Set_VAL(Initv_Table[st],
-                     Enter_tcon(Host_To_Targ(MTYPE_U4,type_filter_vector[i].st)), 1);
+      INITV_Set_SYMOFF(Initv_Table[st], 1, type_filter_vector[i].st, 0);
     else
-      INITV_Set_ZERO(Initv_Table[st], MTYPE_U4, 1);
+      INITV_Set_ZERO(Initv_Table[st], MTYPE_I4, 1);
 
     INITV_IDX filter = New_INITV();
     INITV_Set_VAL(Initv_Table[filter],
@@ -651,7 +652,8 @@ WN *WhirlStmtBuilder::ConvertCallExpr(const CallExpr *stmt) {
   if (r.isNone())
     return NULL;
   Is_True(r.isNode(), ("call expr not return whirl node"));
-  Is_True(OPERATOR_is_stmt(WN_operator(r.Node())), ("node is not stmt"));
+  Is_True(OPERATOR_is_stmt(WN_operator(r.Node())) ||
+          WN_operator(r.Node()) == OPR_BLOCK, ("node is not stmt"));
   return r.Node();
 }
 
@@ -896,8 +898,7 @@ WhirlStmtBuilder::Create_handler_list(int scope_index)
       if(type != QualType())
       {
         st = _builder->TB().ConvertRTTIForType(type);
-        INITV_Set_VAL(Initv_Table[type_st],
-                       Enter_tcon(Host_To_Targ(MTYPE_U4, st)), 1);
+        INITV_Set_SYMOFF(Initv_Table[type_st], 1, st, 0);
       }
       else // catch-all handler
         INITV_Set_ONE(Initv_Table[type_st], MTYPE_U4, 1);
@@ -968,7 +969,7 @@ Append_cleanup(INITV_IDX& iv)
     tmp = INITV_next(tmp);
 
   INITV_IDX cleanup = New_INITV();
-  INITV_Set_VAL(Initv_Table[cleanup], Enter_tcon(Host_To_Targ(MTYPE_U4, 0)), 1);
+  INITV_Set_ZERO(Initv_Table[cleanup], MTYPE_U4, 1);
   if (tmp)
     Set_INITV_next(tmp, cleanup);
   else
@@ -2000,11 +2001,22 @@ WN *WhirlStmtBuilder::ConvertCXXCatchStmt(const CXXCatchStmt *stmt) {
 WN *WhirlStmtBuilder::ConvertCXXForRangeStmt(const CXXForRangeStmt *stmt) {
   TRACE_FUNC();
   // convert init, range stmt, begin stmt and end stmt
-  //if (stmt->getInit())
-  //  ConvertStmt(stmt->getInit());
-  ConvertStmt(stmt->getRangeStmt());
-  ConvertStmt(stmt->getBeginStmt());
-  ConvertStmt(stmt->getEndStmt());
+  // ConvertStmt returns the statement it built (if any) for the caller
+  // to append; the __range/__begin/__end and loop variable declarations
+  // must not be dropped.
+  auto emit = [&](const Stmt *s) {
+    if (!s)
+      return;
+    WN *wn = ConvertStmt(s);
+    if (wn) {
+      // (a BLOCK is spliced into the current block and freed)
+      WN_Set_Linenum(wn, SetSrcPos(getLocation(s)));
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), wn);
+    }
+  };
+  emit(stmt->getRangeStmt());
+  emit(stmt->getBeginStmt());
+  emit(stmt->getEndStmt());
 
   LABEL_IDX break_label = LABEL_IDX_ZERO;
   LABEL_IDX cont_label = LABEL_IDX_ZERO;
@@ -2022,9 +2034,9 @@ WN *WhirlStmtBuilder::ConvertCXXForRangeStmt(const CXXForRangeStmt *stmt) {
 
   // handle body
   WN *body = WhirlBlockUtil::nwBlock();
-  ConvertStmt(stmt->getLoopVarStmt());
+  emit(stmt->getLoopVarStmt());
   const Stmt *body_stmt = stmt->getBody();
-  ConvertStmt(body_stmt);
+  emit(body_stmt);
 
   // pop loop info and append continue label
   Pop_Loop_Switch(stmt->getStmtClass(), break_label, cont_label);
@@ -2032,7 +2044,7 @@ WN *WhirlStmtBuilder::ConvertCXXForRangeStmt(const CXXForRangeStmt *stmt) {
     Append_label(cont_label, SetSrcPos(getEndLocation(body_stmt)));
 
   // here is a break
-  ConvertStmt(stmt->getInc());
+  emit(stmt->getInc());
   WhirlBlockUtil::popCurrentBlock(); // pop body
 
   // create loop and append break label
@@ -2347,7 +2359,15 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
         return r.Node();
       }
 
-      WN *init_wn = r.isSym() &&
+      // A reference bound to an lvalue holds the lvalue's address: for
+      // *p that is p's value, for s.b and p->f the field's address (the
+      // fix-up below, from an LDID or ILOAD, gets those wrong).
+      bool bind_addr = decl->getType()->isReferenceType() &&
+                       init->isGLValue() &&
+                       (r.isNode() ? (!r.IsRValue() || r.IsArrow())
+                                   : (!r.IsRValue() && !r.IsArrow()));
+      WN *init_wn = bind_addr ? r.GetLValue()
+                    : r.isSym() &&
                     (TY_kind(ty_idx) == KIND_ARRAY || r.IsRef())
                         ? WN_Ldid(TY_mtype(ty_idx), 0, r.Sym(), ty_idx)
                         : r.GetRValue();
@@ -2374,7 +2394,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
       } else {
         TYPE_ID mtype = TY_mtype(ty_idx);
         // fix up init_wn: generate a lda to pass the address
-        if (decl->getType()->isReferenceType() &&
+        if (!bind_addr && decl->getType()->isReferenceType() &&
             !init->getType()->isReferenceType()) {
           if (WN_operator(init_wn) == OPR_ILOAD) {
             init_wn = WN_kid0(init_wn);
@@ -2835,7 +2855,11 @@ WN *WhirlStmtBuilder::ConvertReturnStmt(const ReturnStmt *stmt) {
       dyn_cast<FunctionDecl>(decl)->getFunctionType()->getReturnType();
     if (rtype->isReferenceType() && !retv->getType()->isReferenceType()) {
       ret_ty = _builder->TB().ConvertType(rtype);
-      if (WN_operator(retw) == OPR_ILOAD)
+      // ConvertToNode gave a glvalue's address already (for *this->p it
+      // is the ILOAD of p, which must stay); only an rvalue needs this.
+      if (retv->isGLValue())
+        ;
+      else if (WN_operator(retw) == OPR_ILOAD)
         retw = WN_kid0(retw);
       else if (WN_operator(retw) == OPR_LDID) {
         ST *st = WN_st(retw);

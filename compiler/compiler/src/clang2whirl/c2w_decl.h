@@ -51,6 +51,9 @@ private:
   WhirlBuilder *_builder;
 
   ST_IDX_MAP _dtor_tcf_map;
+  // temporaries bound to namespace-scope references, made up front
+  // so they can have a __tcf (MaterializeTemporaryExpr -> ST)
+  std::map<const clang::Expr *, ST_IDX> _global_temp_st;
 
   typedef std::list< std::pair<const clang::NamedDecl*, const clang::AliasAttr*> > AliasList;
   AliasList _alias_list;
@@ -196,6 +199,11 @@ public:
   void ConvertVTable(const clang::CXXRecordDecl *decl);
 
   const ST_IDX GetTcfST(const clang::Decl *decl);
+
+  ST_IDX GetGlobalTempST(const clang::Expr *mte) {
+    std::map<const clang::Expr *, ST_IDX>::iterator it = _global_temp_st.find(mte);
+    return it == _global_temp_st.end() ? ST_IDX_ZERO : it->second;
+  }
 
   const clang::CXXRecordDecl *ConvertConstantArrayType(const clang::QualType type, int &num_element);
 

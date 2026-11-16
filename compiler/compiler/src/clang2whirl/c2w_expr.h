@@ -127,6 +127,8 @@ private:
 
   Result ConvertConvertVectorExpr(const clang::ConvertVectorExpr *expr);
   
+  WN *Gen_atomic_rmw(const clang::Expr *lhs, const clang::Expr *rhs, int op,
+                     bool post, BOOL retv);
   Result ConvertCompoundAssignOperator(const clang::CompoundAssignOperator *expr, BOOL retv);
   
   Result ConvertCompoundLiteralExpr(const clang::CompoundLiteralExpr *expr, Result dest);

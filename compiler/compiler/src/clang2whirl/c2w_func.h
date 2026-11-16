@@ -80,6 +80,7 @@ public:
   PU_Info *EmitCXXGlobalInitialization(ST_IDX st_idx, int priority_size);
 
   PU_Info *EmitDtorPtr(const clang::VarDecl *decl, ST_IDX &st_idx);
+  PU_Info *EmitDtorPtr(clang::QualType type, ST_IDX var_st, ST_IDX &st_idx);
 
   PU_Info *EmitThunkFunction(const clang::ThunkInfo &ti, ST_IDX st_idx);
 };

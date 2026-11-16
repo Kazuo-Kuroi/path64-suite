@@ -359,7 +359,15 @@ WhirlFuncBuilder::EmitCXXGlobalInitialization(ST_IDX st_idx, int priority_size) 
 
 PU_Info *
 WhirlFuncBuilder::EmitDtorPtr(const VarDecl *decl, ST_IDX &dtor_st_idx) {
-  QualType type = cast<VarDecl>(decl)->getType();
+  ST_IDX var_st = _builder->SB().GetST(decl);
+  Is_True(var_st, ("bad var st"));
+  return EmitDtorPtr(cast<VarDecl>(decl)->getType(), var_st, dtor_st_idx);
+}
+
+// The __tcf_N function atexit runs to destroy the object var_st of type.
+PU_Info *
+WhirlFuncBuilder::EmitDtorPtr(QualType type, ST_IDX var_st,
+                              ST_IDX &dtor_st_idx) {
 
   // pu type
   TY_IDX ty_idx;
@@ -412,9 +420,6 @@ WhirlFuncBuilder::EmitDtorPtr(const VarDecl *decl, ST_IDX &dtor_st_idx) {
   Set_ST_Srcpos(*ptr, GetSrcPos());
   WN_formal(pu_tree, 0) = WN_CreateIdname(0, ST_st_idx(ptr));
   // body
-  ST_IDX var_st = _builder->SB().GetST(decl);
-  Is_True(var_st, ("bad var st"));
-
   WhirlStmtBuilder stmt_bldr(_builder);
   WN *dtor_call = stmt_bldr.Emit_cxx_destructor_call(type, var_st);
   WN_INSERT_BlockLast(body, dtor_call);
@@ -478,6 +483,13 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
   WN *if_wn = WN_CreateIf(cond_wn, block, WN_CreateBlock());
   WN_Set_Linenum(if_wn, ST_Srcpos(st_idx));
   WN_INSERT_BlockLast(body, if_wn);
+
+  // One IF per priority holding its variables' initializations, as wgen
+  // makes __static_initialization_and_destruction_0.
+  // FIXME: at -O2 WOPT can still drop the last initialization that
+  // follows a constructor call in an EH region (doc/frontend/
+  // clang-feasibility.md, known issues).
+  std::map<int, std::pair<WN *, SRCPOS> > prio_blocks;
 
   for (std::set<const clang::VarDecl *>::iterator it = _deferred_global_var_decls.begin();
        it != _deferred_global_var_decls.end();
@@ -601,6 +613,8 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
       ST_IDX var_st = _builder->SB().GetST(decl);
       Is_True(var_st, ("bad var st"));
       Result target = Result::nwSym(var_st, ST_type(var_st));
+      if (decl->getType()->isReferenceType())
+        target.SetRef();
       WhirlExprBuilder bldr(_builder);
       Result init = bldr.ConvertExpr(init_expr, target);
       if (init.isNode() || init.isSym() && init.Sym() != var_st) {
@@ -625,12 +639,9 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
     }
 
     // dtor call
-    int num_element = 0;
-    const CXXRecordDecl *record =
-      _builder->DeclBuilder().ConvertConstantArrayType(decl->getType(),
-                                                         num_element);
-    if (record && !record->hasTrivialDestructor()) {
-      ST_IDX dtor_st_idx = _builder->DeclBuilder().GetTcfST(decl);
+    // (a __tcf exists for objects with a destructor, and for temporaries
+    // bound to references)
+    if (ST_IDX dtor_st_idx = _builder->DeclBuilder().GetTcfST(decl)) {
       WN *atexit_call = Emit_dtor_call(dtor_st_idx);
       if (atexit_call) {
         WN_INSERT_BlockLast(stmt, atexit_call);
@@ -639,13 +650,20 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
       has_dtor_call = true;
     }
 
+    WhirlBlockUtil::popCurrentBlock();
+    if (prio_blocks.count(priority_size) == 0)
+      prio_blocks[priority_size] = std::make_pair(WN_CreateBlock(), spos);
+    WN_INSERT_BlockLast(prio_blocks[priority_size].first, stmt);
+  }
+
+  for (std::map<int, std::pair<WN *, SRCPOS> >::iterator pit =
+         prio_blocks.begin(); pit != prio_blocks.end(); ++pit) {
     cond_wn = WN_Relational(OPR_EQ, MTYPE_I4,
                             WN_Ldid(MTYPE_I4, 0, priority, ST_type(priority)),
-                            WN_Intconst(Boolean_type, priority_size));
-    WN *body_blk = WN_CreateIf(cond_wn, stmt, WN_CreateBlock());
+                            WN_Intconst(Boolean_type, pit->first));
+    WN *body_blk = WN_CreateIf(cond_wn, pit->second.first, WN_CreateBlock());
     WN_INSERT_BlockLast(block, body_blk);
-    WN_Set_Linenum(body_blk, spos);
-    WhirlBlockUtil::popCurrentBlock();
+    WN_Set_Linenum(body_blk, pit->second.second);
   }
 
   DBG_VERIFY_WHIRL_IR(pu_tree);
@@ -738,6 +756,30 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     if (ST_export(ST_ptr(st_idx)) == EXPORT_PREEMPTIBLE)
       Set_ST_export(ST_ptr(st_idx),
                     _builder->SB().VisibilityExport(decl, true));
+  }
+
+  // __attribute__((constructor)) / ((destructor)): a pointer to the
+  // function in .ctors / .dtors, as wgen makes it (its bug 11754); the
+  // function is then kept whole and not inlined.
+  if (decl->hasAttr<ConstructorAttr>() || decl->hasAttr<DestructorAttr>()) {
+    bool is_ctor = decl->hasAttr<ConstructorAttr>();
+    ST *fst = ST_ptr(st_idx);
+    ST *init_st = New_ST(GLOBAL_SYMTAB);
+    ST_Init(init_st, Save_Str2i(is_ctor ? "__ctors" : "__dtors", "_",
+                                _ctor_name_suffix++),
+            CLASS_VAR, SCLASS_FSTATIC, EXPORT_LOCAL,
+            Make_Pointer_Type(ST_pu_type(fst)));
+    Set_ST_is_initialized(init_st);
+    INITV_IDX inv = New_INITV();
+    INITV_Init_Symoff(inv, fst, 0);
+    New_INITO(init_st, inv);
+    ST_ATTR_IDX st_attr_idx;
+    ST_ATTR &st_attr = New_ST_ATTR(GLOBAL_SYMTAB, st_attr_idx);
+    ST_ATTR_Init(st_attr, ST_st_idx(init_st), ST_ATTR_SECTION_NAME,
+                 Save_Str(is_ctor ? ".ctors" : ".dtors"));
+    Set_PU_no_inline(Pu_Table[ST_pu(fst)]);
+    Set_PU_no_delete(Pu_Table[ST_pu(fst)]);
+    Set_ST_addr_saved(fst);
   }
 
   UINT i = 0;
@@ -1020,14 +1062,48 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   }
 #endif
 
+  // The deleting destructor (D0): the complete destructor, then the
+  // class's operator delete (Itanium C++ ABI 5.1.4), as Clang makes it.
+  bool deleting = append_this && isa<CXXDestructorDecl>(decl) &&
+                  gd.getDtorType() == CXXDtorType::Dtor_Deleting;
+  if (deleting) {
+    const CXXDestructorDecl *dd = cast<CXXDestructorDecl>(decl);
+    WN *d1 = EmitDestructorCall(dd, CXXDtorType::Dtor_Complete, 0);
+    if (d1)
+      WN_INSERT_BlockLast(body, d1);
+    if (const FunctionDecl *od = dd->getOperatorDelete()) {
+      ST_IDX od_st = _builder->Get_func_st(od);
+      ST_IDX this_st = _builder->Scope().Get_this();
+      UINT nparm = od->getNumParams() >= 2 ? 2 : 1;
+      WN *call = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, nparm);
+      WN_st_idx(call) = od_st;
+      WN_Set_Call_Default_Flags(call);
+      WN_Set_Linenum(call, SetSrcPos(getEndLocation(decl)));
+      TY_IDX vp_ty = Make_Pointer_Type(MTYPE_To_TY(MTYPE_V));
+      WN_kid(call, 0) = WGEN_CreateParm(Pointer_Mtype,
+                          WN_Ldid(Pointer_Mtype, 0, ST_ptr(this_st),
+                                  ST_type(this_st)), vp_ty);
+      if (nparm == 2) {   // operator delete(void *, size_t)
+        INT64 size = _builder->Context()->getTypeSizeInChars(
+                       _builder->Context()->getRecordType(record_decl))
+                       .getQuantity();
+        WN_kid(call, 1) = WGEN_CreateParm(MTYPE_U8,
+                            WN_Intconst(MTYPE_U8, size), MTYPE_To_TY(MTYPE_U8));
+      }
+      WN_INSERT_BlockLast(body, call);
+    }
+  }
+
   // load vtable ptr if necessary
-  if (append_this && isa<CXXDestructorDecl>(decl) &&
+  if (!deleting && append_this && isa<CXXDestructorDecl>(decl) &&
       _builder->DeclBuilder().HasVTable(record_decl)) {
     EmitVTableFieldInitialization(body, record_decl);
   }
 
   // expand body
-  if (Stmt *stmt = decl->getBody()) {
+  if (deleting)
+    ;
+  else if (Stmt *stmt = decl->getBody()) {
     WhirlStmtBuilder stmt_bldr(_builder);
     WN *ret = stmt_bldr.ConvertStmt(stmt);
     if (ret) WN_INSERT_BlockLast(body, ret); //TODO
@@ -1037,7 +1113,7 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   }
 
   // call field's destructor in the inverted order of declaration
-  if (append_this && isa<CXXDestructorDecl>(decl)) {
+  if (!deleting && append_this && isa<CXXDestructorDecl>(decl)) {
     WN *dtor_ret = NULL;
     WN *dtor_blk = WhirlBlockUtil::nwBlock();
     const CXXRecordDecl *fld_decl = NULL;

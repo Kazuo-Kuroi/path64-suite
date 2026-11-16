@@ -71,6 +71,7 @@
 #include "file_names.h"
 #include "file_utils.h"
 #include "run.h"
+#include <cmplrs/rcodes.h>
 #include "objects.h"
 #include "opt_actions.h"
 #include "get_options.h"
@@ -2667,6 +2668,23 @@ determine_phase_order (void)
 	phase_order[0] = P_NONE;
 	phase_order_index = 0;
  
+	/* C11 and C++11 and later are Clang-only: GCC 4.2 knows none of them. */
+	if ((source_lang == L_cc || source_lang == L_CC) && !is_psclang_enabled()) {
+		static const int clang_only_std[] = {
+			O_stdQc11, O_stdQc1x, O_stdQiso9899_2011, O_stdQgnu11,
+			O_stdQgnu1x, O_stdQc__11, O_stdQc__0x, O_stdQgnu__11,
+			O_stdQgnu__0x, O_stdQc__14, O_stdQc__1y, O_stdQgnu__14,
+			O_stdQgnu__1y, O_stdQc__1z, O_stdQgnu__1z
+		};
+		int i;
+		for (i = 0; i < sizeof(clang_only_std) / sizeof(clang_only_std[0]); i++)
+			if (option_was_seen(clang_only_std[i])) {
+				error("%s needs the Clang front end (-fpsclang)",
+				      get_option_name(clang_only_std[i]));
+				do_exit(RC_USER_ERROR);
+			}
+	}
+
 	/* determine which cpp to use */
     if ((source_lang == L_cc || source_lang == L_CC) && is_psclang_enabled()) {
         cpp_phase = P_psclang_cpp;

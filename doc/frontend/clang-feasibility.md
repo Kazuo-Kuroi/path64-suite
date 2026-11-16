@@ -567,6 +567,100 @@ Both front ends now give GCC 14's results on 243 intrinsic results:
 SSE/SSE2 (114), scalar `ss`/`sd` (32), MMX (37) and SSE3 through SSE4.1
 (60), at `-O0` and `-O2`.
 
+## 11. Phase 2 status: C++, C11 and C++11/14 (November 2026)
+
+psclang already used the suite's own C++ library headers (Apache
+stdcxx). Standard-library C++ failed for other reasons, now fixed.
+
+**C++ fixes in clang2whirl:**
+* *Exception tables.* `catch` types and the per-function type table were
+  integers, not symbols; the WHIRL verifier rejected every `try` with a
+  typed `catch`.
+* *References.*
+  * Binding a reference to `*p`, `s.f`, `p->f` or `a[i]` stored the
+    wrong address.
+  * Storing through a reference to a member of a member was mistyped.
+  * `return *p;` from a function returning a reference dropped a load,
+    so `std::vector` and `std::string` iterators read garbage.
+  * `const T&` bound to a temporary did not get its own temporary.
+  * A namespace-scope reference to a temporary was not set, and the
+    temporary's destructor did not run at exit.
+* *`delete`.*
+  * Through a base pointer, `delete` called the static type's
+    destructor instead of the virtual one.
+  * The deleting destructor (D0) neither destroyed virtual bases nor
+    called `operator delete`.
+  * `delete` of a null pointer to a class with a destructor crashed.
+* *Arrays.*
+  * `new T[n]` built element 0 n times.
+  * The array cookie followed the constructor instead of the Itanium
+    rule (destructor, or a sized `operator delete[]`), so `delete[]`
+    freed the wrong address.
+  * Sized `operator delete` and `delete[]` got no size.
+* *`dynamic_cast<T&>`* did not throw `std::bad_cast`.
+* *Range-based `for`* lost its declarations (loops ran forever or
+  crashed).
+* *Constructor/destructor attributes* (C and C++) are placed in
+  `.ctors`/`.dtors`, as wgen does.
+* *`int` to `unsigned long`.* This is now an `I8I4CVT`, as wgen gives
+  the back end. WOPT turned the `U8I4CVT` of an expression into a zero
+  extension, which broke stdcxx's string reference count at `-O2`.
+
+**C11 and C++11/14.** The driver accepts:
+* `-std=c11`, `gnu11`, `c1x`, `gnu1x`, `iso9899:2011`;
+* `-std=c++11`, `gnu++11`, `c++0x`, `gnu++0x`, `c++14`, `gnu++14`,
+  `c++1y`, `gnu++1y`, `c++1z`, `gnu++1z`.
+
+They are passed to psclang. With the GCC front end the driver stops with
+"needs the Clang front end (-fpsclang)".
+
+psclang also gained:
+* `_Atomic` objects: loads and stores, and `+=`, `-=`, `&=`, `|=`,
+  `^=`, `++`, `--` on 4- and 8-byte integers as one locked instruction;
+* `__builtin_trap` (a call to `abort`, as wgen makes it) and
+  `__builtin_unreachable`.
+
+**Programs only Clang 4 builds.** Each gives host GCC 14's output at
+`-O0` and `-O2`:
+* *C11:* `_Generic`, `_Static_assert`, anonymous structs and unions,
+  `_Alignas`, `_Thread_local`, `_Noreturn`, `u8` strings, and `_Atomic`
+  counters under four threads.
+* *C++11:*
+  * move semantics with rvalue references;
+  * lambdas with captures, `auto`/`decltype`, `constexpr`;
+  * variadic templates and perfect forwarding;
+  * `enum class`, `final`/`override`, delegating constructors,
+    `= default`/`= delete`;
+  * alias templates, `nullptr`, `thread_local`, `char16_t`/`char32_t`;
+  * range-based `for` over arrays, `std::vector`, `std::string` and user
+    iterators.
+* *C++14:* generic lambdas, init-captures, return type deduction,
+  `decltype(auto)`, relaxed `constexpr`, variable templates, binary
+  literals and digit separators.
+
+**Results on x86-64:**
+* C probes: psclang 18/20, GCC front end 15/20 (unchanged; one psclang
+  run also passed `c11_align`, which depends on the stack's alignment).
+* compiler-rt 98/139 and ABI cross-tests 18/18 with both front ends
+  (unchanged).
+* C++ probes: psclang 20/20, GCC front end 11/20 (the GCC front end
+  rejects the C++11 probes).
+
+**Remaining gaps:**
+* *C++11 library.* stdcxx 4.x has no C++11 parts, not even
+  `<initializer_list>`, so `std::move`, `std::unique_ptr`, initializer
+  lists for containers and the like are missing. A C++11 library (for
+  example LLVM's libc++ 4.0, which matches Clang 4) would be needed.
+* *`<stdatomic.h>`.* The `__c11_atomic_*` and `__atomic_*` builtins are
+  not implemented; only `_Atomic` objects and their operators are.
+* *Global initializers at `-O2`.* WOPT can drop the last dynamic
+  initialization that follows a constructor call in an EH region in
+  `__cxx_global_var_init` (for example
+  `D gd(5); int a = *f(); int b = g();` with a `D` constructor that calls
+  a function). `-O0` is right; the cause is not yet found.
+* *Back end.* WOPT's handling of `U8I4CVT` (above) is worked around in
+  psclang, not fixed.
+
 ## Sources
 
 * PathScale EKOPath 5 announcement, 5 December 2013:

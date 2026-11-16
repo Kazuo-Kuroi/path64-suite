@@ -872,10 +872,15 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
 
   case Builtin::BI__builtin_trap:
   case Builtin::BI__builtin_debugtrap:
+    // A call to abort(), as wgen makes it (INTRN_VEXIT is a call to
+    // libU77's exit_noargs, which C programs do not link).
+    return GenerateCall("abort", MTYPE_To_TY(MTYPE_V), 0, expr->getArgs(),
+                        FALSE);
+
   case Builtin::BI__builtin_unreachable:
-    iopc = (ret_mtype == MTYPE_V || !retv) ? INTRN_VEXIT : INTRN_I4EXIT;
-    intrinsic_call = TRUE;
-    break;
+    // Undefined if reached: nothing to emit (an empty block; nwNone
+    // would make the caller emit a call to "unreachable").
+    return Result::nwNode(WN_CreateBlock(), 0);
 
   case Builtin::BI__builtin_prefetch:
     {

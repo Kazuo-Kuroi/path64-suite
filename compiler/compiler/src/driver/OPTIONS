@@ -572,6 +572,36 @@ I-cpp_extensions	;		ALL	NONE	"-D__EXTENSIONS__ -D__MATH_HAS_NO_SIDE_EFFECTS"
 	"Support 1998 ISO C++ standard plus amendments"
 -std=gnu++98		;		CC,cpp	cpp,FE	self
 	"The same as `-std=c++98' plus GNU extensions.  This is the default for C++ code."
+-std=c11		;		Cc,cpp	cpp,FE	self
+	"Support ISO C from 2011 (Clang front end only)"
+-std=c1x		;		Cc,cpp	cpp,FE	self
+	"Support ISO C from 2011 (Clang front end only)"
+-std=iso9899:2011		;		Cc,cpp	cpp,FE	self
+	"Support ISO C from 2011 (Clang front end only)"
+-std=gnu11		;		Cc,cpp	cpp,FE	self
+	"Support ISO C from 2011, with GNU extensions (Clang front end only)"
+-std=gnu1x		;		Cc,cpp	cpp,FE	self
+	"Support ISO C from 2011, with GNU extensions (Clang front end only)"
+-std=c++11		;		CC,cpp	cpp,FE	self
+	"Support 2011 ISO C++ (Clang front end only)"
+-std=c++0x		;		CC,cpp	cpp,FE	self
+	"Support 2011 ISO C++ (Clang front end only)"
+-std=gnu++11		;		CC,cpp	cpp,FE	self
+	"Support 2011 ISO C++, with GNU extensions (Clang front end only)"
+-std=gnu++0x		;		CC,cpp	cpp,FE	self
+	"Support 2011 ISO C++, with GNU extensions (Clang front end only)"
+-std=c++14		;		CC,cpp	cpp,FE	self
+	"Support 2014 ISO C++ (Clang front end only)"
+-std=c++1y		;		CC,cpp	cpp,FE	self
+	"Support 2014 ISO C++ (Clang front end only)"
+-std=gnu++14		;		CC,cpp	cpp,FE	self
+	"Support 2014 ISO C++, with GNU extensions (Clang front end only)"
+-std=gnu++1y		;		CC,cpp	cpp,FE	self
+	"Support 2014 ISO C++, with GNU extensions (Clang front end only)"
+-std=c++1z		;		CC,cpp	cpp,FE	self
+	"Support the draft C++17 (Clang front end only)"
+-std=gnu++1z		;		CC,cpp	cpp,FE	self
+	"Support the draft C++17, with GNU extensions (Clang front end only)"
 % these options are only set for cc:
 I-Xansi                 ;       cc      mpc     self
         ""

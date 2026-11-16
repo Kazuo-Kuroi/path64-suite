@@ -1950,6 +1950,36 @@ WhirlDeclBuilder::EmitGlobalInitializer() {
         func_bldr.EmitDtorPtr(decl, tcf_st);
         _dtor_tcf_map[decl->getCanonicalDecl()] = tcf_st;
       }
+      else if (decl->getType()->isReferenceType() && decl->getInit()) {
+        // A temporary bound to the reference lives until exit: make it
+        // here, with a __tcf, for MaterializeTemporaryExpr to use.
+        const Expr *init = decl->getInit();
+        if (const ExprWithCleanups *ewc = dyn_cast<ExprWithCleanups>(init))
+          init = ewc->getSubExpr();
+        while (const ImplicitCastExpr *ice = dyn_cast<ImplicitCastExpr>(init)) {
+          if (ice->getCastKind() != CK_NoOp &&
+              ice->getCastKind() != CK_DerivedToBase &&
+              ice->getCastKind() != CK_UncheckedDerivedToBase)
+            break;
+          init = ice->getSubExpr();
+        }
+        const MaterializeTemporaryExpr *mte =
+          dyn_cast<MaterializeTemporaryExpr>(init);
+        const CXXRecordDecl *trec =
+          mte ? mte->getType()->getAsCXXRecordDecl() : NULL;
+        if (trec && !trec->hasTrivialDestructor()) {
+          static int gtemp_index;
+          TY_IDX tty = _builder->TB().ConvertType(mte->getType());
+          ST *tmp_st = New_ST(GLOBAL_SYMTAB);
+          ST_Init(tmp_st, Save_Str2i(".material.g", ".", gtemp_index++),
+                  CLASS_VAR, SCLASS_FSTATIC, EXPORT_LOCAL, tty);
+          _global_temp_st[mte] = ST_st_idx(tmp_st);
+          ST_IDX tcf_st = ST_IDX_ZERO;
+          WhirlFuncBuilder func_bldr(_builder);
+          func_bldr.EmitDtorPtr(mte->getType(), ST_st_idx(tmp_st), tcf_st);
+          _dtor_tcf_map[decl->getCanonicalDecl()] = tcf_st;
+        }
+      }
 
       // get priority
       int priority_size = 65535;
