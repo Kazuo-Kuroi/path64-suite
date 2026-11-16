@@ -603,9 +603,13 @@ run_phase (phases_t phase, char *name, string_list_t *args)
           run_inline = FALSE;
         }
 #endif // PATH64_ENABLE_GNU_FRONTEND
-        // bug 10215
+        // psclang can't ask for the inliner the way wgen does (exit
+        // status RC_NEED_INLINER): Clang's driver runs its cc1 as a child
+        // and treats any other status as a failed compile. wgen asks
+        // whenever the file has an inline function, which with system
+        // headers is nearly always, so psclang gets the inliner always.
         if (is_matching_phase(get_phase_mask(phase), P_psclang)) {
-          run_inline = FALSE;
+          run_inline = TRUE;
         }
         break;
 

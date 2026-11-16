@@ -734,6 +734,10 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   // symbol created
   if(ST_sclass(ST_ptr(st_idx)) != SCLASS_TEXT) {
     Set_ST_sclass(ST_ptr(st_idx), SCLASS_TEXT);
+    // A declaration seen first had only its explicit visibility.
+    if (ST_export(ST_ptr(st_idx)) == EXPORT_PREEMPTIBLE)
+      Set_ST_export(ST_ptr(st_idx),
+                    _builder->SB().VisibilityExport(decl, true));
   }
 
   UINT i = 0;
@@ -1179,6 +1183,10 @@ WhirlFuncBuilder::EmitThunkFunction(const clang::ThunkInfo &ti, ST_IDX st_idx) {
   // symbol created
   if(ST_sclass(ST_ptr(st_idx)) != SCLASS_TEXT) {
     Set_ST_sclass(ST_ptr(st_idx), SCLASS_TEXT);
+    // A declaration seen first had only its explicit visibility.
+    if (ST_export(ST_ptr(st_idx)) == EXPORT_PREEMPTIBLE)
+      Set_ST_export(ST_ptr(st_idx),
+                    _builder->SB().VisibilityExport(decl, true));
   }
 
   // get the parent Decl CXXRecordDecl

@@ -45,6 +45,7 @@
 
 extern BOOL emit_exceptions;  // from whirl_gen.cxx
 extern BOOL TARGET_64BIT;
+extern bool C2W_No_Common;   // -fno-common
 
 namespace wgen {
 

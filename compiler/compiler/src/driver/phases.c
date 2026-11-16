@@ -283,6 +283,26 @@ add_implied_string (string_list_t *list, int iflag, int flag, phases_t phase)
 
 }
 
+// Options the OPTIONS table gives only to cc1/cc1plus ("cfe") that mean
+// the same to Clang, so psclang gets them as well. The rest of that set
+// are GCC- or PathScale-internal, and Clang would reject them.
+static boolean
+is_psclang_cfe_option (const char *name)
+{
+	static const char *const names[] = {
+		"-w", "-pedantic", "-fno-common", "-fno-ident",
+		"-fexceptions", "-fno-exceptions", "-frtti", "-fno-rtti",
+		"-felide-constructors", "-fno-elide-constructors",
+		"-fuse-cxa-atexit", "-fno-use-cxa-atexit",
+		"-Wabi", NULL
+	};
+	int i;
+	for (i = 0; names[i] != NULL; i++)
+		if (strcmp(name, names[i]) == 0)
+			return TRUE;
+	return FALSE;
+}
+
 static void
 copy_phase_options (string_list_t *phase_list, phases_t phase)
 {
@@ -322,6 +342,11 @@ copy_phase_options (string_list_t *phase_list, phases_t phase)
 #endif // PATH64_ENABLE_GNU_FRONTEND
 			else
 			    matches_phase = option_matches_phase(iflag, phase);
+
+			if (!matches_phase && phase == P_psclang &&
+			    option_matches_phase(iflag, P_c_gfe) &&
+			    is_psclang_cfe_option(get_option_name(iflag)))
+			    matches_phase = TRUE;
 
 			if (matches_phase
 			    && option_matches_language(flag, source_lang)
@@ -1657,6 +1682,11 @@ add_file_args (string_list_t *args, phases_t index)
         
         if (!fmath_errno)
             add_string(args, "-fno-math-errno");
+
+        // GCC 4.2 has only gnu89 inline semantics, so the OPTIONS table
+        // passes this to no front end; Clang defaults to C99's.
+        if (option_was_seen(O_fgnu89_inline))
+            add_string(args, "-fgnu89-inline");
 
         // (PathScale's psclang got -Wno-all here. That also turns off the
         // warnings that -pedantic-errors promotes to errors, such as

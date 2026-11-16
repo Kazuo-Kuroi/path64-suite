@@ -178,8 +178,31 @@ static void ensureSufficientStack() {
 static void ensureSufficientStack() {}
 #endif
 
+#ifdef CLANG_2_WHIRL
+// c2w_builder.cxx: hands the options below to the WHIRL generator.
+extern void C2W_Set_Path64_Options(int opt_level, int debug_level,
+                                   bool no_common,
+                                   const std::vector<std::string> &groups);
+#endif
+
 int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   ensureSufficientStack();
+
+#ifdef CLANG_2_WHIRL
+  // The pathcc driver gives every front end Path64 option groups such as
+  // -OPT:ffast_math=ON (wgen hands them to the WHIRL simplifier). Clang
+  // would reject them, so take them out here (psclang's driver passes
+  // them through with -Xclang) and give them to the WHIRL generator.
+  std::vector<std::string> Path64Groups;
+  SmallVector<const char *, 256> ClangArgv;
+  for (const char *A : Argv) {
+    if (StringRef(A).startswith("-OPT:"))
+      Path64Groups.push_back(A);
+    else
+      ClangArgv.push_back(A);
+  }
+  Argv = ClangArgv;
+#endif
 
   std::unique_ptr<CompilerInstance> Clang(new CompilerInstance());
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
@@ -211,6 +234,28 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagsBuffer);
   bool Success = CompilerInvocation::CreateFromArgs(
       Clang->getInvocation(), Argv.begin(), Argv.end(), Diags);
+
+#ifdef CLANG_2_WHIRL
+  {
+    // -O and -g as wgen sees them: Opt_Level 0-3 (-Os is 2 plus
+    // -OPT:space from the driver), Debug_Level 0-2.
+    const CodeGenOptions &CGO = Clang->getCodeGenOpts();
+    int DebugLevel = 0;
+    switch (CGO.getDebugInfo()) {
+    case codegenoptions::NoDebugInfo:
+      break;
+    case codegenoptions::LocTrackingOnly:
+    case codegenoptions::DebugLineTablesOnly:
+      DebugLevel = 1;
+      break;
+    default:
+      DebugLevel = 2;
+      break;
+    }
+    C2W_Set_Path64_Options(CGO.OptimizationLevel, DebugLevel, CGO.NoCommon,
+                           Path64Groups);
+  }
+#endif
 
   // Infer the builtin include path if unspecified.
   if (Clang->getHeaderSearchOpts().UseBuiltinIncludes &&

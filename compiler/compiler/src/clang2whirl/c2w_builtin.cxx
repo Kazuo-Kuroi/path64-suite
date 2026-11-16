@@ -82,6 +82,8 @@ WhirlExprBuilder::InitializeBuiltinTable() {
   BuiltinTable[BI__builtin_popcountll] = INTRN_I8POPCNT;
 
 
+  // the back end gives the target's register number, as for wgen
+  BuiltinTable[BI__builtin_eh_return_data_regno] = INTRN_BUILTIN_EH_RETURN_DATA_REGNO;
   BuiltinTable[BI__builtin_return_address] = INTRN_RETURN_ADDRESS;
   BuiltinTable[BI__builtin_extract_return_addr] = INTRN_RETURN_ADDRESS;
   BuiltinTable[BI__builtin_frame_address] = INTRN_U8READFRAMEPOINTER;
@@ -433,6 +435,61 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       return Result::nwNode(WGEN_CreateComma(vmt, blk, val), ty);
     }
 
+  case Builtin::BIsqrt:
+  case Builtin::BIsqrtf:
+  case Builtin::BI__builtin_sqrt:
+  case Builtin::BI__builtin_sqrtf:
+#ifndef TARG_MIPS  // MIPS long double (double-double) has no sqrt instruction
+  case Builtin::BIsqrtl:
+  case Builtin::BI__builtin_sqrtl:
+#endif
+    {
+      // As wgen: the sqrt instruction. When sqrt must set errno, also
+      // call the library function if the result is NaN (a negative or
+      // NaN argument): r = SQRT(x); if (r != r) r = sqrt(x).
+      WN *arg_wn = ConvertToNode(expr->getArg(0));
+      if (!_builder->Context()->getLangOpts().MathErrno)
+        return Result::nwNode(WN_CreateExp1(OPR_SQRT, ret_mtype, MTYPE_V, arg_wn), ty);
+
+      WN *blk = WN_CreateBlock();
+      WN *arg_stid = WGEN_StidTemp(ty, arg_wn, "__sqrt_arg");
+      WN_Set_Linenum(arg_stid, GetSrcPos());
+      WN_INSERT_BlockLast(blk, arg_stid);
+#define C2W_SQRT_ARG() WN_Ldid(ret_mtype, WN_offset(arg_stid), WN_st(arg_stid), ty)
+      WN *res_stid = WGEN_StidTemp(ty, WN_CreateExp1(OPR_SQRT, ret_mtype, MTYPE_V,
+                                                      C2W_SQRT_ARG()),
+                                   "__save_sqrt");
+      WN_Set_Linenum(res_stid, GetSrcPos());
+      WN_INSERT_BlockLast(blk, res_stid);
+#define C2W_SQRT_RES() WN_Ldid(ret_mtype, WN_offset(res_stid), WN_st(res_stid), ty)
+
+      WN *then_blk = WN_CreateBlock();
+      llvm::StringRef name = decl->getName();
+      if (name.startswith("__builtin_"))
+        name = name.drop_front(sizeof("__builtin_") - 1);
+      TY_IDX parm_ty[2] = { ty, TY_IDX_ZERO };
+      ST *call_st = Create_function(name.str().c_str(), ty, 1, parm_ty);
+      WN *call = WN_Create(OPR_CALL, ret_mtype, MTYPE_V, 1);
+      WN_st_idx(call) = ST_st_idx(call_st);
+      WN_kid(call, 0) = WGEN_CreateParm(ret_mtype, C2W_SQRT_ARG(), ty);
+      WN_Set_Call_Default_Flags(call);
+      WN_Set_Linenum(call, GetSrcPos());
+      WN_INSERT_BlockLast(then_blk, call);
+      WN *save = WN_Stid(ret_mtype, WN_offset(res_stid), WN_st(res_stid), ty,
+                         WN_Ldid(ret_mtype, -1, Return_Val_Preg, ty));
+      WN_Set_Linenum(save, GetSrcPos());
+      WN_INSERT_BlockLast(then_blk, save);
+
+      WN *if_wn = WN_CreateIf(WN_NE(ret_mtype, C2W_SQRT_RES(), C2W_SQRT_RES()),
+                              then_blk, WN_CreateBlock());
+      WN_Set_Linenum(if_wn, GetSrcPos());
+      WN_INSERT_BlockLast(blk, if_wn);
+      WN *val = C2W_SQRT_RES();
+#undef C2W_SQRT_ARG
+#undef C2W_SQRT_RES
+      return Result::nwNode(WGEN_CreateComma(ret_mtype, blk, val), ty);
+    }
+
   case Builtin::BI__builtin_object_size:
     {
       // Clang folds this when it can; otherwise the documented "don't
@@ -670,7 +727,6 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     return Result::nwNone();
 
   case Builtin::BI__builtin_unwind_init:
-  case Builtin::BI__builtin_eh_return_data_regno:
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
     return Result::nwNone();
 

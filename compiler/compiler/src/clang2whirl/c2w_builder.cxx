@@ -40,19 +40,40 @@
 // clang header files
 #include "clanginc.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Basic/Builtins.h"
 
 using namespace clang;
 
 // Open64 header files
 #include "open64inc.h"
 #include "erglob.h"
+#include "flags.h"   // Process_Command_Line_Group
 #include <unistd.h>
+#include <string.h>
+#include <string>
+#include <vector>
 
 // Open64 globals
 INT Debug_Level = 0;
 INT trace_verbose = FALSE;
 BOOL TARGET_64BIT;
 static Output_File *Irb_Output_File = NULL;
+
+// Options from psclang's cc1 (cc1_main.cxx), applied in Initialize.
+bool C2W_No_Common = false;
+static int C2W_Opt_Level = -1;
+static int C2W_Debug_Level = 0;
+static std::vector<std::string> C2W_Option_Groups;
+
+void
+C2W_Set_Path64_Options(int opt_level, int debug_level, bool no_common,
+                       const std::vector<std::string> &groups) {
+  C2W_No_Common = no_common;
+  C2W_Opt_Level = opt_level;
+  C2W_Debug_Level = debug_level;
+  C2W_Option_Groups = groups;
+}
 
 void
 Cleanup_Files(BOOL report, BOOL delete_dotofile) {
@@ -263,7 +284,16 @@ WhirlBuilder::Initialize(const char *infile, const char *outfile) {
           ("_pu_root/_pu_last already assigned?"));
   Src_File_Name = (char *) infile;
   Irb_File_Name = (char *) outfile;
-  
+
+  // As wgen's Process_Command_Line does, before configuring.
+  if (C2W_Opt_Level >= 0)
+    Opt_Level = C2W_Opt_Level;
+  Debug_Level = C2W_Debug_Level;
+  for (const std::string &group : C2W_Option_Groups) {
+    char *flag = strdup(group.c_str());  // the option tables keep pointers
+    Process_Command_Line_Group(flag + 1, Common_Option_Groups);
+  }
+
   Preconfigure();
   Init_Controls_Tbl();
   Configure();
@@ -369,7 +399,7 @@ WhirlBuilder::EmitTopLevelDecl(const Decl *D) {
   }
 
   if (isa<VarDecl>(D)) {
-    if (MustBeEmitted(D))
+    if (MustBeEmitted(D) || D->hasAttr<AliasAttr>())
       AddDeferredVar(cast<VarDecl>(D));
     return;
   }
@@ -556,8 +586,9 @@ WhirlBuilder::HandleFunctionDecl(const clang::FunctionDecl *decl) {
   // ignore decl which will be available externally
   //if (Context()->GetGVALinkageForFunction(decl) == GVA_AvailableExternally)
   //  return;
-  // emit if it's must be emitted
-  if (MustBeEmitted(decl)) {
+  // emit if it's must be emitted (an alias declaration always is, as in
+  // Clang's CodeGen, though it has no body and nothing may use it)
+  if (MustBeEmitted(decl) || decl->hasAttr<AliasAttr>()) {
     _decl_builder.ConvertDecl(decl);
     // continue add ctor and dtor for ctor_base/ctor_base
     if (!isa<CXXConstructorDecl>(decl) && !isa<CXXDestructorDecl>(decl))
@@ -574,6 +605,47 @@ WhirlBuilder::AddFunctionDecl(const clang::FunctionDecl* decl) {
     _func_decl_map[canon_decl] = decl;
 }
 
+// Clang CodeGen's isTriviallyRecursive: a body that calls the builtin of
+// its own name, like glibc's "extern inline" string and fortify wrappers
+// (strlen calling __builtin_strlen), which would call itself if inlined.
+namespace {
+struct DirectRecursionFinder
+    : public RecursiveASTVisitor<DirectRecursionFinder> {
+  StringRef Name;
+  bool Found = false;
+  explicit DirectRecursionFinder(StringRef name) : Name(name) {}
+  bool VisitCallExpr(const CallExpr *E) {
+    const FunctionDecl *FD = E->getDirectCallee();
+    if (!FD)
+      return true;
+    if (const AsmLabelAttr *Attr = FD->getAttr<AsmLabelAttr>()) {
+      if (Attr->getLabel() == Name)
+        Found = true;
+    } else if (unsigned BuiltinID = FD->getBuiltinID()) {
+      StringRef BuiltinName = FD->getASTContext().BuiltinInfo.getName(BuiltinID);
+      if (BuiltinName.startswith("__builtin_") &&
+          Name == BuiltinName.slice(strlen("__builtin_"), StringRef::npos))
+        Found = true;
+    }
+    return !Found;
+  }
+};
+}
+
+static bool
+IsTriviallyRecursive(const FunctionDecl *FD) {
+  StringRef Name;
+  if (const AsmLabelAttr *Attr = FD->getAttr<AsmLabelAttr>())
+    Name = Attr->getLabel();
+  else if (FD->getIdentifier())
+    Name = FD->getName();
+  else
+    return false;
+  DirectRecursionFinder Finder(Name);
+  Finder.TraverseFunctionDecl(const_cast<FunctionDecl *>(FD));
+  return Finder.Found;
+}
+
 void
 WhirlBuilder::AddDeferredFunc(const GlobalDecl gd, BOOL force_global) {
   void *ptr = gd.getAsOpaquePtr();
@@ -582,7 +654,11 @@ WhirlBuilder::AddDeferredFunc(const GlobalDecl gd, BOOL force_global) {
   if (const CXXDestructorDecl *dtor = dyn_cast<CXXDestructorDecl>(decl)) {
     Is_True(!dtor->getParent()->hasTrivialDestructor(), ("trivial dtor"));
   }
-  if (Context()->GetGVALinkageForFunction(decl) == GVA_AvailableExternally)
+  // An inline-only body (C99 "inline", gnu89 "extern inline") is emitted
+  // above -O0 for the inliner, as wgen and Clang's CodeGen do; the back
+  // end does not emit it (PU_is_extern_inline).
+  if (Context()->GetGVALinkageForFunction(decl) == GVA_AvailableExternally &&
+      (Opt_Level == 0 || IsTriviallyRecursive(decl)))
     return;
   DeferredFuncList &list = (_decl_type == GLOBAL_DECL || force_global)
                               ? _global_deferred_funcs

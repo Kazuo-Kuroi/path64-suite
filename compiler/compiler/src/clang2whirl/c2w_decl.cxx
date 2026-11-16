@@ -92,55 +92,50 @@ WhirlDeclBuilder::Finalize() {
   if (!_alias_list.empty()) {
     for (IDTYPE i = 1; i < ST_Table_Size(GLOBAL_SYMTAB); ++i) {
       ST* st_base = &St_Table(GLOBAL_SYMTAB,i);
-      if (ST_class(st_base) != CLASS_VAR ||
+      if (ST_class(st_base) != CLASS_VAR &&
           ST_class(st_base) != CLASS_FUNC)
         continue;
       AliasList::iterator it;
       StringRef name(ST_name(st_base));
-      for (it = _alias_list.begin(); it != _alias_list.end(); ++it) {
-        if (name.compare(it->second->getAliasee()) == 0) {
+      for (it = _alias_list.begin(); it != _alias_list.end(); ) {
+        if (name.compare(it->second->getAliasee()) != 0) {
+          ++it;
+          continue;
+        }
+        {
           ST_IDX st_idx = _builder->SB().GetST(it->first);
           if (st_idx != ST_IDX_ZERO) {
             ST* st = ST_ptr(st_idx);
-            Set_ST_is_weak_symbol(st);
+            // As wgen's WGEN_Assemble_Alias: a weak alias is an extern
+            // weak symbol naming its strong one; any other alias shares
+            // the target's storage.
+            if (it->first->hasAttr<WeakAttr>())
+              Set_ST_is_weak_symbol(st);
             if (ST_is_weak_symbol(st)) {
               Set_ST_sclass(st, SCLASS_EXTERN);
               Set_ST_strong_idx(*st, ST_st_idx(st_base));
             }
-#if 0
             else {
               Set_ST_base_idx(st, ST_st_idx(st_base));
               Set_ST_emit_symbol(st);
-              if (ST_is_initialized(st_base)) {
+              Set_ST_sclass(st, ST_sclass(st_base));
+              if (ST_is_initialized(st_base))
                 Set_ST_is_initialized(st);
-                if (ST_sclass(st) == SCLASS_COMMON ||
-                    ST_sclass(st) == SCLASS_UGLOBAL)
-                  Set_ST_sclass(st, SCLASS_DGLOBAL);
-              }
-              if (ST_init_value_zero(st_base)) {
+              if (ST_init_value_zero(st_base))
                 Set_ST_init_value_zero(st);
-                if (ST_sclass(st) == SCLASS_DGLOBAL)
-                  Set_ST_sclass(st, SCLASS_UGLOBAL);
-              }
-              if (ST_sclass(st) == SCLASS_COMMON)
-                Set_ST_sclass(st, SCLASS_UGLOBAL);
             }
-#endif
-            if (!_builder->Lang_C()) {
-              if (ST_sym_class(st) != ST_sym_class(st_base)) {
-                Set_ST_class(st, ST_class(st_base));
-                Set_ST_type(st, ST_type(st_base));
-              }
-              if (ST_sym_class(st_base) == CLASS_FUNC)
-                Set_PU_no_delete(Pu_Table[ST_pu(st_base)]);
+            if (ST_sym_class(st) != ST_sym_class(st_base)) {
+              Set_ST_class(st, ST_class(st_base));
+              Set_ST_type(st, ST_type(st_base));
             }
+            // the target may have no other use
+            if (ST_sym_class(st_base) == CLASS_FUNC)
+              Set_PU_no_delete(Pu_Table[ST_pu(st_base)]);
           }
-          // done, remove this entry and search next
-          _alias_list.erase(it);
+          // done; a target can have several aliases, so keep looking
+          it = _alias_list.erase(it);
           if (_alias_list.empty())
             return;
-          else
-            break;
         }
       }
     }
@@ -1059,6 +1054,14 @@ WhirlDeclBuilder::HandleAttrs(const NamedDecl *decl, ST_IDX st_idx) {
         if (st_idx != ST_IDX_ZERO)
           Set_ST_is_weak_symbol(ST_ptr(st_idx));
         break;
+      case attr::Weak:
+        // Also on a redeclaration; a weak definition is never common.
+        if (st_idx != ST_IDX_ZERO) {
+          Set_ST_is_weak_symbol(ST_ptr(st_idx));
+          if (ST_sclass(ST_ptr(st_idx)) == SCLASS_COMMON)
+            Set_ST_sclass(ST_ptr(st_idx), SCLASS_UGLOBAL);
+        }
+        break;
       default:
         //TRACE_WARN(("Unsupported attributes"));
         break;
@@ -1084,8 +1087,9 @@ WhirlDeclBuilder::ConvertFunction(GlobalDecl gd) {
   }
   ST_IDX st_idx = (ST_IDX) 0;
   if (decl->doesThisDeclarationHaveABody() ||
-      decl->doesDeclarationForceExternallyVisibleDefinition()) {
-    // generate function declaration
+      decl->doesDeclarationForceExternallyVisibleDefinition() ||
+      decl->hasAttr<AliasAttr>()) {
+    // generate function declaration (an alias needs its symbol too)
     st_idx = _builder->SB().ConvertSymbol(gd);
   }
 
@@ -1492,6 +1496,67 @@ WhirlDeclBuilder::IsStaticInitialized(const Expr *init_expr, bool &no_need_initi
   return TRUE;
 }
 
+// True if a constant initializer is all zero bits, so the variable can go
+// in .bss as wgen puts it (an explicit "= 0" or "= {0}" included).
+static bool
+APValueIsZero(const APValue &v) {
+  switch (v.getKind()) {
+  case APValue::Uninitialized:
+    return true;
+  case APValue::Int:
+    return v.getInt() == 0;
+  case APValue::Float:
+    return v.getFloat().isPosZero();
+  case APValue::ComplexInt:
+    return v.getComplexIntReal() == 0 && v.getComplexIntImag() == 0;
+  case APValue::ComplexFloat:
+    return v.getComplexFloatReal().isPosZero() &&
+           v.getComplexFloatImag().isPosZero();
+  case APValue::LValue:
+    return v.isNullPointer() && !v.getLValueBase() &&
+           v.getLValueOffset().isZero();
+  case APValue::Vector:
+    for (unsigned i = 0; i < v.getVectorLength(); i++)
+      if (!APValueIsZero(v.getVectorElt(i)))
+        return false;
+    return true;
+  case APValue::Array:
+    for (unsigned i = 0; i < v.getArrayInitializedElts(); i++)
+      if (!APValueIsZero(v.getArrayInitializedElt(i)))
+        return false;
+    return !v.hasArrayFiller() || APValueIsZero(v.getArrayFiller());
+  case APValue::Struct:
+    for (unsigned i = 0; i < v.getStructNumBases(); i++)
+      if (!APValueIsZero(v.getStructBase(i)))
+        return false;
+    for (unsigned i = 0; i < v.getStructNumFields(); i++)
+      if (!APValueIsZero(v.getStructField(i)))
+        return false;
+    return true;
+  case APValue::Union:
+    return !v.getUnionField() || APValueIsZero(v.getUnionValue());
+  default:   // member pointers, label differences
+    return false;
+  }
+}
+
+// A variable whose storage never changes: const, not volatile, and in
+// C++ no mutable member or destructor (wgen: TREE_READONLY). With a
+// static initializer it goes in .rodata.
+static bool
+IsReadOnlyVar(ASTContext *ctx, const VarDecl *decl) {
+  QualType type = decl->getType();
+  if (type.isVolatileQualified() ||
+      !ctx->getBaseElementType(type).isConstQualified())
+    return false;
+  // (QualType::isConstantStorage, which Clang 4.0 lacks.)
+  if (const CXXRecordDecl *rd = ctx->getBaseElementType(type)->getAsCXXRecordDecl())
+    if (rd->hasDefinition() &&
+        (rd->hasMutableFields() || !rd->hasTrivialDestructor()))
+      return false;
+  return true;
+}
+
 void
 WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
   TRACE_FUNC();
@@ -1509,8 +1574,12 @@ WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
 
   ST *st = ST_ptr(st_idx);
   // reset st_idx's sclass & eclass after redecllaration
-  if (ST_sclass(st) == SCLASS_EXTERN && !decl->hasExternalStorage())
-    Set_ST_sclass(st, SCLASS_COMMON);
+  if (ST_sclass(st) == SCLASS_EXTERN && !decl->hasExternalStorage()) {
+    Set_ST_sclass(st, _builder->SB().IsCommonVar(decl) ? SCLASS_COMMON
+                                                         : SCLASS_UGLOBAL);
+    if (ST_export(st) != EXPORT_LOCAL)
+      Set_ST_export(st, _builder->SB().VisibilityExport(decl, true));
+  }
 
   if (decl->hasAttrs())
     HandleAttrs(decl, st_idx);
@@ -1556,9 +1625,24 @@ WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
     }
   }
 
+  if (IsReadOnlyVar(_builder->Context(), decl))
+    Set_ST_is_const_var(st);
+
   if (eva_val != NULL) {
     if (TY_size(ty_idx) == 0)
       return;
+
+    // An all-zero initializer goes in .bss, as for no initializer. (In
+    // C, not for a variable with a section: it stays where it was put.)
+    if (APValueIsZero(*eva_val) &&
+        (_builder->Lang_CPP() || !ST_has_named_section(st))) {
+      Set_ST_init_value_zero(st);
+      Set_ST_is_initialized(st);
+      if (ST_sclass(st) == SCLASS_DGLOBAL || ST_sclass(st) == SCLASS_COMMON ||
+          ST_sclass(st) == SCLASS_EXTERN)
+        Set_ST_sclass(st, SCLASS_UGLOBAL);
+      return;
+    }
 
     INITV_IDX inv = ConvertAPValue(type, eva_val);
     if (inv == INITV_IDX_ZERO)

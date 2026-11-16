@@ -125,22 +125,52 @@ WhirlSymBuilder::Finalize() {
 }
 
 ST_EXPORT
+WhirlSymBuilder::VisibilityExport(const NamedDecl *decl, bool definition) {
+  LinkageInfo lv = decl->getLinkageAndVisibility();
+  if (!definition && !lv.isVisibilityExplicit())
+    return EXPORT_PREEMPTIBLE;
+  switch (lv.getVisibility()) {
+    case HiddenVisibility:
+      return EXPORT_HIDDEN;
+    case ProtectedVisibility:
+      return EXPORT_PROTECTED;
+    default:
+      return EXPORT_PREEMPTIBLE;
+  }
+}
+
+bool
+WhirlSymBuilder::IsCommonVar(const VarDecl *decl) {
+  // Clang's isVarDeclStrongDefinition, for C (C++ has no tentative
+  // definitions): a file-scope definition with no initializer and no
+  // storage class, unless -fno-common, a section, TLS or weak says
+  // otherwise.
+  if (!_builder->Lang_C() || !decl->isFileVarDecl() ||
+      decl->getStorageClass() != SC_None || decl->hasExternalStorage() ||
+      decl->getAnyInitializer() != NULL)
+    return false;
+  if ((C2W_No_Common || decl->hasAttr<NoCommonAttr>()) &&
+      !decl->hasAttr<CommonAttr>())
+    return false;
+  if (decl->hasAttr<SectionAttr>() || decl->getTLSKind() != VarDecl::TLS_None ||
+      decl->hasAttr<WeakAttr>() || decl->hasAttr<WeakImportAttr>())
+    return false;
+  return true;
+}
+
+ST_EXPORT
 WhirlSymBuilder::ExportClass(const FunctionDecl *decl) {
   if (decl->isGlobal()) {
-    // inline function, functions defined in class,
-    // implicit instantiation functions to be INTERNAL
-    if (decl->isInlineSpecified() ||
-        (isa<CXXMethodDecl>(decl) && cast<CXXMethodDecl>(decl)->hasInlineBody()) ||
-        decl->getTemplateSpecializationKind() == TSK_ImplicitInstantiation)
+    // C++: inline functions, functions defined in class and implicit
+    // instantiations are INTERNAL. (In C an inline function with
+    // external linkage is an ordinary external definition, or not
+    // emitted at all.)
+    if (_builder->Lang_CPP() &&
+        (decl->isInlineSpecified() ||
+         (isa<CXXMethodDecl>(decl) && cast<CXXMethodDecl>(decl)->hasInlineBody()) ||
+         decl->getTemplateSpecializationKind() == TSK_ImplicitInstantiation))
       return EXPORT_INTERNAL;
-    switch (decl->getVisibility()) {
-      case HiddenVisibility:
-        return EXPORT_HIDDEN;
-      case ProtectedVisibility:
-        return EXPORT_PROTECTED;
-      default:
-        return EXPORT_PREEMPTIBLE;
-    }
+    return VisibilityExport(decl, decl->isDefined());
   } else {
     return EXPORT_LOCAL;
   }
@@ -206,8 +236,13 @@ WhirlSymBuilder::ConvertFunction(const FunctionDecl *decl,
       (decl->getStorageClass() == SC_Static)) {
     Set_PU_is_inline_function(pu);
     Set_PU_is_marked_inline(pu);
-    if (linkage == GVA_AvailableExternally)
+    if (linkage == GVA_AvailableExternally) {
       Set_PU_is_extern_inline(pu);
+      // As wgen (its bug 2218): the body exists only for inlining, so
+      // above -O0 make sure it is inlined rather than called.
+      if (Opt_Level > 0)
+        Set_PU_must_inline(pu);
+    }
   }
 
   if (decl->isMain()) {
@@ -262,8 +297,8 @@ WhirlSymBuilder::ConvertFunction(const FunctionDecl *decl,
   // set weak
   const NamedDecl *named_decl = dyn_cast<NamedDecl>(decl);
   Is_True(named_decl != NULL, ("decl is not NamedDecl"));
-  if (hasAliasAttr ||
-      named_decl->hasAttr<WeakAttr>() ||
+  // (An alias is weak only if declared so; see WhirlDeclBuilder::Finalize.)
+  if (named_decl->hasAttr<WeakAttr>() ||
       named_decl->isWeakImported())
     Set_ST_is_weak_symbol(st);
 
@@ -311,10 +346,12 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
         eclass = EXPORT_LOCAL;
       } else {
         //After set INITO, set sclass to DGLOBAL
-        sclass = SCLASS_UGLOBAL;
+        sclass = IsCommonVar(decl) ? SCLASS_COMMON : SCLASS_UGLOBAL;
       }
     }
   }
+  if (eclass != EXPORT_LOCAL)
+    eclass = VisibilityExport(decl, sclass != SCLASS_EXTERN);
   ST *st = New_ST(symtab);
   TY_IDX ty_idx = _builder->TB().ConvertType(decl->getType());
   // Path64: alignment asked for on the declaration (_Alignas, alignas,
@@ -326,6 +363,8 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
       Set_TY_align(ty_idx, align);
   }
   ST_Init(st, str_idx, CLASS_VAR, sclass, eclass, ty_idx);
+  if (decl->hasAttr<WeakAttr>() || decl->isWeakImported())
+    Set_ST_is_weak_symbol(st);
   GVALinkage linkage = _builder->Context()->GetGVALinkageForVariable(decl);
   if (eclass != EXPORT_LOCAL &&
       (linkage == GVA_DiscardableODR || linkage == GVA_StrongODR)) {

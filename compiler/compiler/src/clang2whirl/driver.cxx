@@ -393,6 +393,17 @@ int main(int argc_, const char **argv_) {
     return ExecuteCC1Tool(argv, argv[1] + 4);
   }
 
+#ifdef CLANG_2_WHIRL
+  // Path64 option groups (-OPT:...) are for the WHIRL generator in cc1,
+  // which takes them out before Clang parses its arguments.
+  for (size_t i = 1; i < argv.size(); ++i) {
+    if (argv[i] && StringRef(argv[i]).startswith("-OPT:")) {
+      argv.insert(argv.begin() + i, "-Xclang");
+      ++i;
+    }
+  }
+#endif
+
   bool CanonicalPrefixes = true;
   for (int i = 1, size = argv.size(); i < size; ++i) {
     // Skip end-of-line response file markers

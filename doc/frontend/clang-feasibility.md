@@ -355,13 +355,114 @@ asks it to "emit LLVM" (`-emit-llvm`) to get a `.B` file, and passes
 * Several library builtins map to glibc-internal names (`__isnan`,
   `__finite`, `__fpclassify`): fine on Linux, to be replaced for IRIX.
 * `-O` level, `-g` and most `-f` options are not yet passed through to
-  psclang's WHIRL generation the way they are to wgen.
+  psclang's WHIRL generation the way they are to wgen (done in phase 2,
+  section 9).
 * C++ compiles in upstream but hasn't been exercised here. One thing to
   fix first: upstream marks inline/template functions local and relies
   on an "ODR" symbol flag Path64 doesn't have.
 
 **Next:** phase 2 is the rest of C (atomics, VLA scopes, options, debug
 info) and a larger C corpus, then the IRIX `TargetInfo`. Phase 3 is C++.
+
+## 9. Phase 2 status: options and symbols (November 2026)
+
+The first part of phase 2 compared psclang with the GCC front end across
+51 option sets (`-O0` to `-O3` and `-Os`, `-g` levels, PIC/PIE,
+visibility, common, fast-math and errno, inline semantics, `-std`,
+warnings, sections and others). For each set it compared the objects'
+symbols (binding, type, visibility, section), section lists and debug
+information. Then it recompiled the runtime libraries' 236 C files
+(libmpath, libmv, libpscrt, libunwind, compiler-rt) with `-fpsclang` and
+compared each object with the one the GCC front end built.
+
+**Options:**
+
+* *Path64 option groups.* The driver gives every front end `-OPT:`
+  groups (`-ffast-math`, `-fstrict-aliasing`, `-Os` and others
+  expand to them), and psclang failed on them. psclang's driver now
+  passes them to its cc1 with `-Xclang`. cc1 removes them before Clang
+  parses its arguments and gives them to the WHIRL generator, as wgen
+  does.
+* *Levels.* `Opt_Level` and `Debug_Level` come from Clang's own parse of
+  `-O` and `-g`, so `Configure()` sees the real level. They used to be
+  fixed at the defaults.
+* *Options only cc1 used to get.* The `OPTIONS` table sends some flags
+  only to cc1/cc1plus ("cfe"). The ones Clang reads the same way now go
+  to psclang as well, in command-line order: `-w`, `-pedantic`,
+  `-fno-common`, `-fno-ident`, exceptions, RTTI,
+  elide-constructors, cxa-atexit, `-Wabi`. `-fgnu89-inline`, which the
+  table passed to no front end, is added for psclang.
+* *Inliner.* psclang now always gets the inliner phase, unless the
+  command line chooses. wgen asks for it with exit status
+  `RC_NEED_INLINER` whenever a file has an inline function. psclang
+  can't do that: Clang's driver runs cc1 as a child and treats any other
+  status as a failure. Without the inliner, inline functions were never
+  inlined at `-O2`, and their `static` bodies were left in the object.
+
+**Symbols:**
+
+* tentative definitions are common symbols, following Clang's
+  `isVarDeclStrongDefinition` and `-fno-common`;
+* `weak` and visibility on variables, `-fvisibility` on definitions
+  only (declarations take only explicit visibility, as in Clang's
+  CodeGen);
+* `const` variables with a static initializer go in `.rodata`, and
+  all-zero initializers go in `.bss`;
+* an `inline` function with external linkage is no longer INTERNAL in
+  C (that rule is for C++).
+* *Inline-only bodies.* The C99 `inline` and gnu89 `extern inline`
+  bodies are emitted above `-O0` and marked must-inline, as wgen does.
+  The exception is a body that calls the builtin of its own name
+  (glibc's string and fortify wrappers), the same check as Clang's
+  `isTriviallyRecursive`.
+* *Aliases.* They were emitted only when used, and always weak. They
+  are now emitted always: a weak alias names its strong symbol, and any
+  other alias shares the target's storage (wgen's `WGEN_Assemble_Alias`).
+  A target with several aliases now gets all of them.
+
+**Builtins:** `sqrt`, `sqrtf` and `sqrtl` (not `sqrtl` on MIPS) use the
+sqrt instruction, as wgen does. With `-fno-math-errno` that is all;
+otherwise the library function is called only when the result is NaN.
+`__builtin_eh_return_data_regno` uses the back end's intrinsic.
+
+**Results on x86-64:**
+
+* Option sets: with `-std=gnu89` or `-fgnu89-inline`, the symbols match
+  the GCC front end's except for the expected differences below.
+* Runtime libraries: 234 of 236 C files compile. 145 objects have the
+  same symbols as the GCC front end's, and the other 89 differ only in
+  local symbols: Clang drops unused `static` functions and variables
+  from headers, and names function-local statics differently. 40 libm
+  functions from the psclang-built libmpath and libmv give bit-identical
+  results to the GCC-built ones over 18,000 to 40,000 inputs each.
+* No regressions: C probes 18/20 (the same two failures); the ABI
+  cross-tests with GCC 14 all match (3 sets, both levels, all four
+  pairings); compiler-rt unit tests 98/139 at `-O0`, `-O2` and `-O3`,
+  with the same failures as the GCC front end.
+
+**Expected differences from the GCC front end:**
+
+* *Inline semantics.* Clang defaults to C99 (gnu11), GCC 4.2 to gnu89:
+  a plain `inline` definition is not emitted, and `extern inline` is.
+  `-std=gnu89` or `-fgnu89-inline` give GCC 4.2's behaviour. Modern GCC
+  defaults to the C99 rules too.
+* *Unused statics.* Unused `static` functions and variables are not
+  emitted.
+* *Fast-math NaN tests.* GCC's `-ffast-math` also folds `x != x` to
+  false before WHIRL.
+
+**Remaining gaps** (in addition to section 8's):
+
+* *x86 target builtins.* `__builtin_ia32_*` (Clang's SSE intrinsic
+  headers) and `__builtin_nontemporal_*` are not converted. That
+  includes libpscrt's `memcpy_em64t.c` and `memcpy_opteron.c`, whose
+  `em64tintrin.h` uses GCC 4.2's builtin names.
+* *Debug information.* Only subprogram entries: no variables,
+  parameters or types.
+* *`-mregparm`.* wgen turns it into a per-function register parameter
+  count; psclang ignores it (`-m32` only).
+* *Other math builtins.* `acos`, `asin`, `log`, `log10`, `sin`, `cos`
+  and the like stay library calls; wgen maps some to intrinsics.
 
 ## Sources
 

@@ -84,6 +84,14 @@ public:
   
   void Finalize();
 
+  // Export class for a symbol with external linkage, from its visibility
+  // as Clang's CodeGen applies it: -fvisibility and inherited visibility
+  // only for definitions, explicit visibility for declarations too.
+  ST_EXPORT VisibilityExport(const clang::NamedDecl *decl, bool definition);
+
+  // A C tentative definition that becomes a common symbol.
+  bool IsCommonVar(const clang::VarDecl *decl);
+
 private:
   ST_EXPORT ExportClass(const clang::FunctionDecl *decl);
   
