@@ -549,16 +549,23 @@ The option comparison is unchanged as well.
 * *Math intrinsics* map only for `float` and `double`, not `long
   double`.
 
-**Bugs found in the GCC front end** (wgen, or its GCC 4.2 headers), not
-fixed:
-* *Wrong SSE results.* 16 of the 114 SSE/SSE2 results, among them:
-  * scalar compares and moves (`add_ss`, `cmp*_ss`, `move_ss`, `move_sd`);
-  * `movehl_ps`/`movelh_ps` (`INTRN_MOVHLPS`/`MOVLHPS`);
-  * `_mm_slli_si128`/`_mm_srli_si128`;
-  * `madd_epi16`, which uses the MMX `pmaddwd`.
-* *`paddusw128`* falls through to `paddsb128`.
-* *VLA space* is not returned on `continue` or `goto`.
-* *Label differences* are miscompiled.
+**Bugs found in the GCC front end**, since fixed (both front ends stay
+in use):
+* *Vector casts* converted element values, so SSE compare masks became
+  -1.0.
+* *Scalar `ss`/`sd` intrinsics, `movehl`/`movelh`, `pmaddwd`* were wrong;
+  the cause was mostly the shared x86 back end.
+* *Shift units:* `_mm_slli_si128`/`_mm_srli_si128` and `palignr` passed
+  bits where the instructions take bytes.
+* *SSSE3 header:* `<tmmintrin.h>` didn't compile, and `psign` and
+  `stream_load` were missing.
+* *VLA space* was kept on `continue` and `goto`.
+* *Label differences* in static initializers were miscompiled; they are
+  now reported as not implemented.
+
+Both front ends now give GCC 14's results on 243 intrinsic results:
+SSE/SSE2 (114), scalar `ss`/`sd` (32), MMX (37) and SSE3 through SSE4.1
+(60), at `-O0` and `-O2`.
 
 ## Sources
 
