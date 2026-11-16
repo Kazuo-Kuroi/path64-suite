@@ -6384,9 +6384,18 @@ static WN *lower_return_mstid(WN *block, WN *tree, LOWER_ACTIONS actions)
       }
 #endif
       preg_st = MTYPE_is_float(mtype) ? Float_Preg : Int_Preg;
-      n_rhs = WN_CreateLdid(OPR_LDID, mtype, mtype, 
+      n_rhs = WN_CreateLdid(OPR_LDID, mtype, mtype,
 			    RETURN_INFO_preg(return_info, i), preg_st,
 			    Be_Type_Tbl(mtype));
+#ifdef KEY
+      // A big-endian ABI (IRIX n32) returns a small struct left-justified,
+      // as an 8-byte load would leave it, so its bytes are at the top of
+      // the register; the narrower store above takes the bottom.
+      if (!Target_Is_Little_Endian && desc != mtype)
+	n_rhs = WN_Lshr(mtype, n_rhs,
+			WN_Intconst(MTYPE_I4, 8 * (MTYPE_byte_size(mtype) -
+						   MTYPE_byte_size(desc))));
+#endif
 #ifndef KEY
       if (TY_align(ST_type(WN_st(tree))) < MTYPE_alignment(mtype)) {
 	DevWarn("return_info struct alignment is smaller than register size, may produce wrong results");
@@ -10029,6 +10038,19 @@ static WN *lower_call(WN *block, WN *tree, LOWER_ACTIONS actions)
 
     ty =  TY_Of_Parameter(parm);
     ploc = Get_Output_Parameter_Location( MTYPE_To_TY(parmType));
+#ifdef TARG_MIPS
+    // A small struct that reaches here as an integer PARM (the optimizer
+    // turns it into one) is laid out like memory in its slot on a
+    // big-endian ABI (IRIX n32): left-justified in the register, and at
+    // the start of the stack slot, not right-justified like an int.
+    // (Structs that stay MTYPE_M get this in lower_mload_actual.)
+    INT32 struct_size = 0;
+    if (!Target_Is_Little_Endian && WN_operator_is(parm, OPR_PARM) &&
+	TY_kind(WN_ty(parm)) == KIND_STRUCT &&
+	MTYPE_is_integral(parmType) &&
+	TY_size(WN_ty(parm)) < MTYPE_RegisterSize(MTYPE_I8))
+      struct_size = TY_size(WN_ty(parm));
+#endif
     {
      /*
       *  canonicalize [I,U][1,2] types (to [I,U]4
@@ -10061,6 +10083,18 @@ static WN *lower_call(WN *block, WN *tree, LOWER_ACTIONS actions)
       * is to use the SP symbol. 
       */
       WN *wn;
+#ifdef TARG_MIPS
+      if (struct_size == 1 || struct_size == 2 || struct_size == 4) {
+	// Undo the int-style right-justification of PLOC_offset.
+	TYPE_ID desc = Mtype_AlignmentClass(struct_size,
+					    MTYPE_CLASS_UNSIGNED_INTEGER);
+	wn = WN_Stid(desc, PLOC_offset(ploc) - Formal_Save_Area_Size
+			   + Stack_Offset_Adjustment
+			   - (MTYPE_RegisterSize(MTYPE_I8) -
+			      MTYPE_byte_size(parmType)),
+		     SP_Sym, MTYPE_To_TY(desc), actual);
+      } else
+#endif
       wn = WN_Stid(parmType, PLOC_offset(ploc) - Formal_Save_Area_Size
 		             + Stack_Offset_Adjustment,
 		   SP_Sym, ty, actual);
@@ -10109,6 +10143,14 @@ static WN *lower_call(WN *block, WN *tree, LOWER_ACTIONS actions)
 #endif
     else
     {
+#ifdef TARG_MIPS
+      if (struct_size > 0 && Preg_Offset_Is_Int(PLOC_reg(ploc))) {
+	actual = WN_Shl(MTYPE_U8, WN_Cvt(parmType, MTYPE_U8, actual),
+			WN_Intconst(MTYPE_I4, 8 * (MTYPE_RegisterSize(MTYPE_I8)
+						   - struct_size)));
+	parmType = MTYPE_U8;
+      }
+#endif
       actual = lower_actual(callblock, actual, parmType, PLOC_reg(ploc));
 
       if (WN_operator_is(parm, OPR_PARM))
