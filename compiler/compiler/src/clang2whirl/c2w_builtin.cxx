@@ -439,6 +439,96 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
       return Result::nwNode(WGEN_CreateComma(vmt, blk, val), ty);
     }
 
+  // Math functions as wgen gives them to the back end, as intrinsics it
+  // can combine (sin and cos into sincos), simplify under -ffast-math or
+  // vectorize. Those that set errno only without it (wgen's bug 14262).
+  case Builtin::BIsin:   case Builtin::BI__builtin_sin:
+  case Builtin::BIsinf:  case Builtin::BI__builtin_sinf:
+  case Builtin::BIcos:   case Builtin::BI__builtin_cos:
+  case Builtin::BIcosf:  case Builtin::BI__builtin_cosf:
+  case Builtin::BIatan:  case Builtin::BI__builtin_atan:
+  case Builtin::BIatanf: case Builtin::BI__builtin_atanf:
+  case Builtin::BIexp:   case Builtin::BI__builtin_exp:
+  case Builtin::BIexpf:  case Builtin::BI__builtin_expf:
+  case Builtin::BIacos:  case Builtin::BI__builtin_acos:
+  case Builtin::BIacosf: case Builtin::BI__builtin_acosf:
+  case Builtin::BIasin:  case Builtin::BI__builtin_asin:
+  case Builtin::BIasinf: case Builtin::BI__builtin_asinf:
+  case Builtin::BIlog:   case Builtin::BI__builtin_log:
+  case Builtin::BIlogf:  case Builtin::BI__builtin_logf:
+  case Builtin::BIlog10: case Builtin::BI__builtin_log10:
+  case Builtin::BIlog10f: case Builtin::BI__builtin_log10f:
+  case Builtin::BIpow:   case Builtin::BI__builtin_pow:
+    {
+      bool f4 = ret_mtype == MTYPE_F4;
+      if (ret_mtype != MTYPE_F4 && ret_mtype != MTYPE_F8)
+        break;
+      bool errno_math = _builder->Context()->getLangOpts().MathErrno;
+      INTRINSIC iopc = INTRINSIC_NONE;
+      switch (builtin_id) {
+      case Builtin::BIsin: case Builtin::BI__builtin_sin:
+      case Builtin::BIsinf: case Builtin::BI__builtin_sinf:
+        iopc = f4 ? INTRN_F4SIN : INTRN_F8SIN; break;
+      case Builtin::BIcos: case Builtin::BI__builtin_cos:
+      case Builtin::BIcosf: case Builtin::BI__builtin_cosf:
+        iopc = f4 ? INTRN_F4COS : INTRN_F8COS; break;
+      case Builtin::BIatan: case Builtin::BI__builtin_atan:
+      case Builtin::BIatanf: case Builtin::BI__builtin_atanf:
+        iopc = f4 ? INTRN_F4ATAN : INTRN_F8ATAN; break;
+      case Builtin::BIexp: case Builtin::BI__builtin_exp:
+      case Builtin::BIexpf: case Builtin::BI__builtin_expf:
+        iopc = f4 ? INTRN_F4EXP : INTRN_F8EXP; break;
+      case Builtin::BIacos: case Builtin::BI__builtin_acos:
+      case Builtin::BIacosf: case Builtin::BI__builtin_acosf:
+        if (!errno_math) iopc = f4 ? INTRN_F4ACOS : INTRN_F8ACOS; break;
+      case Builtin::BIasin: case Builtin::BI__builtin_asin:
+      case Builtin::BIasinf: case Builtin::BI__builtin_asinf:
+        if (!errno_math) iopc = f4 ? INTRN_F4ASIN : INTRN_F8ASIN; break;
+      case Builtin::BIlog: case Builtin::BI__builtin_log:
+      case Builtin::BIlogf: case Builtin::BI__builtin_logf:
+        if (!errno_math) iopc = f4 ? INTRN_F4LOG : INTRN_F8LOG; break;
+      case Builtin::BIlog10: case Builtin::BI__builtin_log10:
+      case Builtin::BIlog10f: case Builtin::BI__builtin_log10f:
+        if (!errno_math) iopc = f4 ? INTRN_F4LOG10 : INTRN_F8LOG10; break;
+      default:   // pow (double only)
+        if (!errno_math && !f4) iopc = INTRN_F8EXPEXPR; break;
+      }
+      if (iopc == INTRINSIC_NONE)
+        break;   // the library call
+      return GenerateIntrinsic(expr, ty, iopc, TRUE, TRUE);
+    }
+
+  case Builtin::BI__builtin_powi:
+  case Builtin::BI__builtin_powif:
+  case Builtin::BI__builtin_powil:
+    {
+      // x ** n for an integer n, as wgen (its bug 11286: n is 64-bit on
+      // 64-bit targets)
+      INTRINSIC iopc = builtin_id == Builtin::BI__builtin_powif ? INTRN_F4F4I4EXPEXPR
+                     : builtin_id == Builtin::BI__builtin_powil ? INTRN_FQFQI4EXPEXPR
+                                                               : INTRN_F8F8I4EXPEXPR;
+      TYPE_ID imt = TARGET_64BIT ? MTYPE_I8 : MTYPE_I4;
+      WN *kids[2];
+      kids[0] = WGEN_CreateParm(ret_mtype, ConvertToNode(expr->getArg(0)), ty);
+      kids[1] = WGEN_CreateParm(imt, WN_Type_Conversion(ConvertToNode(expr->getArg(1)), imt),
+                                MTYPE_To_TY(imt));
+      return Result::nwNode(WN_Create_Intrinsic(OPR_INTRINSIC_OP, ret_mtype, MTYPE_V,
+                                                iopc, 2, kids), ty);
+    }
+
+  case Builtin::BIfloor: case Builtin::BI__builtin_floor:
+  case Builtin::BIfloorf: case Builtin::BI__builtin_floorf:
+    {
+      bool f4 = builtin_id == Builtin::BIfloorf || builtin_id == Builtin::BI__builtin_floorf;
+#ifdef TARG_MIPS
+      return GenerateIntrinsic(expr, ty, f4 ? INTRN_FLOORF : INTRN_FLOOR, TRUE, TRUE);
+#else
+      return Result::nwNode(WN_CreateExp1(OPR_FLOOR, ret_mtype,
+                                          f4 ? MTYPE_F4 : MTYPE_F8,
+                                          ConvertToNode(expr->getArg(0))), ty);
+#endif
+    }
+
   case Builtin::BIsqrt:
   case Builtin::BIsqrtf:
   case Builtin::BI__builtin_sqrt:

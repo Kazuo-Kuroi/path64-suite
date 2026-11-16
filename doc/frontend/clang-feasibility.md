@@ -451,7 +451,8 @@ otherwise the library function is called only when the result is NaN.
 * *Fast-math NaN tests.* GCC's `-ffast-math` also folds `x != x` to
   false before WHIRL.
 
-**Remaining gaps** (in addition to section 8's):
+**Remaining gaps** (in addition to section 8's; section 10 closes the
+first, second and fourth):
 
 * *x86 target builtins.* `__builtin_ia32_*` (Clang's SSE intrinsic
   headers) and `__builtin_nontemporal_*` are not converted. That
@@ -463,6 +464,101 @@ otherwise the library function is called only when the result is NaN.
   count; psclang ignores it (`-m32` only).
 * *Other math builtins.* `acos`, `asin`, `log`, `log10`, `sin`, `cos`
   and the like stay library calls; wgen maps some to intrinsics.
+
+## 10. Phase 2 status: debug information, intrinsics, VLA scopes (November 2026)
+
+**Debug information** (`-g2` and up, as wgen):
+* *Variables and parameters.* Globals, block-scope externs, locals and
+  static locals (under their function), and parameters, with `...` for
+  variadic functions.
+* *Types.* Every C type form: qualifiers, pointers, arrays with bounds,
+  function types, structs and unions with bit-fields, enums, typedefs.
+  Only types the program uses are described.
+
+On a test of C's type forms, each variable, parameter and function has
+the same described type as with the GCC front end, except where psclang
+is more exact:
+* typedefs are kept;
+* bit-fields carry their declared type;
+* `signed char` has its own encoding;
+* `int m[3][4]` is one array with two dimensions.
+
+Line tables match. readelf finds no problems in the DWARF of the 235
+library objects built with `-g`.
+
+**x86 intrinsics.** psclang now uses Clang's own intrinsic headers
+(PathScale's are written for GCC 4.2's builtins) and gets the SSE flags
+in Clang's spelling.
+* *Builtins.* `__builtin_ia32_*` map by name to the intrinsic wgen gives
+  each: 379 builtins in `clang2whirl/c2w_x86_builtins.def`, generated
+  from GCC 4.2's names. wgen's special cases are ported, and the
+  builtins only Clang has are added.
+* *Vector operations* in Clang's headers:
+  * `__builtin_shufflevector` (an instruction where one fits);
+  * `__builtin_convertvector`;
+  * `v[i]`;
+  * vector comparisons;
+  * integer vector multiply and divide.
+
+A test of 174 SSE through SSE4.1 intrinsics gives results identical to
+GCC 14 at `-O0` and `-O2`. The GCC front end gets 16 of the 114 SSE/SSE2
+results wrong, and its SSSE3 header does not compile.
+
+The test also found x86 back-end bugs, which affected both front ends:
+* `packssdw128` and `packuswb128` emitted `packsswb128`;
+* wrong load-folding entries for `pabs*`, `pmaddubsw128`, `phaddd`,
+  `phsubd` and `blendvp*`;
+* folding a load into an instruction with an immediate operand dropped
+  the immediate;
+* `-msse4_1` reached the back end as `sse4_1=off`.
+
+**Stack space of VLAs.** A VLA's space is returned when its scope ends,
+and also on `break`, `continue` and `goto` out of it. On the VLA test the
+stack use matches GCC 14's. The GCC front end gives the space back only
+at the end of a scope, so a `continue` or `goto` in a loop keeps all of
+it.
+
+**Math functions.** `sin`, `cos`, `atan` and `exp` become intrinsics, as
+with wgen, and so do `acos`, `asin`, `log`, `log10` and `pow` without
+errno. `__builtin_powi` and `floor` are handled too. The back end then
+makes the same calls for both front ends (`sin` and `cos` become one
+`sincos`).
+
+**Also:** clang2whirl now sets up the error tables, so an unimplemented
+feature is reported instead of crashing psclang. All 236 runtime-library
+C files compile with `-fpsclang`.
+
+**Results on x86-64.** Unchanged:
+* C probes 18/20;
+* ABI cross-tests 18/18;
+* compiler-rt 98/139;
+* the libm bit-identity test, 40 functions.
+
+The option comparison is unchanged as well.
+
+**Remaining gaps:**
+* *Label differences* (`&&a - &&b`) in static initializers are reported
+  as not implemented. WHIRL has no initializer for a label minus a label.
+  The GCC front end accepts them but the program crashes; label address
+  tables work in both.
+* *`-mregparm`* (`-m32` only) is ignored.
+* *C11 atomics* and 1- and 2-byte `__sync_*` (section 8). GCC 4.2 has
+  neither.
+* *The two failing C probes:* `_Alignas(32)` on a local (the back end,
+  both front ends) and `<stdatomic.h>`.
+* *Math intrinsics* map only for `float` and `double`, not `long
+  double`.
+
+**Bugs found in the GCC front end** (wgen, or its GCC 4.2 headers), not
+fixed:
+* *Wrong SSE results.* 16 of the 114 SSE/SSE2 results, among them:
+  * scalar compares and moves (`add_ss`, `cmp*_ss`, `move_ss`, `move_sd`);
+  * `movehl_ps`/`movelh_ps` (`INTRN_MOVHLPS`/`MOVLHPS`);
+  * `_mm_slli_si128`/`_mm_srli_si128`;
+  * `madd_epi16`, which uses the MMX `pmaddwd`.
+* *`paddusw128`* falls through to `paddsb128`.
+* *VLA space* is not returned on `continue` or `goto`.
+* *Label differences* are miscompiled.
 
 ## Sources
 

@@ -29,6 +29,8 @@
 */
 
 #include "c2w_stmt.h"
+#include <set>
+#include <vector>
 #include "c2w_builder.h"
 #include "c2w_expr.h"
 #include "c2w_tracer.h"
@@ -311,6 +313,82 @@ Push_scope_cleanup(const Stmt *t)
                                                 new vector<ST*>();
 }
 
+// Path64: the stack space of variable-length arrays is given back when
+// their scope is left, as wgen does at the end of a scope (and here also
+// on break, continue and goto out of it). The stack pointer is saved
+// (alloca(0)) before the first VLA of a scope; DEALLOCA restores it.
+
+// The innermost scope that is a block, where a VLA declaration belongs.
+static INT32
+Vla_scope_index(void)
+{
+  for (INT32 i = scope_cleanup_i; i >= 0; i--)
+    if (isa<CompoundStmt>(scope_cleanup_stack[i].stmt))
+      return i;
+  return -1;
+}
+
+// Before the VLA whose storage is ALLOCA_ST is allocated (into BLOCK).
+static void
+Note_vla_alloca(WN *block, ST *alloca_st, SRCPOS pos)
+{
+  INT32 i = Vla_scope_index();
+  if (i < 0)
+    return;
+  if (!scope_cleanup_stack[i].vla.has_alloca) {
+    TY_IDX ty = Make_Pointer_Type(MTYPE_To_TY(MTYPE_V), FALSE);
+    ST *save = Gen_Temp_Symbol(ty, ".vla.sp");
+    WN *wn = WN_Stid(Pointer_Mtype, 0, save, ty,
+                     WN_CreateAlloca(WN_Intconst(MTYPE_I4, 0)));
+    WN_Set_Linenum(wn, pos);
+    WN_INSERT_BlockLast(block, wn);
+    scope_cleanup_stack[i].vla.has_alloca = TRUE;
+    scope_cleanup_stack[i].vla.alloca_st = save;
+    Set_PU_has_alloca(Get_Current_PU());
+  }
+  scope_cleanup_stack[i].vla.alloca_sts_vector->push_back(alloca_st);
+}
+
+// The DEALLOCA that leaves the scopes above LEVEL (down to and including
+// level + 1), or NULL if none of them has a VLA: it restores the stack
+// pointer saved by the outermost of them.
+static WN *
+Vla_dealloca(INT32 level, bool (*keep)(const Stmt *, void *) = NULL,
+             void *arg = NULL)
+{
+  ST *save = NULL;
+  std::vector<ST *> vlas;
+  for (INT32 i = scope_cleanup_i; i > level; i--) {
+    if (keep && keep(scope_cleanup_stack[i].stmt, arg))
+      break;
+    if (scope_cleanup_stack[i].vla.has_alloca) {
+      save = scope_cleanup_stack[i].vla.alloca_st;
+      std::vector<ST *> *v = scope_cleanup_stack[i].vla.alloca_sts_vector;
+      vlas.insert(vlas.end(), v->begin(), v->end());
+    }
+  }
+  if (!save)
+    return NULL;
+  WN *wn = WN_CreateDealloca(vlas.size() + 1);
+  WN_kid0(wn) = WN_Ldid(Pointer_Mtype, 0, save, ST_type(save));
+  for (size_t k = 0; k < vlas.size(); k++)
+    WN_kid(wn, k + 1) = WN_Ldid(Pointer_Mtype, 0, vlas[k], ST_type(vlas[k]));
+  return wn;
+}
+
+// WN followed by a jump, in a block when a DEALLOCA goes first.
+static WN *
+With_dealloca(WN *dealloca, WN *jump)
+{
+  if (!dealloca)
+    return jump;
+  WN *blk = WN_CreateBlock();
+  WN_Set_Linenum(dealloca, WN_Get_Linenum(jump));
+  WN_INSERT_BlockLast(blk, dealloca);
+  WN_INSERT_BlockLast(blk, jump);
+  return blk;
+}
+
 static WN *
 CreateIdnameFromReg(INT reg) {
   if (reg < 0)
@@ -354,6 +432,8 @@ Record_Loop_Switch(const Stmt::StmtClass stmt, LABEL_IDX break_label_idx, LABEL_
                                        sizeof (BREAK_CONTINUE_INFO));
   }
 
+  break_continue_info_stack
+    [break_continue_info_i].scope_level        = scope_cleanup_i;
   break_continue_info_stack
     [break_continue_info_i].tree_code          = stmt;
   break_continue_info_stack
@@ -558,11 +638,9 @@ WN *WhirlStmtBuilder::ConvertBreakStmt(const BreakStmt *stmt) {
     break_continue_info_stack[i].break_label_idx = label_idx;
   }
 
-  // TODO: cleanup
-
   WN *wn = WN_CreateGoto((ST_IDX)NULL, label_idx);
   WN_Set_Linenum(wn, SetSrcPos(getLocation(stmt)));
-  return wn;
+  return With_dealloca(Vla_dealloca(break_continue_info_stack[i].scope_level), wn);
 }
 
 WN *WhirlStmtBuilder::ConvertCallExpr(const CallExpr *stmt) {
@@ -1437,6 +1515,13 @@ WN *WhirlStmtBuilder::ConvertCompoundStmt(const CompoundStmt *stmt, ST_IDX st_id
 #endif
 
   pop_dtor_call_stack(block, isa<ReturnStmt>(handle_stmt)? false : true);
+  if (scope_cleanup_stack[scope_cleanup_i].stmt == stmt &&
+      scope_cleanup_stack[scope_cleanup_i].vla.has_alloca &&
+      !isa<ReturnStmt>(handle_stmt)) {
+    WN *dealloca = Vla_dealloca(scope_cleanup_i - 1);
+    WN_Set_Linenum(dealloca, SetSrcPos(stmt->getRBracLoc()));
+    WN_INSERT_BlockLast(block, dealloca);
+  }
   Pop_scope_and_do_cleanups();
   current_stmt = orig_stmt;
   WhirlBlockUtil::popCurrentBlock();
@@ -1466,7 +1551,7 @@ WN *WhirlStmtBuilder::ConvertContinueStmt(const ContinueStmt *stmt) {
   Is_True(label_idx, ("null continue label idx"));
   WN *wn = WN_CreateGoto((ST_IDX)NULL, label_idx);
   WN_Set_Linenum(wn, SetSrcPos(getLocation(stmt)));
-  return wn;
+  return With_dealloca(Vla_dealloca(break_continue_info_stack[i].scope_level), wn);
 }
 
 static void
@@ -2425,8 +2510,15 @@ WN *WhirlStmtBuilder::ConvertDeclStmt(const DeclStmt *stmt) {
     WhirlDeclBuilder decl_builder(_builder);
     decl_builder.ConvertDecl(const_cast<Decl *>(decl));
 
-    if (vla_decl && vla_decl->getType()->isVariableArrayType())
-      _builder->Emit_vla_alloca(vla_decl, _builder->Get_decl_st(vla_decl), block);
+    if (vla_decl && vla_decl->getType()->isVariableArrayType()) {
+      WN *vla_blk = WN_CreateBlock();
+      ST_IDX vst = _builder->Get_decl_st(vla_decl);
+      _builder->Emit_vla_alloca(vla_decl, vst, vla_blk);
+      // (the stack pointer is saved first, for the scope's end)
+      Note_vla_alloca(block, ST_ptr(ST_base_idx(ST_ptr(vst))),
+                      SetSrcPos(getLocation(stmt)));
+      WN_INSERT_BlockLast(block, vla_blk);
+    }
 
     WN *ret = NULL;
     if (isa<VarDecl>(decl)) {
@@ -2581,11 +2673,36 @@ WN *WhirlStmtBuilder::ConvertForStmt(const ForStmt *stmt) {
   return ConvertLoopStmt(stmt);
 }
 
+// For Vla_dealloca: true for a scope that contains the goto's label.
+static bool
+Scope_has_label(const Stmt *scope, void *arg)
+{
+  return ((std::set<const Stmt *> *) arg)->count(scope) != 0;
+}
+
 WN *WhirlStmtBuilder::ConvertGotoStmt(const GotoStmt *stmt) {
   TRACE_FUNC();
   LABEL_IDX label_idx = _builder->Get_label_idx(stmt->getLabel());
   WN* goto_wn = WN_CreateGoto(ST_IDX_ZERO, label_idx);
   WN_Set_Linenum(goto_wn, SetSrcPos(getLocation(stmt)));
+  // the blocks around the label, which the jump does not leave
+  std::set<const Stmt *> around;
+  const LabelStmt *ls = stmt->getLabel()->getStmt();
+  if (ls && Vla_scope_index() >= 0) {
+    ASTContext *ctx = _builder->Context();
+    ast_type_traits::DynTypedNode n = ast_type_traits::DynTypedNode::create(*ls);
+    for (int guard = 0; guard < 10000; guard++) {
+      ASTContext::DynTypedNodeList ps = ctx->getParents(n);
+      if (ps.empty())
+        break;
+      n = ps[0];
+      if (const Stmt *p = n.get<Stmt>())
+        around.insert(p);
+      else
+        break;
+    }
+    return With_dealloca(Vla_dealloca(-1, Scope_has_label, &around), goto_wn);
+  }
   return goto_wn;
 }
 

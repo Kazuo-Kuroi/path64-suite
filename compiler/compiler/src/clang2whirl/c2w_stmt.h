@@ -44,6 +44,7 @@ typedef struct break_continue_info_t {
   clang::Stmt::StmtClass       tree_code;
   LABEL_IDX break_label_idx;
   LABEL_IDX continue_label_idx;
+  INT32     scope_level;   // scope_cleanup_i when the loop/switch began
 } BREAK_CONTINUE_INFO;
 
 static INT32                break_continue_info_i = -1;
