@@ -396,6 +396,13 @@ add_targ_options ( string_list_t *args )
   if (is_target_os_irix())
     add_string(args, "-TARG:sgi_quad=on");
 
+#ifdef TARG_MIPS
+  // Byte order: without it the back end guesses from the host.
+  if (is_target_arch_MIPS())
+    add_string(args, endian == ENDIAN_LITTLE ? "-TARG:endian=little"
+                                             : "-TARG:endian=big");
+#endif
+
   // -TARG:processor=xxx
   if (target_cpu != NULL) {
     char buf[100];

@@ -6892,9 +6892,19 @@ WGEN_Expand_Expr (gs_t exp,
                              ((TY_size (ST_type (st2)) + align-1) & (-align)),
                              st2);
 #else
-		wn = WN_Lda (Pointer_Mtype, 
-                             ((TY_size (ST_type (st2)) + 7) & (-8)),
-                             st2);
+		// The variable arguments start at the 8-byte slot after
+		// the last named one. A scalar or pointer smaller than its
+		// slot sits at the slot's start on little-endian MIPS, but at
+		// its end on big-endian (IRIX n32 right-justifies it), so the
+		// slot ends sizeof bytes after the parameter's address there.
+		// (Small structs are left-justified either way.)
+		INT64 last_size = TY_size (ST_type (st2));
+		INT64 va_ofst = (last_size + 7) & (-8);
+		TY_KIND last_kind = TY_kind (ST_type (st2));
+		if (!Target_Is_Little_Endian && last_size < 8 &&
+		    (last_kind == KIND_SCALAR || last_kind == KIND_POINTER))
+		  va_ofst = last_size;
+		wn = WN_Lda (Pointer_Mtype, va_ofst, st2);
 #endif
 		if (WN_operator (arg_wn) == OPR_LDA) {
 			wn = WN_Stid (Pointer_Mtype, WN_offset (arg_wn),

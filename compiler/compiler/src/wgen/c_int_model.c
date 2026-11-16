@@ -54,6 +54,10 @@ c_int_model.c -- c data type models
 // #include "gnu_config.h"
 extern BOOL TARGET_64BIT;           /* from main.c */
 #include "config.h"	/* for Target_Is_Little_Endian */
+#include <string.h>
+#ifdef TARG_MIPS
+#include "config_targ_opt.h"	/* Endian_Name */
+#endif
 #endif
 
 TARGET_INT_MODEL Target_Int_Model = TARGET_INT_ILP32;
@@ -133,10 +137,12 @@ void Initialize_C_Int_Model( void ) {
 #ifdef TARG_MIPS 
   if (TARGET_64BIT)
     Target_Int_Model = TARGET_INT_LP64;
-  //  if (TARGET_BIG_ENDIAN)
-  //    Target_Is_Little_Endian = false;
-  //  else Target_Is_Little_Endian = true;
-  Target_Is_Little_Endian = true;
+  // Byte order from cc1's -meb/-mel (wgen's Process_Cc1_Command_Line).
+  // SiCortex hard-coded little-endian here, which was wrong for IRIX.
+  if (Endian_Name != NULL)
+    Target_Is_Little_Endian = strncmp(Endian_Name, "lit", 3) == 0;
+  else
+    Target_Is_Little_Endian = true;
 #endif
 }
    

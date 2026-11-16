@@ -501,10 +501,15 @@ void
 Configure_Target ( void )
 {
 
+  // Byte order: from -TARG:endian, which the driver passes to every
+  // back-end phase. The front end (wgen) has already set it from cc1's
+  // -meb/-mel (Initialize_C_Int_Model). Without the option the back end
+  // assumes big-endian, as before.
+  if (Endian_Name != NULL)
+    Target_Is_Little_Endian = strncmp(Endian_Name, "lit", 3) == 0;
 #if !(defined(FRONT_END_C) || defined(FRONT_END_CPLUSPLUS))
-  if (Endian_Name == NULL)
+  else
     Target_Is_Little_Endian = false;
-  else Target_Is_Little_Endian = strncmp(Endian_Name, "lit", 3) == 0;
 #endif
 
   Gen_PIC_Calls = TRUE;	
@@ -621,15 +626,20 @@ IPA_Configure_Target (void)
     Boolean_type  = MTYPE_I4;
     Boolean_type2 = MTYPE_I4;
 
-#ifdef KEY
-  // Tell IPA the target byte-order (bug 13197). IPA is not passed
-  // the -TARG:endian option.
+  // Target byte order. The driver passes -TARG:endian to every phase
+  // (wgen takes it from cc1's -meb/-mel). Without the option, guess as
+  // SiCortex did for IPA (bug 13197) from the *host*: little-endian MIPS
+  // Linux. That guess is wrong for IRIX cross-compiled from Linux, where
+  // it gave wrong va_start offsets and bit-field initializers.
+  if (Endian_Name != NULL)
+    Target_Is_Little_Endian = strncmp(Endian_Name, "lit", 3) == 0;
+  else {
 #if defined(linux)
-  Target_Is_Little_Endian = true;
+    Target_Is_Little_Endian = true;
 #else
-  Target_Is_Little_Endian = false;
+    Target_Is_Little_Endian = false;
 #endif
-#endif
+  }
 } /* IPA_Configure_Target */
 
 /* ====================================================================

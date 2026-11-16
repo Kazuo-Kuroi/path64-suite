@@ -37,6 +37,9 @@
 #include "err_host.tab"
 
 #include "config.h"
+#ifdef TARG_MIPS
+#include "config_targ_opt.h"   // Endian_Name
+#endif
 #include "file_util.h" // for Last_Pathname_Component
 #include "wgen_misc.h"
 
@@ -259,6 +262,13 @@ Process_Cc1_Command_Line(gs_t arg_list)
 	      }
 	      else if (!strcmp( cp, "abi=64" )) {
 		TARGET_64BIT = TRUE;
+	      }
+	      // byte order, for Configure_Target
+	      else if (!strcmp( cp, "eb" )) {
+		Endian_Name = (char *) "big";
+	      }
+	      else if (!strcmp( cp, "el" )) {
+		Endian_Name = (char *) "little";
 	      }
 #endif
 	      break;
