@@ -142,41 +142,69 @@ _mm_shuffle_pi8 (__m64 __X, __m64 __Y)
   return (__m64) __builtin_ia32_pshufb ((__v8qi)__X, (__v8qi)__Y);
 }
 
-//extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_sign_epi8 (__m128i __X, __m128i __Y)
-//{
-//  return (__m128i) __builtin_ia32_psignb128 ((__v16qi)__X, (__v16qi)__Y);
-//}
+/* PathScale: GCC 4.2 has no psign builtins, so these are written with
+   SSE2 and MMX operations: each element of X is negated where Y's is
+   negative and zeroed where Y's is zero. */
+#define __PSC_SIGN(T, X, Y, LT, EQ, XOR, SUB, ANDNOT, ZERO)		\
+  ({ T __n = LT ((Y), ZERO); T __z = EQ ((Y), ZERO);			\
+     ANDNOT (__z, SUB (XOR ((X), __n), __n)); })
 
-//extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_sign_epi16 (__m128i __X, __m128i __Y)
-//{
-//  return (__m128i) __builtin_ia32_psignw128 ((__v8hi)__X, (__v8hi)__Y);
-//}
+extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_sign_epi8 (__m128i __X, __m128i __Y)
+{
+  return __PSC_SIGN (__m128i, __X, __Y, _mm_cmplt_epi8, _mm_cmpeq_epi8,
+		     _mm_xor_si128, _mm_sub_epi8, _mm_andnot_si128,
+		     _mm_setzero_si128 ());
+}
 
-//extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_sign_epi32 (__m128i __X, __m128i __Y)
-//{
-//  return (__m128i) __builtin_ia32_psignd128 ((__v4si)__X, (__v4si)__Y);
-//}
+extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_sign_epi16 (__m128i __X, __m128i __Y)
+{
+  return __PSC_SIGN (__m128i, __X, __Y, _mm_cmplt_epi16, _mm_cmpeq_epi16,
+		     _mm_xor_si128, _mm_sub_epi16, _mm_andnot_si128,
+		     _mm_setzero_si128 ());
+}
 
-//extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_sign_pi8 (__m64 __X, __m64 __Y)
-//{
-//  return (__m64) __builtin_ia32_psignb ((__v8qi)__X, (__v8qi)__Y);
-//}
+extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_sign_epi32 (__m128i __X, __m128i __Y)
+{
+  return __PSC_SIGN (__m128i, __X, __Y, _mm_cmplt_epi32, _mm_cmpeq_epi32,
+		     _mm_xor_si128, _mm_sub_epi32, _mm_andnot_si128,
+		     _mm_setzero_si128 ());
+}
 
-//extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_sign_pi16 (__m64 __X, __m64 __Y)
-//{
-//  return (__m64) __builtin_ia32_psignw ((__v4hi)__X, (__v4hi)__Y);
-//}
+#define __PSC_CMPLT_PI(W) \
+  static __inline __m64 __attribute__((__always_inline__)) \
+  __psc_cmplt_pi##W (__m64 __A, __m64 __B) { return _mm_cmpgt_pi##W (__B, __A); }
+__PSC_CMPLT_PI(8)
+__PSC_CMPLT_PI(16)
+__PSC_CMPLT_PI(32)
+#undef __PSC_CMPLT_PI
 
-//extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_sign_pi32 (__m64 __X, __m64 __Y)
-//{
-//  return (__m64) __builtin_ia32_psignd ((__v2si)__X, (__v2si)__Y);
-//}
+extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_sign_pi8 (__m64 __X, __m64 __Y)
+{
+  return __PSC_SIGN (__m64, __X, __Y, __psc_cmplt_pi8, _mm_cmpeq_pi8,
+		     _mm_xor_si64, _mm_sub_pi8, _mm_andnot_si64,
+		     _mm_setzero_si64 ());
+}
+
+extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_sign_pi16 (__m64 __X, __m64 __Y)
+{
+  return __PSC_SIGN (__m64, __X, __Y, __psc_cmplt_pi16, _mm_cmpeq_pi16,
+		     _mm_xor_si64, _mm_sub_pi16, _mm_andnot_si64,
+		     _mm_setzero_si64 ());
+}
+
+extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_sign_pi32 (__m64 __X, __m64 __Y)
+{
+  return __PSC_SIGN (__m64, __X, __Y, __psc_cmplt_pi32, _mm_cmpeq_pi32,
+		     _mm_xor_si64, _mm_sub_pi32, _mm_andnot_si64,
+		     _mm_setzero_si64 ());
+}
+#undef __PSC_SIGN
 
 #ifdef __OPTIMIZE__
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -186,12 +214,12 @@ _mm_alignr_epi8(__m128i __X, __m128i __Y, const int __N)
 					      (__v2di)__Y, __N * 8);
 }
 
-//extern __inline __m64 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_alignr_pi8(__m64 __X, __m64 __Y, const int __N)
-//{
-//  return (__m64) __builtin_ia32_palignr ((__v1di)__X,
-//					 (__v1di)__Y, __N * 8);
-//}
+/* (PathScale: an inline function would need __v1di, which GCC 4.2 lacks;
+   the macro below serves both ways) */
+#define _mm_alignr_pi8(X, Y, N)						\
+  ((__m64) __builtin_ia32_palignr ((__v1di)(__m64)(X),			\
+				   (__v1di)(__m64)(Y),			\
+				   (int)(N) * 8))
 #else
 #define _mm_alignr_epi8(X, Y, N)					\
   ((__m128i) __builtin_ia32_palignr128 ((__v2di)(__m128i)(X),		\

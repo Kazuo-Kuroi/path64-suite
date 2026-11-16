@@ -15983,6 +15983,9 @@ ix86_init_mmx_sse_builtins (void)
 
 	/*ssse3*/
 
+	/* (PathScale: this used the crc32di type above) */
+	ftype = build_function_type_list(V8HI_type_node, V8HI_type_node, V8HI_type_node, NULL_TREE);
+
 	def_builtin (MASK_SSSE3, "__builtin_ia32_phaddw128", ftype, IX86_BUILTIN_PHADDW128);
 
 	ftype = build_function_type_list(V4SI_type_node, V4SI_type_node, V4SI_type_node, NULL_TREE);

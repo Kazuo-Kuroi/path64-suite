@@ -1138,7 +1138,7 @@ _mm_srli_si128 (__m128i __A, int __B)
 }
 
 static __m128i __attribute__((__always_inline__))
-_mm_srli_si128 (__m128i __A, int __B)
+_mm_slli_si128 (__m128i __A, int __B)
 {
   return ((__m128i)__builtin_ia32_pslldqi128 (__A, __B * 8));
 }

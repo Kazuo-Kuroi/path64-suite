@@ -574,12 +574,13 @@ _mm_mpsadbw_epu8 (__m128i __X, __m128i __Y, const int __M)
 					(__v16qi)(__m128i)(Y), (int)(M)))
 #endif
 
-///* Load double quadword using non-temporal aligned hint.  */
-//extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-//_mm_stream_load_si128 (__m128i *__X)
-//{
-//  return (__m128i) __builtin_ia32_movntdqa ((__v2di *) __X);
-//}
+/* Load double quadword using non-temporal aligned hint. (PathScale: an
+   ordinary aligned load; the back end can't expand movntdqa.)  */
+extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_stream_load_si128 (__m128i *__X)
+{
+  return *__X;
+}
 
 #ifdef __SSE4_2__
 

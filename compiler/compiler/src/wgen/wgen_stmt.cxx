@@ -1850,6 +1850,35 @@ Cleanup_To_Scope_From_Handler(gs_t scope)
 }
 #endif // KEY
 
+// When a jump (break, continue, goto) leaves the scopes from the top of
+// the scope stack down to index LOWEST, give back the stack space of their
+// variable-length arrays: restore the stack pointer saved by the outermost
+// of them that has one. (WGEN_Dealloca, at the normal end of a scope,
+// consumes its list of arrays; this leaves the lists alone.)
+static void
+WGEN_Dealloca_Leaving (INT32 lowest)
+{
+  ST *save = NULL;
+  vector<ST*> vlas;
+  for (INT32 k = scope_cleanup_i; k >= lowest && k >= 0; k--) {
+    gs_t t = scope_cleanup_stack[k].stmt;
+    if ((gs_tree_code(t) == GS_BIND_EXPR || gs_tree_code(t) == GS_HANDLER) &&
+        scope_cleanup_stack[k].vla.has_alloca) {
+      save = scope_cleanup_stack[k].vla.alloca_st;
+      vector<ST*> *v = scope_cleanup_stack[k].vla.alloca_sts_vector;
+      vlas.insert(vlas.end(), v->begin(), v->end());
+    }
+  }
+  if (save == NULL || vlas.empty())
+    return;
+  WN *wn = WN_CreateDealloca (vlas.size() + 1);
+  WN_kid0 (wn) = WN_Ldid (Pointer_Mtype, 0, save, ST_type (save));
+  for (size_t k = 0; k < vlas.size(); k++)
+    WN_kid (wn, k + 1) = WN_Ldid (Pointer_Mtype, 0, vlas[k],
+                                 ST_type (vlas[k]));
+  WGEN_Stmt_Append (wn, Get_Srcpos());
+}
+
 static void
 Cleanup_To_Scope(gs_t scope)
 {
@@ -1877,6 +1906,10 @@ Cleanup_To_Scope(gs_t scope)
     --i;
     }
   }
+  // the scopes above SCOPE are left: their VLAs' stack space too
+  for (i = scope_cleanup_i; i >= 0 && scope_cleanup_stack [i].stmt != scope; i--)
+    ;
+  WGEN_Dealloca_Leaving (i + 1);
 }
  
 //
@@ -2157,6 +2190,9 @@ WGEN_Expand_Goto (gs_t label)	// KEY VERSION
            Maybe_Emit_Cleanup (i, FALSE);
     	   --i;
         }
+        // *ci and the scopes above it are left
+        if (i >= 0)
+          WGEN_Dealloca_Leaving (i);
         if (i == -1)
         {
 #ifdef FE_GNU_4_2_0

@@ -3552,10 +3552,26 @@ WGEN_target_builtins (gs_t exp, INTRINSIC * iopc, BOOL * intrinsic_op)
       *intrinsic_op = FALSE;
       break;
     case GSBI_IX86_BUILTIN_PSLLDQI128:
-      *iopc = INTRN_PSLLDQ;
-      break;
     case GSBI_IX86_BUILTIN_PSRLDQI128:
-      *iopc = INTRN_PSRLDQ;
+      {
+        // GCC's builtins count the shift in bits ((N) * 8 in
+        // emmintrin.h), pslldq/psrldq in bytes: without the conversion
+        // every _mm_slli_si128/_mm_srli_si128 shifted everything out.
+        *iopc = ins_code == GSBI_IX86_BUILTIN_PSLLDQI128 ? INTRN_PSLLDQ
+                                                         : INTRN_PSRLDQ;
+        WN *args[2];
+        TY_IDX ty0 = Get_TY (gs_tree_type (gs_tree_value (t_list)));
+        args[0] = WN_CreateParm (Mtype_comparison (TY_mtype (ty0)), arg0,
+                                 ty0, WN_PARM_BY_VALUE);
+        WN *bytes = WN_operator (arg1) == OPR_INTCONST
+                    ? WN_Intconst (MTYPE_I4, WN_const_val (arg1) / 8)
+                    : WN_Div (MTYPE_I4, arg1, WN_Intconst (MTYPE_I4, 8));
+        args[1] = WN_CreateParm (MTYPE_I4, bytes, MTYPE_To_TY (MTYPE_I4),
+                                 WN_PARM_BY_VALUE);
+        wn = WN_Create_Intrinsic (OPR_INTRINSIC_OP, res_type, MTYPE_V,
+                                  *iopc, 2, args);
+        *intrinsic_op = FALSE;
+      }
       break;
     case GSBI_IX86_BUILTIN_PSLLW128:
       *iopc = INTRN_PSLLW;
@@ -4366,11 +4382,36 @@ WGEN_target_builtins (gs_t exp, INTRINSIC * iopc, BOOL * intrinsic_op)
 			*iopc = INTRN_PMULHRSW;
 			break;
 		case GSBI_IX86_BUILTIN_PALIGNR128:
-			*iopc = INTRN_PALIGNR128;
-			break;
 		case GSBI_IX86_BUILTIN_PALIGNR:
-			*iopc = INTRN_PALIGNR;
-			break;
+		  {
+		    // As for pslldq: GCC's builtin counts the shift in bits
+		    // ((N) * 8 in tmmintrin.h), palignr in bytes.
+		    *iopc = ins_code == GSBI_IX86_BUILTIN_PALIGNR128
+			    ? INTRN_PALIGNR128 : INTRN_PALIGNR;
+		    gs_t a2 = gs_tree_chain (gs_tree_chain (t_list));
+		    WN *bits = WGEN_Expand_Expr (gs_tree_value (a2));
+		    WN *args[3];
+		    TY_IDX ty0 = Get_TY (gs_tree_type (gs_tree_value (t_list)));
+		    TY_IDX ty1 = Get_TY (gs_tree_type (gs_tree_value (gs_tree_chain (t_list))));
+		    args[0] = WN_CreateParm (Mtype_comparison (TY_mtype (ty0)), arg0,
+					     ty0, WN_PARM_BY_VALUE);
+		    args[1] = WN_CreateParm (Mtype_comparison (TY_mtype (ty1)), arg1,
+					     ty1, WN_PARM_BY_VALUE);
+		    WN *bytes = WN_operator (bits) == OPR_INTCONST
+				? WN_Intconst (MTYPE_I4, WN_const_val (bits) / 8)
+				: WN_Div (MTYPE_I4, bits, WN_Intconst (MTYPE_I4, 8));
+		    args[2] = WN_CreateParm (MTYPE_I4, bytes, MTYPE_To_TY (MTYPE_I4),
+					     WN_PARM_BY_VALUE);
+		    TYPE_ID rt = res_type;
+		    if (ins_code == GSBI_IX86_BUILTIN_PALIGNR)
+		      rt = MTYPE_M8I4;   // the intrinsic's MMX type (bug 11876)
+		    wn = WN_Create_Intrinsic (OPR_INTRINSIC_OP, rt, MTYPE_V,
+					      *iopc, 3, args);
+		    if (rt != res_type)
+		      wn = WN_Cvt (rt, res_type, wn);
+		    *intrinsic_op = FALSE;
+		  }
+		  break;
 		case GSBI_IX86_BUILTIN_PSHUFB128:
 			*iopc = INTRN_PSHUFB128;
 			break;
@@ -5642,6 +5683,14 @@ WGEN_Expand_Expr (gs_t exp,
 	        wn = WN_Cvt(WN_rtype(wn), mtyp, wn);
 	    }
 	  }
+	}
+	else if (MTYPE_is_vector(mtyp) && MTYPE_is_vector(WN_rtype(wn)) &&
+		 MTYPE_byte_size(mtyp) == MTYPE_byte_size(WN_rtype(wn))) {
+	  // A cast between vector types of the same size keeps the bits
+	  // ((__m128) of an integer compare mask, say); a CVT converted
+	  // each element's value, so a mask of -1 became -1.0.
+	  if (mtyp != WN_rtype(wn))
+	    wn = WN_Tas(mtyp, ty_idx, wn);
 	}
 	else {
 	  if (mtyp != WN_rtype(wn)) 
@@ -7986,7 +8035,10 @@ WGEN_Expand_Expr (gs_t exp,
 	      ikids [i]  = arg_wn;
 	    }
 #if defined(KEY) && defined(TARG_X8664)
-	    // bug 11876: type in the tree node is wrong, so patch it
+	    // bug 11876: type in the tree node is wrong, so patch it (for a
+	    // 64-bit result only: the MMX intrinsics also serve some 128-bit
+	    // builtins, pmaddwd128 for one, which then ran on MMX registers)
+	    if (MTYPE_byte_size(ret_mtype) <= 8)
 	    switch (INTRN_return_kind(iopc)) {
 	    case IRETURN_M8I1: ret_mtype = MTYPE_M8I1; break;
 	    case IRETURN_M8I2: ret_mtype = MTYPE_M8I2; break;

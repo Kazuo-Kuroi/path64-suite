@@ -2403,6 +2403,53 @@ AGGINIT::WGEN_Finish_Aggregate_Init (void)
 }
 #endif
 
+// &&label, under any conversions
+static BOOL
+Is_Label_Address (gs_t t)
+{
+  while (t && (gs_tree_code(t) == GS_NOP_EXPR ||
+               gs_tree_code(t) == GS_CONVERT_EXPR ||
+               gs_tree_code(t) == GS_NON_LVALUE_EXPR))
+    t = gs_tree_operand(t, 0);
+  return t && gs_tree_code(t) == GS_ADDR_EXPR &&
+         gs_tree_code(gs_tree_operand(t, 0)) == GS_LABEL_DECL;
+}
+
+// True if a static initializer holds a difference of label addresses
+// (&&a - &&b, GCC's computed-goto tables). WHIRL has no initializer for
+// one, and what was emitted crashed the program; it is reported instead,
+// as the Clang front end does.
+static BOOL
+Has_Label_Difference (gs_t t)
+{
+  if (t == NULL)
+    return FALSE;
+  switch (gs_tree_code(t)) {
+  case GS_CONSTRUCTOR:
+#ifdef FE_GNU_4_2_0
+    for (INT i = 0; i < gs_constructor_length(t); i++)
+      if (Has_Label_Difference (gs_constructor_elts_value(t, i)))
+        return TRUE;
+#endif
+    return FALSE;
+  case GS_MINUS_EXPR:
+    if (Is_Label_Address (gs_tree_operand(t, 0)) &&
+        Is_Label_Address (gs_tree_operand(t, 1)))
+      return TRUE;
+    return Has_Label_Difference (gs_tree_operand(t, 0)) ||
+           Has_Label_Difference (gs_tree_operand(t, 1));
+  case GS_PLUS_EXPR:
+    return Has_Label_Difference (gs_tree_operand(t, 0)) ||
+           Has_Label_Difference (gs_tree_operand(t, 1));
+  case GS_NOP_EXPR:
+  case GS_CONVERT_EXPR:
+  case GS_NON_LVALUE_EXPR:
+    return Has_Label_Difference (gs_tree_operand(t, 0));
+  default:
+    return FALSE;
+  }
+}
+
 static BOOL
 Has_Non_Constant_Init_Value (gs_t init)
 {
@@ -3723,6 +3770,12 @@ AGGINIT::Add_Inito_For_Tree (gs_t init, ST *st)
 {
   gs_t kid;
   gs_code_t code;
+
+  if (Has_Label_Difference (init)) {
+    ErrMsg (EC_Unimplemented_Feature,
+            "label differences (&&a - &&b) in static initializers");
+    return;
+  }
 
   _last_initv = 0;
   switch (gs_tree_code(init)) {
