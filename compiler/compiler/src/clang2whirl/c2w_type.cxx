@@ -532,115 +532,43 @@ WhirlTypeBuilder::ConvertVectorType(const VectorType *type) {
   int elem = type->getNumElements();
   TYPE_ID mtype = MTYPE_UNKNOWN;
 
-  switch (elem) {
-    case 1:
-      if (elem_mtype == MTYPE_I8 ||
-          elem_mtype == MTYPE_U8)
-        mtype = MTYPE_I8;   // Path64 has no MTYPE_V8I8
-    case 2:
-      if (elem_mtype == MTYPE_I1 ||
-          elem_mtype == MTYPE_U1)
-        mtype = MTYPE_V8I1;
-      else if (elem_mtype == MTYPE_I2 ||
-          elem_mtype == MTYPE_U2)
-        mtype = MTYPE_V8I2;
-      else if (elem_mtype == MTYPE_I4 ||
-          elem_mtype == MTYPE_U4)
-        mtype = MTYPE_V8I4;
-      else if (elem_mtype == MTYPE_F4)
-        mtype = MTYPE_V8F4;
-      else if (elem_mtype == MTYPE_I8 ||
-               elem_mtype == MTYPE_U8)
-        mtype = MTYPE_V16I8;
-      else if (elem_mtype == MTYPE_F8)
-        mtype = MTYPE_V16F8;
-      break;
-    case 4:
-      if (elem_mtype == MTYPE_I1 ||
-          elem_mtype == MTYPE_U1)
-        mtype = MTYPE_V8I1;
-      else if (elem_mtype == MTYPE_I2 ||
-          elem_mtype == MTYPE_U2)
-        mtype = MTYPE_V8I2;
-      else if (elem_mtype == MTYPE_I4 ||
-               elem_mtype == MTYPE_U4)
-        mtype = MTYPE_V16I4;
-      else if (elem_mtype == MTYPE_I8 ||
-               elem_mtype == MTYPE_U8)
-        mtype = MTYPE_V32I8;
-      else if (elem_mtype == MTYPE_F4)
-        mtype = MTYPE_V16F4;
-      else if (elem_mtype == MTYPE_F8)
-        mtype = MTYPE_V32F8;
-      break;
+  // Path64: the machine types wgen gives GCC's vector modes (Get_TY,
+  // GS_VECTOR_TYPE), by total size and element: 64-bit vectors of chars
+  // and shorts are the MMX types, two ints or floats V8I4/V8F4, and GCC
+  // 4.2's __m64 is the two-int one, so Clang's (one long long) is too.
+  // Vectors smaller than 64 bits are integers, as GCC's modes are.
+  // (Upstream's table fell through, made __m64 16 bytes, and gave several
+  // sizes the wrong type.)
+  INT64 bytes = TY_size(elem_ty) * elem;
+  bool flt = MTYPE_is_float(elem_mtype);
+  switch (bytes) {
+    case 1: mtype = MTYPE_U1; break;
+    case 2: mtype = MTYPE_U2; break;
+    case 4: mtype = MTYPE_U4; break;
     case 8:
-      if (elem_mtype == MTYPE_I1 ||
-          elem_mtype == MTYPE_U1)
-        mtype = MTYPE_V8I1;
-      else if (elem_mtype == MTYPE_I2 ||
-               elem_mtype == MTYPE_U2)
-        mtype = MTYPE_V16I2;
-      else if (elem_mtype == MTYPE_I4 ||
-               elem_mtype == MTYPE_U4)
-        mtype = MTYPE_V32I4;
-      else if (elem_mtype == MTYPE_F4)
-        mtype = MTYPE_V32F4;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I8 ||
-               elem_mtype == MTYPE_U8)
-        mtype = MTYPE_V32I8;
-      else if (elem_mtype == MTYPE_F8)
-        mtype = MTYPE_V32F8;
+      switch (TY_size(elem_ty)) {
+        case 1: mtype = MTYPE_M8I1; break;
+        case 2: mtype = MTYPE_M8I2; break;
+        case 4: mtype = flt ? MTYPE_V8F4 : MTYPE_V8I4; break;
+        case 8: mtype = flt ? MTYPE_F8 : MTYPE_V8I4; break;
+      }
       break;
     case 16:
-      if (elem_mtype == MTYPE_I1 ||
-          elem_mtype == MTYPE_U1)
-        mtype = MTYPE_V16I1;
-      else if (elem_mtype == MTYPE_I2 ||
-               elem_mtype == MTYPE_U2)
-        mtype = MTYPE_V32I2;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I4 ||
-               elem_mtype == MTYPE_U4)
-        mtype = MTYPE_V32I4;
-      else if (elem_mtype == MTYPE_F4)
-        mtype = MTYPE_V32F4;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I8 ||
-               elem_mtype == MTYPE_U8)
-        mtype = MTYPE_V32I8;
-      else if (elem_mtype == MTYPE_F8)
-        mtype = MTYPE_V32F8;
+      switch (TY_size(elem_ty)) {
+        case 1: mtype = MTYPE_V16I1; break;
+        case 2: mtype = MTYPE_V16I2; break;
+        case 4: mtype = flt ? MTYPE_V16F4 : MTYPE_V16I4; break;
+        case 8: mtype = flt ? MTYPE_V16F8 : MTYPE_V16I8; break;
+      }
       break;
     case 32:
-      if (elem_mtype == MTYPE_I1 ||
-          elem_mtype == MTYPE_U1)
-        mtype = MTYPE_V32I1;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I2 ||
-               elem_mtype == MTYPE_U2)
-        mtype = MTYPE_V32I2;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I4 ||
-               elem_mtype == MTYPE_U4)
-        mtype = MTYPE_V32I4;
+      switch (TY_size(elem_ty)) {
+        case 1: mtype = MTYPE_V32I1; break;
+        case 2: mtype = MTYPE_V32I2; break;
+        case 4: mtype = flt ? MTYPE_V32F4 : MTYPE_V32I4; break;
+        case 8: mtype = flt ? MTYPE_V32F8 : MTYPE_V32I8; break;
+      }
       break;
-    case 64:
-      // TODO: support AVX-512
-      if (elem_mtype == MTYPE_I1 ||
-          elem_mtype == MTYPE_U1)
-        mtype = MTYPE_V32I1;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I2 ||
-               elem_mtype == MTYPE_U2)
-        mtype = MTYPE_V32I2;
-      // TODO: support AVX-512
-      else if (elem_mtype == MTYPE_I4 ||
-               elem_mtype == MTYPE_U4)
-        mtype = MTYPE_V32I4;
-      break;
-    default:
-      Is_True(false, ("unexpected vector type element count"));
   }
 
   Is_True(mtype != MTYPE_UNKNOWN,

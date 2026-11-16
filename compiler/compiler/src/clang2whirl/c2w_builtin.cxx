@@ -1287,8 +1287,16 @@ WhirlExprBuilder::ConvertTargetBuiltinExpr(const CallExpr *expr, const FunctionD
       kids[1] = WGEN_CreateParm(MTYPE_I8,
                                 WN_Type_Conversion(C2W_ARG(1), MTYPE_I8),
                                 MTYPE_To_TY(MTYPE_I8));
-      return Result::nwNode(WN_Create_Intrinsic(OPR_INTRINSIC_OP, rmt, MTYPE_V,
-                                                mmx_shifts[k].iopc, 2, kids), ty);
+      // the intrinsic's own MMX type, then the declared one (__v2si is
+      // V8I4, not an MMX register type)
+      INTRINSIC iop = mmx_shifts[k].iopc;
+      TYPE_ID imt = INTRN_return_kind(iop) == IRETURN_M8I1 ? MTYPE_M8I1
+                  : INTRN_return_kind(iop) == IRETURN_M8I2 ? MTYPE_M8I2
+                  : INTRN_return_kind(iop) == IRETURN_M8I4 ? MTYPE_M8I4 : rmt;
+      WN *wn = WN_Create_Intrinsic(OPR_INTRINSIC_OP, imt, MTYPE_V, iop, 2, kids);
+      if (imt != rmt)
+        wn = WN_Tas(rmt, ty, wn);
+      return Result::nwNode(wn, ty);
     }
   if (name == "psllqi" || name == "psrlqi") {
     // 64-bit MMX shift: the value is one 64-bit lane
@@ -1302,27 +1310,6 @@ WhirlExprBuilder::ConvertTargetBuiltinExpr(const CallExpr *expr, const FunctionD
     // INTRN_MOVNTDQA)
     WN *ptr = ConvertToNode(expr->getArg(0));
     return Result::nwNode(WN_Iload(rmt, 0, ty, ptr), ty);
-  }
-  if (name == "pmaddwd128") {
-    // r[i] = a[2i]*b[2i] + a[2i+1]*b[2i+1], 16-bit products summed in 32
-    // bits. The back end has only the MMX pmaddwd (wgen uses it here too,
-    // which leaves the upper half wrong), so element by element.
-    TY_IDX vty = _builder->TB().ConvertType(expr->getArg(0)->getType());
-    TY_IDX hty = MTYPE_To_TY(MTYPE_I2);
-    TY_IDX wty = MTYPE_To_TY(MTYPE_I4);
-    WN *blk = WN_CreateBlock();
-    SRCPOS pos = GetSrcPos();
-    ST *sa = C2W_Vector_Temp(blk, vty, ConvertToNode(expr->getArg(0)), pos);
-    ST *sb = C2W_Vector_Temp(blk, vty, ConvertToNode(expr->getArg(1)), pos);
-    ST *res = C2W_Vector_Temp(blk, ty, NULL, pos);
-    for (int k = 0; k < 4; k++) {
-      WN *lo = WN_Mpy(MTYPE_I4, C2W_Vector_Elt(sa, hty, 2 * k),
-                      C2W_Vector_Elt(sb, hty, 2 * k));
-      WN *hi = WN_Mpy(MTYPE_I4, C2W_Vector_Elt(sa, hty, 2 * k + 1),
-                      C2W_Vector_Elt(sb, hty, 2 * k + 1));
-      C2W_Vector_Set_Elt(blk, res, wty, k, WN_Add(MTYPE_I4, lo, hi), pos);
-    }
-    return Result::nwNode(WGEN_CreateComma(rmt, blk, WN_Ldid(rmt, 0, res, ty)), ty);
   }
   if (name.compare(0, 5, "psign") == 0) {
     // SSSE3 psign: each a[i] negated where b[i] < 0, kept where > 0,
