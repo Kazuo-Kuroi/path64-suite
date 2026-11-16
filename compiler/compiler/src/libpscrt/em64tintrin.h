@@ -20,6 +20,12 @@
 #ifndef __em64tintrin_h
 #define __em64tintrin_h
 
+#ifdef __clang__
+/* The Clang front end (psclang) has these, with its own builtins; the
+   definitions below use GCC 4.2's. */
+#include <emmintrin.h>
+#else
+
 #if __GNUC__ <= 3
 typedef int __v2di __attribute__ ((mode (V2DI)));
 #else
@@ -68,5 +74,7 @@ _mm_sfence (void)
 {
   __builtin_ia32_sfence ();
 }
+
+#endif /* !__clang__ */
 
 #endif /* __em64tintrin_h */

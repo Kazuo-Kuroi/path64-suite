@@ -519,6 +519,29 @@ Handle_expr_for_copy(WN *blk, WN *expr, TY_IDX ty, SRCPOS spos, const char *name
 }
 
 
+ST *
+C2W_Vector_Temp(WN *blk, TY_IDX vty, WN *val, SRCPOS pos) {
+  ST *st = Gen_Temp_Symbol(vty, ".vec");
+  if (val) {
+    WN *stid = WN_Stid(TY_mtype(vty), 0, st, vty, val);
+    WN_Set_Linenum(stid, pos);
+    WN_INSERT_BlockLast(blk, stid);
+  }
+  return st;
+}
+
+WN *
+C2W_Vector_Elt(ST *st, TY_IDX ety, INT idx) {
+  return WN_Ldid(TY_mtype(ety), idx * TY_size(ety), st, ety);
+}
+
+void
+C2W_Vector_Set_Elt(WN *blk, ST *st, TY_IDX ety, INT idx, WN *val, SRCPOS pos) {
+  WN *stid = WN_Stid(TY_mtype(ety), idx * TY_size(ety), st, ety, val);
+  WN_Set_Linenum(stid, pos);
+  WN_INSERT_BlockLast(blk, stid);
+}
+
 WN *
 WGEN_StidTemp(TY_IDX ty, WN *val, const char *name) {
   Is_True(val && OPERATOR_is_expression(WN_operator(val)),

@@ -31,6 +31,10 @@
 #include "c2w_expr.h"
 #include "c2w_builder.h"
 #include "c2w_tracer.h"
+#include "c2w_utils.h"
+#include <map>
+#include <string>
+#include <vector>
 
 // clang header files
 #include "clanginc.h"
@@ -1024,9 +1028,20 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
             ("unsupported builtin %d\n for safestack", builtin_id));
 
   case Builtin::BI__builtin_nontemporal_store:
+    {
+      // a plain store; the non-temporal hint is dropped
+      TY_IDX vty = _builder->TB().ConvertType(expr->getArg(0)->getType());
+      WN *val = ConvertToNode(expr->getArg(0));
+      WN *ptr = ConvertToNode(expr->getArg(1));
+      WN *st = WN_Istore(TY_mtype(vty), 0, Make_Pointer_Type(vty), ptr, val);
+      WN_Set_Linenum(st, GetSrcPos());
+      return Result::nwNode(st, 0);   // a statement, as for intrinsic calls
+    }
   case Builtin::BI__builtin_nontemporal_load:
-    // TODO: NT store & NT load
-    return Result::nwNone();
+    {
+      WN *ptr = ConvertToNode(expr->getArg(0));
+      return Result::nwNode(WN_Iload(ret_mtype, 0, ty, ptr), ty);
+    }
 
   case Builtin::BI__builtin_coro_resume ... Builtin::BI__builtin_coro_param:  // coroutine
     Is_True(false, ("unsupported builtin %d\n", builtin_id));
@@ -1079,9 +1094,217 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
 Result
 WhirlExprBuilder::ConvertTargetBuiltinExpr(const CallExpr *expr, const FunctionDecl *decl, unsigned builtin_id) {
   Is_True(decl->getBuiltinID() == builtin_id, ("bad builtin expr"));
-  // check current target and invoke target specific convert function
-  // TODO: target builtin expr
+#ifdef TARG_X8664
+  // x86 builtins by name (__builtin_ia32_*), as wgen's WGEN_target_builtins
+  // handles GCC's: most become the same Path64 intrinsic, a few WHIRL.
+  static std::map<std::string, INTRINSIC> table;
+  if (table.empty()) {
+#define C2W_X86_BUILTIN(name, intrn) table[#name] = intrn;
+#include "c2w_x86_builtins.def"
+#undef C2W_X86_BUILTIN
+    // wgen gets these two wrong (a missing break), so they are here
+    table["paddusw128"] = INTRN_PADDUSW128;
+    table["paddsb128"] = INTRN_PADDSB128;
+  }
+  StringRef full = _builder->Context()->BuiltinInfo.getName(builtin_id);
+  std::string name;
+  if (full.startswith("__builtin_ia32_"))
+    name = full.drop_front(sizeof("__builtin_ia32_") - 1).str();
+  else if (full == "_mm_prefetch") {
+    WN *wn = WN_CreatePrefetch(0, 0, ConvertToNode(expr->getArg(0)));
+    WN_Set_Linenum(wn, GetSrcPos());
+    return Result::nwNode(wn, 0);
+  }
+  else if (full == "_mm_getcsr")
+    name = "stmxcsr";   // GCC's builtin names for these
+  else if (full == "_mm_setcsr")
+    name = "ldmxcsr";
+  else if (full.startswith("_mm_"))
+    name = full.drop_front(sizeof("_mm_") - 1).str();   // _mm_sfence, ...
+  else {
+    ErrMsg(EC_Unimplemented_Feature, full.str().c_str());
+    return Result::nwNone();
+  }
+  TY_IDX ty = _builder->TB().ConvertType(expr->getType());
+  TYPE_ID rmt = TY_mtype(ty);
+  unsigned nargs = expr->getNumArgs();
+#define C2W_ARG(i) ConvertToNode(expr->getArg(i))
+
+  // void intrinsics with side effects (wgen: *intrinsic_op = FALSE)
+  static const struct { const char *name; INTRINSIC iopc; } calls[] = {
+    { "emms", INTRN_EMMS }, { "storehps", INTRN_STOREHPS },
+    { "storelps", INTRN_STORELPS }, { "maskmovdqu", INTRN_MASKMOVDQU },
+    { "maskmovq", INTRN_MASKMOVQ }, { "movnti", INTRN_MOVNTI },
+    { "movntq", INTRN_MOVNTQ }, { "sfence", INTRN_SFENCE },
+    { "lfence", INTRN_LFENCE }, { "mfence", INTRN_MFENCE },
+    { "pause", INTRN_PAUSE }, { "clflush", INTRN_CLFLUSH },
+    { "stmxcsr", INTRN_STMXCSR }, { "ldmxcsr", INTRN_LDMXCSR },
+    { NULL, INTRINSIC_NONE } };
+  for (int k = 0; calls[k].name; k++)
+    if (name == calls[k].name)
+      return GenerateIntrinsic(expr, ty, calls[k].iopc, FALSE, rmt != MTYPE_V);
+
+  // WHIRL operators (wgen does the same)
+  if (name == "paddb" || name == "paddw" || name == "paddd" || name == "paddq")
+    return Result::nwNode(WN_Add(rmt, C2W_ARG(0), C2W_ARG(1)), ty);
+  if (name == "psubb" || name == "psubw" || name == "psubd" || name == "psubq")
+    return Result::nwNode(WN_Sub(rmt, C2W_ARG(0), C2W_ARG(1)), ty);
+  if (name == "sqrtpd" || name == "sqrtps")
+    return Result::nwNode(WN_Sqrt(rmt, C2W_ARG(0)), ty);
+  if (name == "minpd")
+    return Result::nwNode(WN_Binary(OPR_MIN, rmt, C2W_ARG(0), C2W_ARG(1)), ty);
+  if (name == "maxpd")
+    return Result::nwNode(WN_Binary(OPR_MAX, rmt, C2W_ARG(0), C2W_ARG(1)), ty);
+  if (name == "vec_init_v2si" || name == "vec_init_v4hi" ||
+      name == "vec_init_v8qi") {
+    // the elements packed into 64 bits, first one lowest
+    unsigned bits = 64 / nargs;
+    WN *wn = NULL;
+    for (int k = nargs - 1; k >= 0; k--) {
+      WN *e = WN_CreateCvtl(OPC_U8CVTL, bits,
+                            WN_Type_Conversion(C2W_ARG(k), MTYPE_U8));
+      wn = wn ? WN_Bior(MTYPE_U8, WN_Shl(MTYPE_U8, wn, WN_Intconst(MTYPE_U8, bits)), e)
+              : e;
+    }
+    return Result::nwNode(WN_Tas(rmt, ty, wn), ty);
+  }
+  if (name == "undef128") {
+    // any value will do: an uninitialized temporary
+    ST *st = Gen_Temp_Symbol(ty, ".undef");
+    return Result::nwNode(WN_Ldid(rmt, 0, st, ty), ty);
+  }
+  if (name == "movnti64") {
+    // a non-temporal store; the hint is dropped
+    WN *val = C2W_ARG(1);
+    WN *ptr = C2W_ARG(0);
+    TY_IDX vty = MTYPE_To_TY(MTYPE_I8);
+    WN *st = WN_Istore(MTYPE_I8, 0, Make_Pointer_Type(vty), ptr, val);
+    WN_Set_Linenum(st, GetSrcPos());
+    return Result::nwNode(st, 0);   // a statement, as for intrinsic calls
+  }
+  // MMX shifts by an immediate count (Clang's names; GCC 4.2 had only the
+  // forms taking the count in a 64-bit operand, the same intrinsics)
+  static const struct { const char *name; INTRINSIC iopc; } mmx_shifts[] = {
+    { "psllwi", INTRN_PSLLW_MMX }, { "pslldi", INTRN_PSLLD_MMX },
+    { "psrlwi", INTRN_PSRLW_MMX }, { "psrldi", INTRN_PSRLD_MMX },
+    { "psrawi", INTRN_PSRAW_MMX }, { "psradi", INTRN_PSRAD_MMX },
+    { NULL, INTRINSIC_NONE } };
+  for (int k = 0; mmx_shifts[k].name; k++)
+    if (name == mmx_shifts[k].name) {
+      WN *kids[2];
+      TY_IDX aty = _builder->TB().ConvertType(expr->getArg(0)->getType());
+      kids[0] = WGEN_CreateParm(TY_mtype(aty), C2W_ARG(0), aty);
+      kids[1] = WGEN_CreateParm(MTYPE_I8,
+                                WN_Type_Conversion(C2W_ARG(1), MTYPE_I8),
+                                MTYPE_To_TY(MTYPE_I8));
+      return Result::nwNode(WN_Create_Intrinsic(OPR_INTRINSIC_OP, rmt, MTYPE_V,
+                                                mmx_shifts[k].iopc, 2, kids), ty);
+    }
+  if (name == "psllqi" || name == "psrlqi") {
+    // 64-bit MMX shift: the value is one 64-bit lane
+    WN *v = WN_Tas(MTYPE_U8, MTYPE_To_TY(MTYPE_U8), C2W_ARG(0));
+    WN *cnt = WN_Type_Conversion(C2W_ARG(1), MTYPE_U8);
+    WN *r = name == "psllqi" ? WN_Shl(MTYPE_U8, v, cnt) : WN_Lshr(MTYPE_U8, v, cnt);
+    return Result::nwNode(WN_Tas(rmt, ty, r), ty);
+  }
+  if (name == "movntdqa") {
+    // a non-temporal load: an ordinary load (the back end can't expand
+    // INTRN_MOVNTDQA)
+    WN *ptr = ConvertToNode(expr->getArg(0));
+    return Result::nwNode(WN_Iload(rmt, 0, ty, ptr), ty);
+  }
+  if (name == "pmaddwd128") {
+    // r[i] = a[2i]*b[2i] + a[2i+1]*b[2i+1], 16-bit products summed in 32
+    // bits. The back end has only the MMX pmaddwd (wgen uses it here too,
+    // which leaves the upper half wrong), so element by element.
+    TY_IDX vty = _builder->TB().ConvertType(expr->getArg(0)->getType());
+    TY_IDX hty = MTYPE_To_TY(MTYPE_I2);
+    TY_IDX wty = MTYPE_To_TY(MTYPE_I4);
+    WN *blk = WN_CreateBlock();
+    SRCPOS pos = GetSrcPos();
+    ST *sa = C2W_Vector_Temp(blk, vty, ConvertToNode(expr->getArg(0)), pos);
+    ST *sb = C2W_Vector_Temp(blk, vty, ConvertToNode(expr->getArg(1)), pos);
+    ST *res = C2W_Vector_Temp(blk, ty, NULL, pos);
+    for (int k = 0; k < 4; k++) {
+      WN *lo = WN_Mpy(MTYPE_I4, C2W_Vector_Elt(sa, hty, 2 * k),
+                      C2W_Vector_Elt(sb, hty, 2 * k));
+      WN *hi = WN_Mpy(MTYPE_I4, C2W_Vector_Elt(sa, hty, 2 * k + 1),
+                      C2W_Vector_Elt(sb, hty, 2 * k + 1));
+      C2W_Vector_Set_Elt(blk, res, wty, k, WN_Add(MTYPE_I4, lo, hi), pos);
+    }
+    return Result::nwNode(WGEN_CreateComma(rmt, blk, WN_Ldid(rmt, 0, res, ty)), ty);
+  }
+  if (name.compare(0, 5, "psign") == 0) {
+    // SSSE3 psign: each a[i] negated where b[i] < 0, kept where > 0,
+    // zero where 0 (Path64 has no intrinsic for it)
+    QualType aqt = expr->getArg(0)->getType();
+    const VectorType *vt = aqt->getAs<VectorType>();
+    TY_IDX vty = _builder->TB().ConvertType(aqt);
+    TY_IDX ety = _builder->TB().ConvertType(vt->getElementType());
+    TYPE_ID emt = TY_mtype(ety), cmt = Mtype_comparison(emt);
+    WN *blk = WN_CreateBlock();
+    SRCPOS pos = GetSrcPos();
+    ST *sa = C2W_Vector_Temp(blk, vty, C2W_ARG(0), pos);
+    ST *sb = C2W_Vector_Temp(blk, vty, C2W_ARG(1), pos);
+    ST *res = C2W_Vector_Temp(blk, vty, NULL, pos);
+    for (unsigned k = 0; k < vt->getNumElements(); k++) {
+      WN *bk = C2W_Vector_Elt(sb, ety, k);
+      WN *ak = C2W_Vector_Elt(sa, ety, k);
+      WN *neg = WN_Neg(cmt, C2W_Vector_Elt(sa, ety, k));
+      WN *v = WN_Select(cmt, WN_LT(cmt, bk, WN_Intconst(cmt, 0)), neg,
+                        WN_Select(cmt, WN_EQ(cmt, C2W_Vector_Elt(sb, ety, k),
+                                             WN_Intconst(cmt, 0)),
+                                  WN_Intconst(cmt, 0), ak));
+      C2W_Vector_Set_Elt(blk, res, ety, k, v, pos);
+    }
+    WN *val = WN_Ldid(TY_mtype(vty), 0, res, vty);
+    return Result::nwNode(WGEN_CreateComma(TY_mtype(vty), blk, val), vty);
+  }
+#undef C2W_ARG
+
+  std::map<std::string, INTRINSIC>::iterator it = table.find(name);
+  if (it == table.end()) {
+    ErrMsg(EC_Unimplemented_Feature, full.str().c_str());
+    return Result::nwNone();
+  }
+  INTRINSIC iopc = it->second;
+  if (name == "psllwi128" || name == "pslldi128" || name == "psllqi128" ||
+      name == "psrlwi128" || name == "psrldi128" || name == "psrlqi128" ||
+      name == "psrawi128" || name == "psradi128") {
+    // As wgen: these instructions take the count in an xmm register, so
+    // the integer count is converted to a vector.
+    WN *kids[2];
+    TY_IDX aty = _builder->TB().ConvertType(expr->getArg(0)->getType());
+    kids[0] = WGEN_CreateParm(Mtype_comparison(TY_mtype(aty)),
+                              ConvertToNode(expr->getArg(0)), aty);
+    WN *cnt = ConvertToNode(expr->getArg(1));
+    cnt = WN_Cvt(WN_rtype(cnt), MTYPE_V16I8, cnt);
+    kids[1] = WGEN_CreateParm(MTYPE_V16I8, cnt, MTYPE_To_TY(MTYPE_V16I8));
+    return Result::nwNode(WN_Create_Intrinsic(OPR_INTRINSIC_OP, rmt, MTYPE_V,
+                                              iopc, 2, kids), ty);
+  }
+  if (INTRN_return_kind(iopc) == IRETURN_V)
+    return GenerateIntrinsic(expr, ty, iopc, FALSE, FALSE);
+  // As wgen (its bug 11876): MMX results take the intrinsic's own type.
+  // (Only for a 64-bit result: some intrinsics serve the 128-bit form too,
+  // pmaddwd for one, and keep the M8 return kind of the MMX one.)
+  if (TY_size(ty) == 8)
+  switch (INTRN_return_kind(iopc)) {
+  case IRETURN_M8I1: ty = MTYPE_To_TY(MTYPE_M8I1); break;
+  case IRETURN_M8I2: ty = MTYPE_To_TY(MTYPE_M8I2); break;
+  case IRETURN_M8I4: ty = MTYPE_To_TY(MTYPE_M8I4); break;
+  default: break;
+  }
+  Result r = GenerateIntrinsic(expr, ty, iopc, TRUE, TRUE);
+  if (TY_mtype(ty) != rmt && r.isNode())
+    return Result::nwNode(WN_Tas(rmt, _builder->TB().ConvertType(expr->getType()),
+                                 r.Node()), _builder->TB().ConvertType(expr->getType()));
+  return r;
+#else
+  ErrMsg(EC_Unimplemented_Feature,
+         _builder->Context()->BuiltinInfo.getName(builtin_id));
   return Result::nwNone();
+#endif
 }
 
 Result

@@ -100,6 +100,14 @@ WN *Handle_expr_for_copy(WN *blk, WN *expr, TY_IDX ty, SRCPOS spos,
 // create a temp (preg or real temp) and store val into it
 WN *WGEN_StidTemp(TY_IDX ty, WN *val, const char *name = NULL);
 
+// Vectors element by element, through a memory temporary (a vector in a
+// pseudo-register can't be addressed by element). C2W_Vector_Temp makes
+// the temporary, storing VAL in it when VAL is not NULL.
+ST *C2W_Vector_Temp(WN *blk, TY_IDX vty, WN *val, SRCPOS pos);
+WN *C2W_Vector_Elt(ST *st, TY_IDX ety, INT idx);
+void C2W_Vector_Set_Elt(WN *blk, ST *st, TY_IDX ety, INT idx, WN *val,
+                        SRCPOS pos);
+
 // WGEN wrapper functions for WHIRL
 WN *WGEN_CreateComma(TYPE_ID rtype, WN* blk, WN* ldid);
 WN *WGEN_CreateCselect(TYPE_ID rtype, WN *cond, WN *twn, WN *fwn);

@@ -110,6 +110,11 @@ private:
 
   void Update_pointee_ty(clang::QualType type, TY_IDX ty_idx);
 
+  WN *ConvertIntVectorArith(clang::BinaryOperatorKind opcode, clang::QualType vqt,
+                            WN *lhs, WN *rhs);
+  WN *ConvertVectorCompare(clang::BinaryOperatorKind opcode, clang::QualType rqt,
+                           clang::QualType vqt, WN *lhs, WN *rhs);
+
   Result ConvertBinaryOperator(const clang::BinaryOperator *expr, BOOL retv);
 
   Result ConvertBuiltinExpr(const clang::CallExpr *expr, const clang::FunctionDecl *decl, unsigned builtin_id, BOOL retv);

@@ -463,7 +463,7 @@ add_targ_options ( string_list_t *args )
     else
       add_string(args, "-TARG:sse4a=off");
 
-    if (sse4_2 == TRUE)
+    if (sse4_1 == TRUE)
       add_string(args, "-TARG:sse4_1=on");
     else
       add_string(args, "-TARG:sse4_1=off");
@@ -980,11 +980,31 @@ add_sse_cc1_options(string_list_t *args, boolean sys_cpp)
         }
 #endif // PATH64_ENABLE_PSCRUNTIME
 }
+
+// The same for psclang, in Clang's spelling. Clang only accepts an
+// intrinsic whose instruction set is enabled, and defines __SSE4_1__ and
+// the rest from these.
+static void
+add_psclang_sse_options(string_list_t *args)
+{
+	if (!is_target_arch_X8664())
+		return;
+	add_string(args, sse == TRUE ? "-msse" : "-mno-sse");
+	add_string(args, sse2 == TRUE ? "-msse2" : "-mno-sse2");
+	add_string(args, sse3 == TRUE ? "-msse3" : "-mno-sse3");
+	add_string(args, ssse3 == TRUE ? "-mssse3" : "-mno-ssse3");
+	add_string(args, sse4a == TRUE ? "-msse4a" : "-mno-sse4a");
+	add_string(args, sse4_1 == TRUE ? "-msse4.1" : "-mno-sse4.1");
+	add_string(args, sse4_2 == TRUE ? "-msse4.2" : "-mno-sse4.2");
+	add_string(args, avx == TRUE ? "-mavx" : "-mno-avx");
+}
 #endif // TARG_X8664
 
 
 #ifdef PATH64_ENABLE_PSCRUNTIME
 // Adds standard include directories for preprocessor
+int is_psclang_enabled();
+
 void add_std_includes(string_list_t *args) {
     char *root;
     char *exe_dir;
@@ -1030,10 +1050,15 @@ void add_std_includes(string_list_t *args) {
     // IRIX has its own <stdarg.h>, written for MIPSpro's builtins and
     // argument layout: with it, va_arg does not even compile. Search the
     // compiler's headers first there, as GCC does on every system.
-    if (is_target_os_irix())
+    // psclang has Clang's own versions of all of these, and its intrinsic
+    // headers, in its resource directory; ours are written for GCC 4.2's
+    // builtins, so they are left out for it.
+    boolean own_headers = !((source_lang == L_cc || source_lang == L_CC) &&
+                            is_psclang_enabled());
+    if (own_headers && is_target_os_irix())
         add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
     add_inc_path(args, target_include_path());
-    if (!is_target_os_irix())
+    if (own_headers && !is_target_os_irix())
         add_inc_path(args, "%s/lib/" PSC_FULL_VERSION "/include", root);
     // The front end's built-in search list holds the build host's
     // /usr/include. When targeting IRIX, use only the directories above.
@@ -1356,6 +1381,9 @@ add_file_args (string_list_t *args, phases_t index)
         // language
         add_psclang_language_args(args);
         add_psclang_resource_dir(args);
+#ifdef TARG_X8664
+        add_psclang_sse_options(args);
+#endif
 
         if (source_lang == L_CC) {
             add_string(args, "-D_GNU_SOURCE");
@@ -1676,6 +1704,9 @@ add_file_args (string_list_t *args, phases_t index)
         add_abi(args);
         add_psclang_language_args(args);
         add_psclang_resource_dir(args);
+#ifdef TARG_X8664
+        add_psclang_sse_options(args);
+#endif
         
         if (!option_was_seen(O_ffreestanding) && !fbuiltin)
             add_string(args, "-fno-builtin" );

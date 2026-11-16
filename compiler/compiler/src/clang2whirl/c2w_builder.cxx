@@ -49,6 +49,14 @@ using namespace clang;
 #include "open64inc.h"
 #include "erglob.h"
 #include "flags.h"   // Process_Command_Line_Group
+
+// the error message tables, as wgen sets them up (without them ErrMsg
+// crashes)
+// (the front end's erauxdesc.h, which wgen gets from its own directory;
+// be/com has one of the same name for the back end)
+#include "../wgen/erauxdesc.h"
+#define MODULE_NAME psclang
+#include "err_host.tab"
 #include <unistd.h>
 #include <string.h>
 #include <string>
@@ -275,7 +283,7 @@ WhirlBuilder::Initialize(const char *infile, const char *outfile) {
 //    MEM_POOL_Initialize(&_phase_pool, "Phase pool", FALSE);
 //    MEM_POOL_Push(&_phase_pool);
   const char *const phase_name = "Whirl Builder";
-  //Set_Error_Tables(Phases, host_errlist);
+  Set_Error_Tables(PHASES_NAME, ERRLIST_NAME);
   Set_Error_Phase(phase_name);
   Set_Error_File(NULL);
   Set_Error_Line(ERROR_LINE_UNKNOWN);

@@ -35,6 +35,7 @@
 #include "c2w_tracer.h"
 #include "c2w_cxxabi.h"
 #include "c2w_utils.h"
+#include <vector>
 // clang header files
 #include "clanginc.h"
 // open64 header files
@@ -364,7 +365,23 @@ WhirlExprBuilder::ConvertArraySubscriptExpr(const ArraySubscriptExpr *expr) {
   // handle vector type
   ExprObjectKind ok = expr->getObjectKind();
   if (ok == OK_VectorComponent) {
+    // Path64: v[i] is the vector's address plus i elements (upstream
+    // scaled by the whole vector's size). A vector value that is not an
+    // lvalue goes in a temporary first.
     ret_ty = Make_Pointer_Type(ty);
+    if (!base->isGLValue()) {
+      WN *blk = WN_CreateBlock();
+      ST *tmp = C2W_Vector_Temp(blk, base_ty, wn0, GetSrcPos());
+      wn0 = WGEN_CreateComma(Pointer_Mtype, blk,
+                             WN_Lda(Pointer_Mtype, 0, tmp));
+    }
+    WN *idx = WN_Type_Conversion(wn2, MTYPE_is_signed(WN_rtype(wn2))
+                                        ? Pointer_Mtype
+                                        : Mtype_TransferSign(MTYPE_U4, Pointer_Mtype));
+    WN *ofst = WN_Mpy(WN_rtype(idx), idx, WN_Intconst(WN_rtype(idx), TY_size(ty)));
+    Result r = Result::nwNode(WN_Add(Pointer_Mtype, wn0, ofst), ret_ty);
+    r.SetArray();
+    return r;
   }
 
   // Path64: the element is itself a variable-length array (a[i] of
@@ -985,6 +1002,111 @@ WhirlExprBuilder::Update_pointee_ty(QualType type, TY_IDX ty_idx) {
   }
 }
 
+// A comparison of two vectors (GCC's vector extension, which Clang's
+// intrinsic headers use): each result element is all ones where the
+// comparison holds and zero where not. Signed == and > on 128-bit integer
+// vectors are one SSE2 instruction; the rest go element by element.
+WN *
+WhirlExprBuilder::ConvertVectorCompare(BinaryOperatorKind opcode, QualType rqt,
+                                       QualType vqt, WN *lhs, WN *rhs) {
+  TY_IDX rty = _builder->TB().ConvertType(rqt);
+  TY_IDX vty = _builder->TB().ConvertType(vqt);
+  const VectorType *vt = vqt->getAs<VectorType>();
+  const VectorType *rvt = rqt->getAs<VectorType>();
+  QualType eqt = vt->getElementType();
+  TY_IDX ety = _builder->TB().ConvertType(eqt);
+  TY_IDX rety = _builder->TB().ConvertType(rvt->getElementType());
+#ifdef TARG_X8664
+  if (TY_size(vty) == 16 && eqt->isSignedIntegerType() &&
+      (opcode == BO_EQ || opcode == BO_GT || opcode == BO_LT)) {
+    INTRINSIC iopc = INTRINSIC_NONE;
+    switch (TY_size(ety)) {
+    case 1: iopc = opcode == BO_EQ ? INTRN_PCMPEQB128 : INTRN_PCMPGTB128; break;
+    case 2: iopc = opcode == BO_EQ ? INTRN_PCMPEQW128 : INTRN_PCMPGTW128; break;
+    case 4: iopc = opcode == BO_EQ ? INTRN_PCMPEQD128 : INTRN_PCMPGTD128; break;
+    }
+    if (iopc != INTRINSIC_NONE) {
+      if (opcode == BO_LT) {   // a < b is b > a
+        WN *t = lhs;
+        lhs = rhs;
+        rhs = t;
+      }
+      WN *kids[2];
+      kids[0] = WGEN_CreateParm(TY_mtype(vty), lhs, vty);
+      kids[1] = WGEN_CreateParm(TY_mtype(vty), rhs, vty);
+      WN *wn = WN_Create_Intrinsic(OPR_INTRINSIC_OP, TY_mtype(vty), MTYPE_V,
+                                   iopc, 2, kids);
+      return TY_mtype(vty) == TY_mtype(rty) ? wn : WN_Tas(TY_mtype(rty), rty, wn);
+    }
+  }
+#endif
+  OPERATOR opr;
+  switch (opcode) {
+  case BO_LT: opr = OPR_LT; break;
+  case BO_GT: opr = OPR_GT; break;
+  case BO_LE: opr = OPR_LE; break;
+  case BO_GE: opr = OPR_GE; break;
+  case BO_EQ: opr = OPR_EQ; break;
+  default:    opr = OPR_NE; break;
+  }
+  WN *blk = WN_CreateBlock();
+  SRCPOS pos = GetSrcPos();
+  ST *sa = C2W_Vector_Temp(blk, vty, lhs, pos);
+  ST *sb = C2W_Vector_Temp(blk, vty, rhs, pos);
+  ST *res = C2W_Vector_Temp(blk, rty, NULL, pos);
+  TYPE_ID emt = Mtype_comparison(TY_mtype(ety));
+  TYPE_ID rmt = Mtype_comparison(TY_mtype(rety));
+  for (unsigned k = 0; k < vt->getNumElements(); k++) {
+    WN *cmp = WN_CreateExp2(opr, MTYPE_I4, emt, C2W_Vector_Elt(sa, ety, k),
+                            C2W_Vector_Elt(sb, ety, k));
+    WN *v = WN_Select(rmt, cmp, WN_Intconst(rmt, -1), WN_Intconst(rmt, 0));
+    C2W_Vector_Set_Elt(blk, res, rety, k, v, pos);
+  }
+  return WGEN_CreateComma(TY_mtype(rty), blk, WN_Ldid(TY_mtype(rty), 0, res, rty));
+}
+
+// *, / and % on vectors of integers: the back end multiplies 16-bit
+// elements (PMULLW) and, with SSE4.1, 32-bit ones (PMULLD); everything
+// else, division included, goes element by element.
+WN *
+WhirlExprBuilder::ConvertIntVectorArith(BinaryOperatorKind opcode, QualType vqt,
+                                        WN *lhs, WN *rhs) {
+  TY_IDX vty = _builder->TB().ConvertType(vqt);
+  const VectorType *vt = vqt->getAs<VectorType>();
+  TY_IDX ety = _builder->TB().ConvertType(vt->getElementType());
+#ifdef TARG_X8664
+  if (opcode == BO_Mul && TY_size(vty) == 16) {
+    INTRINSIC iopc = INTRINSIC_NONE;
+    if (TY_size(ety) == 2)
+      iopc = INTRN_PMULLW128;
+    else if (TY_size(ety) == 4 &&
+             _builder->Context()->getTargetInfo().hasFeature("sse4.1"))
+      iopc = INTRN_PMULLD128;
+    if (iopc != INTRINSIC_NONE) {
+      WN *kids[2];
+      kids[0] = WGEN_CreateParm(TY_mtype(vty), lhs, vty);
+      kids[1] = WGEN_CreateParm(TY_mtype(vty), rhs, vty);
+      return WN_Create_Intrinsic(OPR_INTRINSIC_OP, TY_mtype(vty), MTYPE_V,
+                                 iopc, 2, kids);
+    }
+  }
+#endif
+  WN *blk = WN_CreateBlock();
+  SRCPOS pos = GetSrcPos();
+  ST *sa = C2W_Vector_Temp(blk, vty, lhs, pos);
+  ST *sb = C2W_Vector_Temp(blk, vty, rhs, pos);
+  ST *res = C2W_Vector_Temp(blk, vty, NULL, pos);
+  TYPE_ID cmt = Mtype_comparison(TY_mtype(ety));
+  for (unsigned k = 0; k < vt->getNumElements(); k++) {
+    WN *a = C2W_Vector_Elt(sa, ety, k), *b = C2W_Vector_Elt(sb, ety, k);
+    WN *v = opcode == BO_Mul ? WN_Mpy(cmt, a, b)
+          : opcode == BO_Div ? WN_Div(cmt, a, b)
+                             : WN_Binary(OPR_REM, cmt, a, b);
+    C2W_Vector_Set_Elt(blk, res, ety, k, v, pos);
+  }
+  return WGEN_CreateComma(TY_mtype(vty), blk, WN_Ldid(TY_mtype(vty), 0, res, vty));
+}
+
 Result
 WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
   TRACE_FUNC();
@@ -1057,6 +1179,10 @@ WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
                                                         lhs, rhs, spos);
   }
 
+  if (lhs_type->isVectorType() && expr->isComparisonOp())
+    return Result::nwNode(ConvertVectorCompare(opcode, expr->getType(),
+                                               lhs_type, lhs, rhs), ty_idx);
+
   switch (opcode) {
     case clang::BO_Add:
     case clang::BO_Sub:
@@ -1069,13 +1195,24 @@ WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
       break;
     }
     case clang::BO_Mul:
-      ret = WN_Mpy(mtyp, lhs, rhs);
+      if (lhs_type->isVectorType() &&
+          lhs_type->getAs<VectorType>()->getElementType()->isIntegerType())
+        ret = ConvertIntVectorArith(opcode, lhs_type, lhs, rhs);
+      else
+        ret = WN_Mpy(mtyp, lhs, rhs);
       break;
     case clang::BO_Div:
-      ret = WN_Div(mtyp, lhs, rhs);
+      if (lhs_type->isVectorType() &&
+          lhs_type->getAs<VectorType>()->getElementType()->isIntegerType())
+        ret = ConvertIntVectorArith(opcode, lhs_type, lhs, rhs);
+      else
+        ret = WN_Div(mtyp, lhs, rhs);
       break;
     case clang::BO_Rem:
-      ret = WN_Binary(OPR_REM, mtyp, lhs, rhs);
+      if (lhs_type->isVectorType())
+        ret = ConvertIntVectorArith(opcode, lhs_type, lhs, rhs);
+      else
+        ret = WN_Binary(OPR_REM, mtyp, lhs, rhs);
       break;
     case clang::BO_Shl:
       ret = WN_Shl(mtyp, lhs, rhs);
@@ -1411,10 +1548,27 @@ WhirlExprBuilder::ConvertConvertVectorExpr(const ConvertVectorExpr *expr) {
   WN *src = ConvertToNode(expr->getSrcExpr());
   Is_True(src && OPERATOR_is_expression(WN_operator(src)),
           ("bad src wn"));
+  // Converts each element's value (int <-> float as well), unlike a cast
+  // of the bits.
   TY_IDX ty_idx = _builder->TB().ConvertType(expr->getType());
-  // TODO: support convert vector in backend
-  WN *dst = WN_Tas(TY_mtype(ty_idx), ty_idx, src);
-  return Result::nwNode(dst, ty_idx);
+  QualType src_qt = expr->getSrcExpr()->getType();
+  const VectorType *svt = src_qt->getAs<VectorType>();
+  const VectorType *dvt = expr->getType()->getAs<VectorType>();
+  Is_True(svt && dvt && svt->getNumElements() == dvt->getNumElements(),
+          ("bad __builtin_convertvector"));
+  TY_IDX sty = _builder->TB().ConvertType(src_qt);
+  TY_IDX sety = _builder->TB().ConvertType(svt->getElementType());
+  TY_IDX dety = _builder->TB().ConvertType(dvt->getElementType());
+  WN *blk = WN_CreateBlock();
+  SRCPOS pos = GetSrcPos();
+  ST *s = C2W_Vector_Temp(blk, sty, src, pos);
+  ST *d = C2W_Vector_Temp(blk, ty_idx, NULL, pos);
+  for (unsigned k = 0; k < svt->getNumElements(); k++)
+    C2W_Vector_Set_Elt(blk, d, dety, k,
+                       WN_Type_Conversion(C2W_Vector_Elt(s, sety, k),
+                                          TY_mtype(dety)), pos);
+  WN *val = WN_Ldid(TY_mtype(ty_idx), 0, d, ty_idx);
+  return Result::nwNode(WGEN_CreateComma(TY_mtype(ty_idx), blk, val), ty_idx);
 }
 
 Result
@@ -4737,20 +4891,146 @@ WhirlExprBuilder::ConvertPseudoObjectExpr(const PseudoObjectExpr *expr) {
   return Result::nwNone();
 }
 
+#ifdef TARG_X8664
+// A shuffle that is one SSE instruction: SHUFPS, SHUFPD, PSHUFD, PSHUFLW,
+// PSHUFHW, the unpacks, MOVHLPS and MOVLHPS (the forms Clang's intrinsic
+// headers write with __builtin_shufflevector). Returns INTRINSIC_NONE and
+// leaves the operands alone otherwise.
+static INTRINSIC
+Shuffle_Intrinsic(TYPE_ID vmt, const std::vector<INT> &m, INT n,
+                  bool &two_args, bool &swapped, INT &imm) {
+  INT r = m.size();
+  if (r != n)
+    return INTRINSIC_NONE;
+  for (INT i = 0; i < r; i++)
+    if (m[i] < 0)
+      return INTRINSIC_NONE;
+  imm = -1;
+  two_args = true;
+  swapped = false;
+#define C2W_MASK(...) (m == std::vector<INT>({__VA_ARGS__}))
+  switch (vmt) {
+  case MTYPE_V16F4:
+    if (C2W_MASK(0, 4, 1, 5)) return INTRN_UNPCKLPS;
+    if (C2W_MASK(2, 6, 3, 7)) return INTRN_UNPCKHPS;
+    // (not INTRN_MOVHLPS/MOVLHPS: they give wrong results; both are a
+    // SHUFPS too)
+    if (m[0] < 4 && m[1] < 4 && m[2] >= 4 && m[3] >= 4) {
+      imm = m[0] | m[1] << 2 | (m[2] - 4) << 4 | (m[3] - 4) << 6;
+      return INTRN_SHUFPS;
+    }
+    if (m[0] >= 4 && m[1] >= 4 && m[2] < 4 && m[3] < 4) {
+      // the first two from b: SHUFPS with the operands swapped
+      swapped = true;
+      imm = (m[0] - 4) | (m[1] - 4) << 2 | m[2] << 4 | m[3] << 6;
+      return INTRN_SHUFPS;
+    }
+    break;
+  case MTYPE_V16F8:
+    if (m[0] < 2 && m[1] >= 2) {
+      imm = m[0] | (m[1] - 2) << 1;
+      return INTRN_SHUFPD;
+    }
+    break;
+  case MTYPE_V16I4:
+    if (C2W_MASK(0, 4, 1, 5)) return INTRN_PUNPCKLDQ128;
+    if (C2W_MASK(2, 6, 3, 7)) return INTRN_PUNPCKHDQ128;
+    if (m[0] < 4 && m[1] < 4 && m[2] < 4 && m[3] < 4) {
+      two_args = false;
+      imm = m[0] | m[1] << 2 | m[2] << 4 | m[3] << 6;
+      return INTRN_PSHUFD;
+    }
+    break;
+  case MTYPE_V16I8:
+    if (C2W_MASK(0, 2)) return INTRN_PUNPCKLQDQ;
+    if (C2W_MASK(1, 3)) return INTRN_PUNPCKHQDQ;
+    break;
+  case MTYPE_V16I2:
+    if (C2W_MASK(0, 8, 1, 9, 2, 10, 3, 11)) return INTRN_PUNPCKLWD128;
+    if (C2W_MASK(4, 12, 5, 13, 6, 14, 7, 15)) return INTRN_PUNPCKHWD128;
+    if (m[0] < 4 && m[1] < 4 && m[2] < 4 && m[3] < 4 &&
+        C2W_MASK(m[0], m[1], m[2], m[3], 4, 5, 6, 7)) {
+      two_args = false;
+      imm = m[0] | m[1] << 2 | m[2] << 4 | m[3] << 6;
+      return INTRN_PSHUFLW;
+    }
+    if (m[4] >= 4 && m[5] >= 4 && m[6] >= 4 && m[7] >= 4 &&
+        m[4] < 8 && m[5] < 8 && m[6] < 8 && m[7] < 8 &&
+        C2W_MASK(0, 1, 2, 3, m[4], m[5], m[6], m[7])) {
+      two_args = false;
+      imm = (m[4] - 4) | (m[5] - 4) << 2 | (m[6] - 4) << 4 | (m[7] - 4) << 6;
+      return INTRN_PSHUFHW;
+    }
+    break;
+  case MTYPE_V16I1:
+    if (C2W_MASK(0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23))
+      return INTRN_PUNPCKLBW128;
+    if (C2W_MASK(8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31))
+      return INTRN_PUNPCKHBW128;
+    break;
+  default:
+    break;
+  }
+#undef C2W_MASK
+  return INTRINSIC_NONE;
+}
+#endif
+
 Result
 WhirlExprBuilder::ConvertShuffleVectorExpr(const ShuffleVectorExpr *expr) {
-  const Expr *args[MAX_PARM_CNT];
-  Is_True(expr->getNumSubExprs() >= 2 && expr->getNumSubExprs() < MAX_PARM_CNT,
-          ("invalid sub expr count"));
-  INT cnt = expr->getNumSubExprs() <= MAX_PARM_CNT
-              ? expr->getNumSubExprs() : MAX_PARM_CNT;
-  TY_IDX ty = _builder->TB().ConvertType(expr->getType());
+  // __builtin_shufflevector(a, b, i0, i1, ...): element k of the result is
+  // element i_k of a's elements followed by b's; -1 leaves it undefined.
+  ASTContext *ctx = _builder->Context();
+  TY_IDX rty = _builder->TB().ConvertType(expr->getType());
+  QualType src_qt = expr->getExpr(0)->getType();
+  const VectorType *svt = src_qt->getAs<VectorType>();
+  Is_True(svt, ("shufflevector of a non-vector"));
+  INT n = svt->getNumElements();
+  TY_IDX sty = _builder->TB().ConvertType(src_qt);
+  TY_IDX ety = _builder->TB().ConvertType(svt->getElementType());
+  std::vector<INT> mask;
+  for (unsigned k = 0; k + 2 < expr->getNumSubExprs(); k++)
+    mask.push_back((INT) expr->getShuffleMaskIdx(*ctx, k).getSExtValue());
 
-  // TODO: fully support this in backend. so far we generate a call
-  for (INT i = 0; i < cnt; ++i)
-    args[i] = expr->getExpr(i);
-
-  return GenerateCall("__shuffle_vector", ty, cnt, args, TRUE);
+  WN *a = ConvertToNode(expr->getExpr(0));
+  WN *b = ConvertToNode(expr->getExpr(1));
+#ifdef TARG_X8664
+  bool two_args, swapped;
+  INT imm;
+  INTRINSIC iopc = Shuffle_Intrinsic(TY_mtype(rty), mask, n, two_args,
+                                     swapped, imm);
+  if (iopc != INTRINSIC_NONE && TY_mtype(rty) == TY_mtype(sty)) {
+    if (swapped) {
+      WN *t = a;
+      a = b;
+      b = t;
+    }
+    WN *kids[3];
+    INT nk = 0;
+    kids[nk++] = WGEN_CreateParm(TY_mtype(sty), a, sty);
+    if (two_args)
+      kids[nk++] = WGEN_CreateParm(TY_mtype(sty), b, sty);
+    if (imm >= 0)
+      kids[nk++] = WGEN_CreateParm(MTYPE_I4, WN_Intconst(MTYPE_I4, imm),
+                                   MTYPE_To_TY(MTYPE_I4));
+    WN *wn = WN_Create_Intrinsic(OPR_INTRINSIC_OP, TY_mtype(rty), MTYPE_V,
+                                 iopc, nk, kids);
+    return Result::nwNode(wn, rty);
+  }
+#endif
+  // otherwise element by element
+  WN *blk = WN_CreateBlock();
+  SRCPOS pos = GetSrcPos();
+  ST *sa = C2W_Vector_Temp(blk, sty, a, pos);
+  ST *sb = C2W_Vector_Temp(blk, sty, b, pos);
+  ST *res = C2W_Vector_Temp(blk, rty, NULL, pos);
+  for (INT k = 0; k < (INT) mask.size(); k++) {
+    INT idx = mask[k] < 0 ? 0 : mask[k];
+    C2W_Vector_Set_Elt(blk, res, ety, k,
+                       C2W_Vector_Elt(idx < n ? sa : sb, ety, idx % n), pos);
+  }
+  WN *val = WN_Ldid(TY_mtype(rty), 0, res, rty);
+  return Result::nwNode(WGEN_CreateComma(TY_mtype(rty), blk, val), rty);
 }
 
 Result
