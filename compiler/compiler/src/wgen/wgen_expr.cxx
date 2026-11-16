@@ -384,19 +384,6 @@ static WN *WGEN_Expand_Ptr_To_Member_Func_Call_Expr (gs_t exp,
 	     TY_IDX nop_ty_idx, TYPE_ID rtype, TYPE_ID desc,
 	     WN_OFFSET offset = 0, UINT field_id = 0);
 
-// The words in 'buf' are in target order. Convert them to host order
-// in place. 'buf' is a two word array.
-void
-WGEN_Convert_To_Host_Order (long *buf)
-{
-  if (Target_Is_Little_Endian != Host_Is_Little_Endian)
-    {
-      int t = buf[0];
-      buf[0] = buf[1];
-      buf[1] = t;
-    }
-}
-
 // Add guard variable GUARD_VAR to a conditional expression that may or may
 // not be evaluated, such as x and y in "foo ? x : y", or y in "if (x && y)".
 // Transform the code to:

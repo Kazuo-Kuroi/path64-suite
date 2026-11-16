@@ -1975,10 +1975,8 @@ AGGINIT::WGEN_Add_Aggregate_Init_Real (gs_t real, INT size)
       tc = Host_To_Targ_Float_4 (MTYPE_F4, gs_tree_real_cst_f(real));
       break;
     case 8:
+      // A host double; Host_To_Targ_Float handles the byte order.
       buffer = gs_tree_real_cst_d(real);
-      // [SC] buffer is already in host order.
-      // Strange, why need convert the order?
-      WGEN_Convert_To_Host_Order((long *)&buffer);
       tc = Host_To_Targ_Float (MTYPE_F8, buffer);
       break;
     case 12:
@@ -2047,13 +2045,9 @@ AGGINIT::WGEN_Add_Aggregate_Init_Complex (gs_t rval, gs_t ival, INT size)
       break;
     case 16:
       buffer = gs_tree_real_cst_d(rval);
-      // buffer is already in host order.
-      WGEN_Convert_To_Host_Order((long *)&buffer);
       rtc = Host_To_Targ_Float (MTYPE_F8, buffer);
 
       buffer = gs_tree_real_cst_d(ival);
-      // buffer is already in host order.
-      WGEN_Convert_To_Host_Order((long *)&buffer);
       itc = Host_To_Targ_Float (MTYPE_F8, buffer);
       break;
     case 24:
@@ -2360,8 +2354,6 @@ AGGINIT::WGEN_Add_Aggregate_Init_Vector (gs_t init_list)
             break;
           case 8:
             buffer = 0.0;
-      // buffer is already in host order.
-            WGEN_Convert_To_Host_Order((long *)&buffer);
             tc = Host_To_Targ_Float (MTYPE_F8, buffer);
             break;
           default: // size 12 and 16 should not arise

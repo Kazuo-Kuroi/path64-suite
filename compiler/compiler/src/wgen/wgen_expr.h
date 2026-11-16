@@ -91,7 +91,6 @@ extern void WGEN_Set_ST_Addr_Saved (WN *);
 // Unused in ST compiler.
 // Convert inplace target order words in 'buf' to host order. 'buf' is a two
 // word array. 
-extern void WGEN_Convert_To_Host_Order (long *buf);
 extern void Setup_EH_Region (bool =false);
 
 extern INT32 wgen_save_expr_stack_last;
