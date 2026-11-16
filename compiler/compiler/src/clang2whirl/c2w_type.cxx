@@ -2262,9 +2262,9 @@ WhirlTypeBuilder::ConvertType(const Type *type, BOOL incomplete, const Type *rec
 
 TY_IDX WhirlTypeBuilder::ConvertType(QualType qtype, BOOL incomplete) {
   const Type *type = _builder->Context()->getCanonicalType(qtype).getTypePtr();
-  TY_IDX ty_idx = ConvertType(type, incomplete);
-  DST_INFO_IDX dst = _builder->DstBuilder().CreateDstForType(qtype, ty_idx);
-  return ty_idx;
+  // (debug information for types comes from the declarations that use
+  // them, in WhirlDstBuilder)
+  return ConvertType(type, incomplete);
 }
 
 FLD_IDX

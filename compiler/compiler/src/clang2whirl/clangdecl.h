@@ -172,6 +172,8 @@ class ComplexType;
 class ConstantArrayType;
 
 class EnumType;
+class ArrayType;
+class TypedefType;
 
 class FunctionType;
 

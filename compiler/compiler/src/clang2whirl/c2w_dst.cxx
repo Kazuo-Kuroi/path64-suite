@@ -37,6 +37,7 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/AST/RecordLayout.h"
 
 using namespace clang;
 
@@ -49,6 +50,7 @@ using namespace clang;
 
 // stdc++
 #include <string>
+#include <vector>
 
 namespace wgen {
 
@@ -263,21 +265,29 @@ WhirlDstBuilder::CreateDstForFunc(ST_IDX st, TY_IDX rtype) {
   return func_dst;
 }
 
+// Variables, parameters and types are described from -g2 up, as wgen
+// does (Debug_Level >= 2); -g1 gives functions and line numbers only.
+static inline bool
+WantFullDebugInfo() {
+  return Debug_Level >= 2;
+}
+
 DST_INFO_IDX
 WhirlDstBuilder::CreateDstForFunctionDecl(GlobalDecl gd) {
   const FunctionDecl* decl = cast<FunctionDecl>(gd.getDecl());
   USRCPOS usrcpos = GetSrcPos(decl->getLocation());
-  IdentifierInfo *info = decl->getIdentifier();
-  // TODO: figure out how to get CXX function name
-  const char *name_str = NULL;
-  if (info) {
-    name_str = info->getName().data();
-  }
-  DST_INFO_IDX type_dst = CreateDstForType(decl->getReturnType());
+  std::string name;
+  if (decl->getIdentifier())
+    name = decl->getName().str();
+  else
+    name = decl->getNameAsString();
+  DST_INFO_IDX type_dst = DST_INVALID_IDX;
+  if (WantFullDebugInfo())
+    type_dst = CreateDstForType(decl->getReturnType());
   ST_IDX st_idx = _builder->SB().ConvertSymbol(gd);
-  
-  return DST_mk_subprogram(usrcpos,
-                           const_cast<char *>(name_str),
+
+  DST_INFO_IDX dst = DST_mk_subprogram(usrcpos,
+                           const_cast<char *>(name.c_str()),
                            type_dst,
                            DST_INVALID_IDX,
                            (void *) (INTPTR) st_idx,
@@ -285,9 +295,80 @@ WhirlDstBuilder::CreateDstForFunctionDecl(GlobalDecl gd) {
                            DW_VIRTUALITY_none, // TODO
                            0,                  // vtbl index
                            false,              // is decl
-                           true,               // prototyped
+                           decl->hasPrototype(),
                            false,              // artificial
-                           false);             // internal
+                           !ST_is_export_local(ST_ptr(st_idx))); // external
+  // As wgen: under the compile unit, and named by its mangled name too
+  // when that differs (C++).
+  DST_append_child(_builder->Scope().GlobalDst(), dst);
+  const char *linkage_name = ST_name(st_idx);
+  if (linkage_name && strcmp(linkage_name, name.c_str()) != 0 && !name.empty())
+    DST_add_linkage_name_to_subprogram(dst, const_cast<char *>(linkage_name));
+  return dst;
+}
+
+void
+WhirlDstBuilder::CreateDstForParm(const ParmVarDecl *decl, ST_IDX st) {
+  if (!WantFullDebugInfo())
+    return;
+  DST_INFO_IDX parent = _builder->Scope().CurrentDst();
+  if (DST_IS_NULL(parent))
+    return;
+  std::string name = decl->getName().str();
+  DST_INFO_IDX dst =
+    DST_mk_formal_parameter(GetSrcPos(decl->getLocation()),
+                            const_cast<char *>(name.c_str()),
+                            CreateDstForType(decl->getType()),
+                            (void *) (INTPTR) st,
+                            DST_INVALID_IDX,  // abstract origin
+                            DST_INVALID_IDX,  // default value
+                            FALSE,            // optional
+                            FALSE,            // variable
+                            decl->isImplicit(),
+                            FALSE);           // declaration only
+  DST_append_child(parent, dst);
+}
+
+void
+WhirlDstBuilder::CreateDstForVarargs(const FunctionDecl *decl) {
+  if (!WantFullDebugInfo() || !decl->isVariadic())
+    return;
+  DST_INFO_IDX parent = _builder->Scope().CurrentDst();
+  if (DST_IS_NULL(parent))
+    return;
+  DST_append_child(parent,
+                   DST_mk_unspecified_parameters(GetSrcPos(decl->getLocation()),
+                                                 DST_INVALID_IDX));
+}
+
+void
+WhirlDstBuilder::CreateDstForVar(const VarDecl *decl, ST_IDX st) {
+  if (!WantFullDebugInfo() || isa<ParmVarDecl>(decl))
+    return;
+  std::string name = decl->getName().str();
+  if (name.empty())
+    return;
+  // Locals (including static ones) belong to their function, as with
+  // wgen; everything else, block-scope extern declarations included,
+  // to the compile unit.
+  bool local = decl->isLocalVarDecl() && !decl->hasExternalStorage();
+  DST_INFO_IDX parent = local ? _builder->Scope().CurrentDst()
+                              : _builder->Scope().GlobalDst();
+  if (DST_IS_NULL(parent))
+    return;
+  ST *s = ST_ptr(st);
+  DST_INFO_IDX dst =
+    DST_mk_variable(GetSrcPos(decl->getLocation()),
+                    const_cast<char *>(name.c_str()),
+                    CreateDstForType(decl->getType()),
+                    0,                         // offset (Fortran)
+                    (void *) (INTPTR) st,
+                    DST_INVALID_IDX,           // abstract origin
+                    ST_sclass(s) == SCLASS_EXTERN, // declaration
+                    FALSE,                     // automatic (wgen: FALSE)
+                    !ST_is_export_local(s),    // external
+                    FALSE);                    // artificial
+  DST_append_child(parent, dst);
 }
 
 DST_INFO_IDX
@@ -305,15 +386,16 @@ WhirlDstBuilder::CreateDstForDecl(const Decl *decl) {
     case Decl::CXXMethod:
     case Decl::CXXConversion:
       ret_dst = CreateDstForFunctionDecl(GlobalDecl(cast<FunctionDecl>(decl)));
-      break;
+      // (CreateDstForFunctionDecl puts it under the compile unit)
+      return ret_dst;
     case Decl::CXXConstructor:
     case Decl::CXXDestructor:
       Is_True(FALSE, ("FIXME: ctor/dtor"));
+      ret_dst = DST_INVALID_IDX;
       break;
-    case Decl::Var:
-      ret_dst = CreateDstForVarDecl(cast<VarDecl>(decl));
     default:
       ret_dst = DST_INVALID_IDX;
+      break;
   }
   if (!DST_IS_NULL(ret_dst)) {
     Is_True(!DST_IS_NULL(_builder->Scope().CurrentDst()), ("cur dst is NULL"));
@@ -322,219 +404,379 @@ WhirlDstBuilder::CreateDstForDecl(const Decl *decl) {
   return ret_dst;
 }
 
+// Types, after wgen's Create_DST_type_For_Tree. All go under the compile
+// unit; each Clang type (qualifiers included) gets one entry.
 
 DST_INFO_IDX
-WhirlDstBuilder::CreateDstForAtomicType(const AtomicType *type) {
-  TRACE_FUNC();
-  return DST_INVALID_IDX;
+WhirlDstBuilder::AppendType(DST_INFO_IDX dst) {
+  if (!DST_IS_NULL(dst))
+    DST_append_child(_builder->Scope().GlobalDst(), dst);
+  return dst;
 }
 
 DST_INFO_IDX
 WhirlDstBuilder::CreateDstForBuiltinType(const BuiltinType *type) {
   TRACE_FUNC();
-  DST_INFO_IDX dst_idx = DST_INVALID_IDX;
+  ASTContext *ctx = _builder->Context();
+  DST_size_t size = ctx->getTypeSize(type) / 8;
+  if (type->getKind() == BuiltinType::Void)
+    return DST_INVALID_IDX;
+  if (type->getKind() == BuiltinType::NullPtr)
+    return AppendType(DST_mk_pointer_type(DST_INVALID_IDX, DW_ADDR_none, size));
+  DST_ATE_encoding enc;
   switch (type->getKind()) {
-    case BuiltinType::Void:
-      break;
     case BuiltinType::Bool:
-      dst_idx = DST_mk_basetype("bool", DW_ATE_signed_char, 1);
+      enc = DW_ATE_boolean;
       break;
     case BuiltinType::Char_S:
     case BuiltinType::SChar:
-      dst_idx = DST_mk_basetype("char", DW_ATE_signed_char, 1);
+      enc = DW_ATE_signed_char;
       break;
     case BuiltinType::Char_U:
     case BuiltinType::UChar:
-      dst_idx = DST_mk_basetype("unsigned char", DW_ATE_unsigned_char, 1);
+      enc = DW_ATE_unsigned_char;
       break;
-    case BuiltinType::Short:
-      dst_idx = DST_mk_basetype("short", DW_ATE_signed, 2);
-      break;
-    case BuiltinType::UShort:
-      dst_idx = DST_mk_basetype("unsigned short", DW_ATE_unsigned, 2);
-      break;
-    case BuiltinType::Int:
-      dst_idx = DST_mk_basetype("int", DW_ATE_signed, 4);
-      break;
-    case BuiltinType::UInt:
-      dst_idx = DST_mk_basetype("unsigned int", DW_ATE_unsigned, 4);
-      break;
-    case BuiltinType::Long:
-      dst_idx = DST_mk_basetype("long", DW_ATE_signed, 8);
-      break;
-    case BuiltinType::ULong:
-      dst_idx = DST_mk_basetype("unsigned long", DW_ATE_unsigned, 8);
-      break;
-    case BuiltinType::LongLong:
-      dst_idx = DST_mk_basetype("long long", DW_ATE_signed, 8);
-      break;
-    case BuiltinType::ULongLong:
-      dst_idx = DST_mk_basetype("unsigned long long", DW_ATE_unsigned, 8);
-      break;
-    case BuiltinType::WChar_S:
-      dst_idx = DST_mk_basetype("wchar_t", DW_ATE_signed, 2);
-      break;
-    case BuiltinType::WChar_U:
-      dst_idx = DST_mk_basetype("wchar_t", DW_ATE_unsigned, 2);
-      break;
-    case BuiltinType::Char16:
-      dst_idx = DST_mk_basetype("char16_t", DW_ATE_signed, 2);
-      break;
-    case BuiltinType::Char32:
-      dst_idx = DST_mk_basetype("char32_t", DW_ATE_signed, 4);
-      break;
-    case BuiltinType::Half:
-      dst_idx = DST_mk_basetype("half float", DW_ATE_float, 4);
-      break;
-    case BuiltinType::Float:
-      dst_idx = DST_mk_basetype("float", DW_ATE_float, 4);
-      break;
-    case BuiltinType::Double:
-      dst_idx = DST_mk_basetype("double", DW_ATE_float, 8);
-      break;
-    case BuiltinType::LongDouble:
-    case BuiltinType::Float128:
-      dst_idx = DST_mk_basetype("long double", DW_ATE_float, 16);
-      break;
-    case BuiltinType::NullPtr:
-      dst_idx = DST_mk_pointer_type(DST_INVALID_INIT,
-                                    DW_ADDR_none,
-                                    MTYPE_size_min(Pointer_Mtype));
-      break;
-    case BuiltinType::UInt128:
-      dst_idx = DST_mk_basetype("int128_t", DW_ATE_signed, 8);
-      break;
-    case BuiltinType::Int128:
-      dst_idx = DST_mk_basetype("uint128_t", DW_ATE_unsigned, 8);
-      break;
-#ifdef C2W_ENABLE_OBJC
-    case BuiltinType::ObjCId:
-    case BuiltinType::ObjCClass:
-    case BuiltinType::ObjCSel:
-      break;
-#endif
-#ifdef C2W_ENABLE_OPENCL
-    case BuiltinType::OCLImage1d:
-    case BuiltinType::OCLImage1dArray:
-    case BuiltinType::OCLImage1dBuffer:
-    case BuiltinType::OCLImage2d:
-    case BuiltinType::OCLImage2dArray:
-    case BuiltinType::OCLImage3d:
-    case BuiltinType::OCLSampler:
-    case BuiltinType::OCLEvent:
-      break;
-#endif
     default:
-      //TRACE_WARN(("Unsupported builtin type: %d", type->getKind()));
+      if (type->isFloatingPoint())
+        enc = DW_ATE_float;
+      else if (type->isSignedInteger())
+        enc = DW_ATE_signed;
+      else if (type->isUnsignedInteger())
+        enc = DW_ATE_unsigned;
+      else
+        return DST_INVALID_IDX;   // OpenCL, ObjC and other special types
       break;
   }
-  // always append builtin type to global scope
-  if (!DST_IS_NULL(dst_idx)) {
-    Is_True(!DST_IS_NULL(_builder->Scope().GlobalDst()), ("global dst is NULL"));
-    DST_append_child(_builder->Scope().GlobalDst(), dst_idx);
-  }
-  return dst_idx;
+  std::string name = type->getName(ctx->getPrintingPolicy()).str();
+  std::map<std::string, DST_INFO_IDX>::iterator it = _base_types.find(name);
+  if (it != _base_types.end())
+    return it->second;
+  DST_INFO_IDX dst = AppendType(DST_mk_basetype(name.c_str(), enc, size));
+  _base_types[name] = dst;
+  return dst;
 }
 
 DST_INFO_IDX
 WhirlDstBuilder::CreateDstForFunctionType(const FunctionType *type) {
   TRACE_FUNC();
-#if 0
-  USRCPOS usrcpos = GetSrcPos(decl->getLocation());
-  const char* name_str = decl->getIdentifier()->getName().data();
-  DST_INFO_IDX type_dst = CreateDstForType(decl->getReturnType());
-  return DST_mk_subroutine_type(usrcpos,
-                                const_cast<char*>(name_str),
-                                type_dst, DST_INVALID_IDX, FALSE);
-#endif
-  return DST_INVALID_IDX;
+  const FunctionProtoType *proto = dyn_cast<FunctionProtoType>(type);
+  USRCPOS src;
+  USRCPOS_clear(src);
+  DST_INFO_IDX dst = DST_mk_subroutine_type(src, "",
+                                            CreateDstForType(type->getReturnType()),
+                                            DST_INVALID_IDX,
+                                            proto != NULL);
+  AppendType(dst);
+  if (proto) {
+    for (unsigned i = 0; i < proto->getNumParams(); i++) {
+      DST_INFO_IDX parm =
+        DST_mk_formal_parameter(src, NULL,
+                                CreateDstForType(proto->getParamType(i)),
+                                NULL, DST_INVALID_IDX, DST_INVALID_IDX,
+                                FALSE, FALSE, FALSE,
+                                TRUE);   // declaration only
+      DST_append_child(dst, parm);
+    }
+  }
+  if (!proto || proto->isVariadic())
+    DST_append_child(dst, DST_mk_unspecified_parameters(src, DST_INVALID_IDX));
+  return dst;
 }
 
 DST_INFO_IDX
-WhirlDstBuilder::CreateDstForArrayType(const ConstantArrayType *type, TY_IDX ty_idx) {
+WhirlDstBuilder::CreateDstForArrayType(const ArrayType *type) {
   TRACE_FUNC();
-  //USRCPOS src = GetSrcPos(_builder->Scope().CurrentDecl()->getLocation());
+  // One array type with a subrange per dimension, as wgen does; a
+  // dimension without a constant size (incomplete, VLA) ends the list.
+  std::vector<INT64> dims;
+  QualType elt(type, 0);
+  bool known = true;
+  while (const ArrayType *at = _builder->Context()->getAsArrayType(elt)) {
+    if (const ConstantArrayType *cat = dyn_cast<ConstantArrayType>(at)) {
+      if (known)
+        dims.push_back(cat->getSize().getSExtValue());
+    } else
+      known = false;
+    elt = at->getElementType();
+  }
   USRCPOS src;
-  DST_INFO_IDX dst_idx;
-  DST_INFO_IDX inner_dst = CreateDstForType(type->getElementType());
-  dst_idx = DST_mk_array_type(src, 0, inner_dst, 0, DST_INVALID_IDX, TRUE);
-#if 0
-  TY& ty = Ty_Table[ty_idx];
-  ARB_HANDLE arb = TY_arb(ty_idx);
-  DST_INFO_IDX d;
-  if ( TY_kind (ty) != KIND_INVALID ) {
-      for (INT index = TY_AR_ndims(ty_idx) - 1; index >= 0; index--) {
-          if (!ARB_ubnd_var(arb[index]))
-              break;
-          if (!ARB_const_ubnd(arb[index])) {
-              ST* var_st = &St_Table[ARB_ubnd_var(arb[index])];
-              if (ST_sclass(var_st) == SCLASS_AUTO)
-                  break;
-          }
-          d = DST_enter_subrange_type(arb[index]);
-          DST_append_child(dst_idx,d);
-      }
+  USRCPOS_clear(src);
+  DST_INFO_IDX dst = DST_mk_array_type(src, NULL, CreateDstForType(elt), 0,
+                                       DST_INVALID_IDX, TRUE);
+  AppendType(dst);
+  for (size_t i = 0; i < dims.size(); i++) {
+    DST_cval_ref lb, ub;
+    lb.cval = 0;
+    ub.cval = dims[i] - 1;
+    DST_append_child(dst, DST_mk_subrange_type(TRUE, lb, TRUE, ub));
   }
-#endif
-  if (!DST_IS_NULL(dst_idx)) {
-    Is_True(!DST_IS_NULL(_builder->Scope().CurrentDst()), ("cur dst is NULL"));
-    DST_append_child(_builder->Scope().CurrentDst(), dst_idx);
+  return dst;
+}
+
+DST_INFO_IDX
+WhirlDstBuilder::CreateDstForVectorType(const VectorType *type) {
+  TRACE_FUNC();
+  USRCPOS src;
+  USRCPOS_clear(src);
+  DST_INFO_IDX dst = DST_mk_array_type(src, NULL,
+                                       CreateDstForType(type->getElementType()),
+                                       0, DST_INVALID_IDX, TRUE);
+  AppendType(dst);
+  DST_cval_ref lb, ub;
+  lb.cval = 0;
+  ub.cval = type->getNumElements() - 1;
+  DST_append_child(dst, DST_mk_subrange_type(TRUE, lb, TRUE, ub));
+  DST_SET_GNU_vector(DST_INFO_flag(DST_INFO_IDX_TO_PTR(dst)));
+  return dst;
+}
+
+static DST_accessibility
+DwarfAccess(AccessSpecifier as) {
+  switch (as) {
+    case AS_private:   return DW_ACCESS_private;
+    case AS_protected: return DW_ACCESS_protected;
+    default:           return DW_ACCESS_public;
   }
-  return dst_idx;
 }
 
 DST_INFO_IDX
 WhirlDstBuilder::CreateDstForRecordType(const RecordType *type) {
   TRACE_FUNC();
-  return DST_INVALID_IDX;
+  ASTContext *ctx = _builder->Context();
+  const RecordDecl *rd = type->getDecl();
+  const RecordDecl *def = rd->getDefinition();
+  const Decl *key = def ? def : rd->getCanonicalDecl();
+  ST_DST_MAP::iterator it = _sym_map.find(key);
+  if (it != _sym_map.end())
+    return it->second;
+
+  std::string name = rd->getName().str();
+  USRCPOS src = GetSrcPos(rd->getLocation());
+  DST_size_t size = def ? ctx->getTypeSize(type) / 8 : 0;
+  DST_INFO_IDX dst = rd->isUnion()
+    ? DST_mk_union_type(src, const_cast<char *>(name.c_str()), size,
+                        DST_INVALID_IDX, def == NULL)
+    : DST_mk_structure_type(src, const_cast<char *>(name.c_str()), size,
+                            DST_INVALID_IDX, def == NULL);
+  AppendType(dst);
+  // before the members, which may point back to this type
+  _sym_map[key] = dst;
+  if (!def || def->isInvalidDecl())
+    return dst;
+
+  const ASTRecordLayout &layout = ctx->getASTRecordLayout(def);
+  if (const CXXRecordDecl *cxx = dyn_cast<CXXRecordDecl>(def)) {
+    for (const CXXBaseSpecifier &base : cxx->bases()) {
+      if (base.isVirtual())
+        continue;   // TODO (C++, phase 3)
+      const CXXRecordDecl *bd = base.getType()->getAsCXXRecordDecl();
+      if (!bd)
+        continue;
+      DST_append_child(dst,
+        DST_mk_inheritance(src, CreateDstForType(base.getType()),
+                           DW_VIRTUALITY_none,
+                           layout.getBaseClassOffset(bd).getQuantity(),
+                           DwarfAccess(base.getAccessSpecifier())));
+    }
+  }
+  unsigned idx = 0;
+  for (RecordDecl::field_iterator f = def->field_begin();
+       f != def->field_end(); ++f, ++idx) {
+    std::string fname = f->getName().str();
+    QualType ftype = f->getType();
+    // unnamed bit-fields are padding; anonymous structs and unions stay
+    if (fname.empty() && !ftype->isRecordType())
+      continue;
+    UINT64 bitoff = layout.getFieldOffset(idx);
+    DST_INFO_IDX fdst = CreateDstForType(ftype);
+    USRCPOS fsrc = GetSrcPos(f->getLocation());
+    DST_accessibility access = DwarfAccess(f->getAccess());
+    DST_INFO_IDX mdst;
+    if (f->isBitField()) {
+      unsigned width = f->getBitWidthValue(*ctx);
+      if (width == 0)
+        continue;
+      // As wgen's DST_enter_normal_field: the container is the field's
+      // type, at the alignment boundary at or before the field; the bit
+      // offset counts from the container's most significant bit.
+      UINT64 tsize = ctx->getTypeSize(ftype) / 8;
+      UINT64 align = ctx->getTypeAlign(ftype) / 8;
+      if (align == 0)
+        align = 1;
+      UINT64 byteoff = bitoff / 8;
+      UINT64 container = byteoff - byteoff % align;
+      while (container * 8 + tsize * 8 < bitoff + width)
+        container += align;   // a field that crosses its boundary (packed)
+      UINT64 into = bitoff - container * 8;
+      if (Target_Is_Little_Endian)
+        into = tsize * 8 - into - width;
+      mdst = DST_mk_member(fsrc, const_cast<char *>(fname.c_str()), fdst,
+                           container, tsize, into, width,
+                           TRUE, FALSE, FALSE, FALSE, access);
+    } else {
+      mdst = DST_mk_member(fsrc, const_cast<char *>(fname.c_str()), fdst,
+                           bitoff / 8, 0, 0, 0,
+                           FALSE, FALSE, FALSE, FALSE, access);
+    }
+    DST_append_child(dst, mdst);
+  }
+  return dst;
+}
+
+DST_INFO_IDX
+WhirlDstBuilder::CreateDstForEnumType(const EnumType *type) {
+  TRACE_FUNC();
+  ASTContext *ctx = _builder->Context();
+  const EnumDecl *ed = type->getDecl();
+  const EnumDecl *def = ed->getDefinition();
+  const Decl *key = def ? def : ed->getCanonicalDecl();
+  ST_DST_MAP::iterator it = _sym_map.find(key);
+  if (it != _sym_map.end())
+    return it->second;
+  std::string name = ed->getName().str();
+  DST_size_t size = def ? ctx->getTypeSize(type) / 8 : 0;
+  DST_INFO_IDX dst =
+    DST_mk_enumeration_type(GetSrcPos(ed->getLocation()),
+                            const_cast<char *>(name.c_str()), size,
+                            DST_INVALID_IDX, def == NULL);
+  AppendType(dst);
+  _sym_map[key] = dst;
+  if (!def)
+    return dst;
+  for (const EnumConstantDecl *ec : def->enumerators()) {
+    DST_CONST_VALUE val;
+    INT64 v = ec->getInitVal().getSExtValue();
+    if (size == 8) {
+      DST_CONST_VALUE_form(val) = DST_FORM_DATA8;
+      DST_CONST_VALUE_form_data8(val) = v;
+    } else {
+      DST_CONST_VALUE_form(val) = DST_FORM_DATA4;
+      DST_CONST_VALUE_form_data4(val) = (INT32) v;
+    }
+    std::string ename = ec->getName().str();
+    DST_append_child(dst, DST_mk_enumerator(GetSrcPos(ec->getLocation()),
+                                            const_cast<char *>(ename.c_str()),
+                                            val));
+  }
+  return dst;
+}
+
+DST_INFO_IDX
+WhirlDstBuilder::CreateDstForTypedef(const TypedefType *type) {
+  TRACE_FUNC();
+  const TypedefNameDecl *td = type->getDecl();
+  ST_DST_MAP::iterator it = _sym_map.find(td);
+  if (it != _sym_map.end())
+    return it->second;
+  std::string name = td->getName().str();
+  DST_INFO_IDX under = CreateDstForType(td->getUnderlyingType());
+  DST_INFO_IDX dst = DST_mk_typedef(GetSrcPos(td->getLocation()),
+                                    const_cast<char *>(name.c_str()),
+                                    under, DST_INVALID_IDX);
+  AppendType(dst);
+  _sym_map[td] = dst;
+  return dst;
 }
 
 DST_INFO_IDX
 WhirlDstBuilder::CreateDstForType(const QualType T, TY_IDX ty_idx) {
   TRACE_FUNC();
-  const Type *type = T.getTypePtr();
-  TYPE_DST_MAP::iterator it = _type_map.find(type);
+  if (T.isNull() || !WantFullDebugInfo())
+    return DST_INVALID_IDX;
+  const void *key = T.getAsOpaquePtr();
+  TYPE_DST_MAP::iterator it = _type_map.find(key);
   if (it != _type_map.end())
     return it->second;
+
+  ASTContext *ctx = _builder->Context();
   DST_INFO_IDX dst_idx = DST_INVALID_IDX;
-  switch (type->getTypeClass()) {
-    case Type::Atomic:
-      dst_idx = CreateDstForAtomicType(cast<AtomicType>(type));
-      break;
-    case Type::Builtin:
-      dst_idx = CreateDstForBuiltinType(cast<BuiltinType>(type));
-      break;
-    case Type::FunctionNoProto:
-    case Type::FunctionProto:
-      dst_idx = CreateDstForFunctionType(cast<FunctionType>(type));
-      break;
-    case Type::ConstantArray:
-      dst_idx = CreateDstForArrayType(cast<ConstantArrayType>(type), ty_idx);
-      break;
-    case Type::Elaborated:
-      dst_idx = CreateDstForType(cast<ElaboratedType>(type)->getNamedType(), ty_idx);
-      break;
-    case Type::Record:
-      dst_idx = CreateDstForRecordType(cast<RecordType>(type));
-      break;
-    case Type::Pointer:
-    case Type::Paren:
-    case Type::Enum:
-    case Type::Vector:
-    case Type::Complex:
-    case Type::Decayed:
-    case Type::Typedef:
-    case Type::TypeOfExpr:
-    case Type::LValueReference:
-    case Type::RValueReference:
-    case Type::SubstTemplateTypeParm:
-    case Type::TemplateSpecialization:
-      break;
-    default:
-      //TRACE_WARN(("Unsupported type class: %s", type->getTypeClassName()));
-      break;
+  Qualifiers quals = T.getLocalQualifiers();
+  if (quals.hasConst()) {
+    QualType unq = T;
+    unq.removeLocalConst();
+    dst_idx = AppendType(DST_mk_const_type(CreateDstForType(unq)));
+  } else if (quals.hasVolatile()) {
+    QualType unq = T;
+    unq.removeLocalVolatile();
+    dst_idx = AppendType(DST_mk_volatile_type(CreateDstForType(unq)));
+  } else if (quals.hasRestrict()) {
+    QualType unq = T;
+    unq.removeLocalRestrict();
+    dst_idx = CreateDstForType(unq);
+  } else {
+    const Type *type = T.getTypePtr();
+    switch (type->getTypeClass()) {
+      case Type::Builtin:
+        dst_idx = CreateDstForBuiltinType(cast<BuiltinType>(type));
+        break;
+      case Type::Complex: {
+        QualType elt = cast<ComplexType>(type)->getElementType();
+        std::string name = "complex " + elt.getAsString(ctx->getPrintingPolicy());
+        std::map<std::string, DST_INFO_IDX>::iterator bt = _base_types.find(name);
+        if (bt != _base_types.end())
+          dst_idx = bt->second;
+        else {
+          dst_idx = AppendType(DST_mk_basetype(name.c_str(),
+                                               elt->isIntegerType() ? DW_ATE_signed
+                                                                    : DW_ATE_complex_float,
+                                               ctx->getTypeSize(type) / 8));
+          _base_types[name] = dst_idx;
+        }
+        break;
+      }
+      case Type::Pointer:
+      case Type::BlockPointer:
+        // (a struct is entered before its members, so a pointer back to
+        // it terminates)
+        dst_idx = AppendType(DST_mk_pointer_type(
+                               CreateDstForType(type->getPointeeType()),
+                               DW_ADDR_none, ctx->getTypeSize(type) / 8));
+        break;
+      case Type::LValueReference:
+      case Type::RValueReference:
+        dst_idx = AppendType(DST_mk_reference_type(
+                               CreateDstForType(type->getPointeeType()),
+                               DW_ADDR_none, ctx->getTypeSize(type) / 8));
+        break;
+      case Type::ConstantArray:
+      case Type::IncompleteArray:
+      case Type::VariableArray:
+        dst_idx = CreateDstForArrayType(cast<ArrayType>(type));
+        break;
+      case Type::Vector:
+      case Type::ExtVector:
+        dst_idx = CreateDstForVectorType(cast<VectorType>(type));
+        break;
+      case Type::FunctionNoProto:
+      case Type::FunctionProto:
+        dst_idx = CreateDstForFunctionType(cast<FunctionType>(type));
+        break;
+      case Type::Record:
+        dst_idx = CreateDstForRecordType(cast<RecordType>(type));
+        break;
+      case Type::Enum:
+        dst_idx = CreateDstForEnumType(cast<EnumType>(type));
+        break;
+      case Type::Typedef:
+        dst_idx = CreateDstForTypedef(cast<TypedefType>(type));
+        break;
+      case Type::Atomic:
+        dst_idx = CreateDstForType(cast<AtomicType>(type)->getValueType());
+        break;
+      case Type::Decayed:
+        dst_idx = CreateDstForType(cast<DecayedType>(type)->getDecayedType());
+        break;
+      default:
+        // sugar (elaborated, parenthesized, typeof, attributed, ...)
+        {
+          QualType inner = type->getLocallyUnqualifiedSingleStepDesugaredType();
+          if (inner.getAsOpaquePtr() != key)
+            dst_idx = CreateDstForType(inner);
+        }
+        break;
+    }
   }
-  _type_map[type] = dst_idx;
+  _type_map[key] = dst_idx;
   return dst_idx;
 }
 

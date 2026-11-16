@@ -46,6 +46,7 @@
 // stdc++
 #include "c2w_map.h"
 #include <string>
+#include <map>
 
 namespace wgen {
 
@@ -59,7 +60,8 @@ private:
   STR_IDX_MAP  _dir_map;
   STR_IDX_MAP  _file_map;
   TYPE_DST_MAP _type_map;
-  ST_DST_MAP  _sym_map;
+  ST_DST_MAP  _sym_map;    // records, enums and typedefs, by declaration
+  std::map<std::string, DST_INFO_IDX> _base_types;
 
 public:
   WhirlDstBuilder(WhirlBuilder *builder);
@@ -109,18 +111,29 @@ public:
   DST_INFO_IDX CreateDstForFunctionDecl(clang::GlobalDecl decl);
 
 private:
-  DST_INFO_IDX CreateDstForAtomicType(const clang::AtomicType *type);
-  
   DST_INFO_IDX CreateDstForBuiltinType(const clang::BuiltinType *type);
   
   DST_INFO_IDX CreateDstForFunctionType(const clang::FunctionType *type);
   
-  DST_INFO_IDX CreateDstForArrayType(const clang::ConstantArrayType *type, TY_IDX ty_idx);
+  DST_INFO_IDX CreateDstForArrayType(const clang::ArrayType *type);
   
   DST_INFO_IDX CreateDstForRecordType(const clang::RecordType *type);
 
+  DST_INFO_IDX CreateDstForVectorType(const clang::VectorType *type);
+
+  DST_INFO_IDX CreateDstForEnumType(const clang::EnumType *type);
+
+  DST_INFO_IDX CreateDstForTypedef(const clang::TypedefType *type);
+
+  DST_INFO_IDX AppendType(DST_INFO_IDX dst);
+
 public:
   DST_INFO_IDX CreateDstForType(const clang::QualType T, TY_IDX ty_idx = 0);
+
+  // -g2: a function's parameters, its "..." and the variables
+  void CreateDstForParm(const clang::ParmVarDecl *decl, ST_IDX st);
+  void CreateDstForVarargs(const clang::FunctionDecl *decl);
+  void CreateDstForVar(const clang::VarDecl *decl, ST_IDX st);
   
 };
 

@@ -145,7 +145,8 @@ typedef hash_map<const clang::VarDecl *, Result, wgen_ptr_hash> VAR_INITR_MAP;
 // clang to WHIRL dst
 typedef hash_map<UINT32, UINT32> FILE_IDX_MAP;
 typedef hash_map<const char *, UINT32, wgen_cstr_hash, wgen_cstr_equal> STR_IDX_MAP;
-typedef hash_map<const clang::Type *, DST_INFO_IDX, wgen_ptr_hash> TYPE_DST_MAP;
+// keyed by QualType::getAsOpaquePtr(), so qualified types are distinct
+typedef hash_map<const void *, DST_INFO_IDX, wgen_ptr_hash> TYPE_DST_MAP;
 typedef hash_map<const clang::Decl *, DST_INFO_IDX, wgen_ptr_hash> ST_DST_MAP;
 
 // clang lambda

@@ -370,6 +370,7 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
       (linkage == GVA_DiscardableODR || linkage == GVA_StrongODR)) {
     Set_ST_is_odr(st);
   }
+  _builder->DstBuilder().CreateDstForVar(decl, ST_st_idx(st));
   return ST_st_idx(st);
 }
 

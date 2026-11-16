@@ -837,10 +837,12 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
 
     TY_IDX fty_idx = _builder->TB().ConvertType(parm->getType());
     ST_IDX fst_idx = _builder->SB().ConvertSymbol(parm);
+    _builder->DstBuilder().CreateDstForParm(parm, fst_idx);
     WN_formal(pu_tree, i) = WN_CreateIdname(0, fst_idx);
     WN *ldid = WN_Ldid(TY_mtype(fty_idx), 0, ST_ptr(fst_idx), fty_idx);
     args.push_back(std::pair<WN *, TY_IDX>(ldid, fty_idx));
   }
+  _builder->DstBuilder().CreateDstForVarargs(decl);
 
   // call field's constructor from initializer list, which is the order of declaration
   if (append_this && isa<CXXConstructorDecl>(decl)) {
