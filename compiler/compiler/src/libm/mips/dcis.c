@@ -58,13 +58,7 @@ extern	dcomplex	__dcis(double);
 #pragma weak __dcis = __libm_dcis
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern dcomplex __libm_dcis(double);
-#pragma weak __dcis
-dcomplex __dcis(double x) {
-  return __libm_dcis(x);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  dcomplex  __libm_dcis(double);
 dcomplex    __dcis() __attribute__ ((weak, alias ("__libm_dcis")));
 #endif

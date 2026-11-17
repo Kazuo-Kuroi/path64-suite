@@ -64,13 +64,7 @@ extern  float   powf(float, float);
 #pragma weak powf = __powf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __powf(float, float);
-#pragma weak powf
-float powf( float x, float y ) {
-  return __powf( x, y );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __powf(float, float);
 float    powf(float, float) __attribute__ ((weak, alias ("__powf")));
 #endif

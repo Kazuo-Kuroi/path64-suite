@@ -57,13 +57,7 @@ extern	float	sinf(float);
 #pragma weak sinf = __sinf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __sinf(float);
-#pragma weak sinf
-float sinf( float x ) {
-  return __sinf( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __sinf(float);
 float    sinf(float) __attribute__ ((weak, alias ("__sinf")));
 #endif

@@ -91,14 +91,14 @@ extern "C" {
 #ifndef NL_EXPSET
 #define NL_EXPSET       NL_SETD       /* set number for explanations */
 #endif
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 /* /usr/include/nl_types.h defines NL_SETD as 1 on Linux, 0 on Darwin; want 1 */
 #define NL_MSGSET       1
 #else
 #ifndef NL_MSGSET
 #define NL_MSGSET       NL_SETD       /* set number for messages */
 #endif
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
 /* catmsgfmt formating information */
 

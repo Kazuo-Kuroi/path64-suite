@@ -43,13 +43,8 @@ static char *rcs_id = "$Source$ $Revision$";
 #include "quad.h"
 
 extern INT c_q_lt(QUAD, QUAD, INT *);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-extern INT __c_q_lt(QUAD x, QUAD y, INT *p_err) { return c_q_lt(x, y, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_lt = __c_q_lt
 #define	c_q_lt __c_q_lt
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	/* implements the relational operator < for long doubles */
 
@@ -68,13 +63,8 @@ c_q_lt(QUAD x, QUAD y, INT *p_err )
 }
 
 extern INT c_q_le(QUAD, QUAD, INT *);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-extern INT __c_q_le(QUAD x, QUAD y, INT *p_err) { return c_q_le(x, y, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_le = __c_q_le
 #define	c_q_le __c_q_le
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	/* implements the relational operator <= for long doubles */
 
@@ -93,13 +83,8 @@ c_q_le(QUAD x, QUAD y, INT *p_err )
 }
 
 extern INT c_q_eq(QUAD, QUAD, INT *);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-extern INT __c_q_eq(QUAD x, QUAD y, INT *p_err) { return c_q_eq(x, y, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_eq = __c_q_eq
 #define	c_q_eq __c_q_eq
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	/* implements the relational operator == for long doubles */
 
@@ -115,13 +100,8 @@ c_q_eq(QUAD x, QUAD y, INT *p_err )
 }
 
 extern INT c_q_ne(QUAD, QUAD, INT *);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-extern INT __c_q_ne(QUAD x, QUAD y, INT *p_err) { return c_q_ne(x, y, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_ne = __c_q_ne
 #define	c_q_ne __c_q_ne
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	/* implements the relational operator != for long doubles */
 
@@ -137,13 +117,8 @@ c_q_ne(QUAD x, QUAD y, INT *p_err )
 }
 
 extern INT c_q_gt(QUAD, QUAD, INT *);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-extern INT __c_q_gt(QUAD x, QUAD y, INT *p_err) { return c_q_gt(x, y, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_gt = __c_q_gt
 #define	c_q_gt __c_q_gt
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	/* implements the relational operator > for long doubles */
 
@@ -162,13 +137,8 @@ c_q_gt(QUAD x, QUAD y, INT *p_err )
 }
 
 extern INT c_q_ge(QUAD, QUAD, INT *);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-extern INT __c_q_ge(QUAD x, QUAD y, INT *p_err) { return c_q_ge(x, y, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_ge = __c_q_ge
 #define	c_q_ge __c_q_ge
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	/* implements the relational operator >= for long doubles */
 

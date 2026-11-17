@@ -120,7 +120,7 @@ static	void	gen_word_align_byte_length_ir(opnd_type *);
 static	void	gen_multiple_automatic_allocate(int);
 # endif
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 # pragma inline create_equiv_stor_blk
 # else
 # pragma _CRI inline create_equiv_stor_blk
@@ -3337,7 +3337,7 @@ int	bound_semantics(int		attr_idx,
    save_sh_idx				= curr_stmt_sh_idx;
    curr_stmt_sh_idx			= bound_sh_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    if (ATD_TMP_HAS_CVRT_OPR(attr_idx)) {
 
@@ -3440,7 +3440,7 @@ int	bound_semantics(int		attr_idx,
       ATD_SYMBOLIC_CONSTANT(attr_idx) = expr_is_symbolic_constant(&opnd);
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    else if (ATD_TMP_HAS_CVRT_OPR(attr_idx)) {
       COPY_OPND(IR_OPND_L(IR_IDX_R(ATD_TMP_IDX(attr_idx))), opnd);
@@ -5343,7 +5343,7 @@ static	void	attr_semantics(int	attr_idx,
    boolean		type_resolved;
    size_offset_type     storage_size;
 
-# if defined(_TARGET_OS_MAX) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_MAX) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int			tmp_idx;
 # endif
 
@@ -6021,7 +6021,7 @@ static	void	attr_semantics(int	attr_idx,
                SH_P2_SKIP_ME(curr_stmt_sh_idx) = TRUE;
             }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 # if 0
             if (! ATD_COPY_ASSUMED_SHAPE(attr_idx)) {
                /* copy the assumed shape dummy arg to a stack dope vector */
@@ -6062,7 +6062,7 @@ static	void	attr_semantics(int	attr_idx,
             }
 # endif /* 0 */
 
-# endif /* (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)) */
+#endif
          }
          else if (ATP_PGM_UNIT(pgm_attr_idx) != Blockdata &&
                   (ATD_CLASS(attr_idx) != Dummy_Argument ||
@@ -6453,7 +6453,7 @@ static	void	attr_semantics(int	attr_idx,
             }
          }
 
-# elif defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#elif defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
 #ifdef KEY /* Bug 7299 */
 	 /* We want to use default pointer type for Cray pointers */
@@ -6738,7 +6738,7 @@ static	void	attr_semantics(int	attr_idx,
          AT_SEMANTICS_DONE(rslt_idx) = TRUE;
       }
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
       /* These return charcter results on the SPARC but not Cray. */
 
@@ -6756,7 +6756,7 @@ static	void	attr_semantics(int	attr_idx,
             goto EXIT;
          }
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       }
       else {
          CLEAR_TBL_NTRY(type_tbl, TYP_WORK_IDX);
@@ -10520,7 +10520,7 @@ static void gen_single_automatic_allocate(int	attr_idx)
    line			= AT_DEF_LINE(attr_idx);
    column		= AT_DEF_COLUMN(attr_idx);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (TYP_TYPE(ATD_TYPE_IDX(attr_idx)) == Character ||
        (TYP_TYPE(ATD_TYPE_IDX(attr_idx)) == Structure &&
         ATT_CHAR_SEQ(TYP_IDX(ATD_TYPE_IDX(attr_idx))))) {

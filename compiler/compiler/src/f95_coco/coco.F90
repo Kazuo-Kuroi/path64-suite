@@ -310,7 +310,7 @@ integer, parameter :: write_unit = set_unit + 1                      ! (sole) ou
 integer, parameter :: read_unit = write_unit + 1                     ! input(s) unit(s) start here
 
 #ifdef KEY /* Bug 5087 */
-#if 1 /* defined(LINUX) || defined(BUILD_OS_DARWIN) */
+#if 1
 character(len=1), parameter :: directory_separator = '/'
 #else
 error: need to specify a directory separator for the OS on which coco will run

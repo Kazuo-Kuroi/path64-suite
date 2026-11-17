@@ -913,9 +913,6 @@ extern void List_Compile_Options (
   extern void GCC_Configure_ABI (void);
 #endif
 
-#ifdef _WIN32
-#define MAXHOSTNAMELEN 128
-#endif
 
 #ifdef __cplusplus
 }

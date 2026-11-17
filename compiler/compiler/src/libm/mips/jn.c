@@ -116,18 +116,7 @@ extern	double	yn(int, double);
 #pragma weak yn = __yn
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __jn(int, double);
-extern double __yn(int, double);
-#pragma jn
-#pragma yn
-double jn( int n, double x ) {
-  return __jn( n, x );
-}
-double yn( int n, double x ) {
-  return __yn( n, x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __jn(int, double);
 
 double    jn() __attribute__ ((weak, alias ("__jn")));
@@ -437,18 +426,7 @@ error in yn\n");
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __jnl(int, long double);
-extern long double __ynl(int, long double);
-#pragma weak jnl
-#pragma weak ynl
-long double jnl( int n, long double x ) {
-  return __jnl( n, x );
-}
-long double ynl( int n, long double x ) {
-  return __ynl( n, x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __jnl(int, long double);
 
 long double    jnl() __attribute__ ((weak, alias ("__jnl")));

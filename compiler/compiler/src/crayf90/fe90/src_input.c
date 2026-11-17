@@ -2226,7 +2226,7 @@ START:
 # endif
          }
       }
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       else if (((ch = nxt_line[NXT_COL(2)]) == dollar) &&
                ((ch = nxt_line[NXT_COL(3)]) == uc_s   || ch == lc_s) &&
                ((ch = nxt_line[NXT_COL(4)]) == uc_g   || ch == lc_g) &&
@@ -2356,7 +2356,7 @@ START:
 
             idx = NXT_COL(5);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             if (! is_star_directive(idx)) {
                PP_LINE_TYPE = Comment_Line;
             }
@@ -2517,7 +2517,7 @@ START:
 
             idx = NXT_COL(4);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             if (! is_star_directive(idx)) {
                PP_LINE_TYPE = Comment_Line;
             }
@@ -3942,7 +3942,7 @@ START:
 # endif
          }
       }
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       else if (((ch = nxt_line[PP_IDX+1]) == dollar) &&
                ((ch = nxt_line[PP_IDX+2]) == uc_s   || ch == lc_s) &&
                ((ch = nxt_line[PP_IDX+3]) == uc_g   || ch == lc_g) &&
@@ -4134,7 +4134,7 @@ START:
             PP_ACTUAL_DIR_PREFIX = Cstar_Dir;
             in_format = FALSE;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             if (! is_star_directive(idx)) {
                PP_LINE_TYPE = Comment_Line;
             }

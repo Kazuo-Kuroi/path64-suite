@@ -51,14 +51,7 @@ extern	void	vcos(double *, double *, long, long, long);
 #pragma weak vcos = __vcos
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vcos( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vcos
-void vcos( double *x, double *y, long count, long stridex, long stridey ) {
-  __vcos(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vcos(double *, double *, long, long, long);
 void    vcos() __attribute__ ((weak, alias ("__vcos")));
 #endif

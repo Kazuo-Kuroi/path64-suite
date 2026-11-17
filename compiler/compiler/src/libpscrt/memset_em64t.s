@@ -5,19 +5,12 @@
 
 # Optimized memset for EM64T.  Use movdqa/movntdq with 128-bit xmm registers.
 
-#if defined(BUILD_OS_DARWIN)
-	.file		"memset_em64t.s"
-	.text
-	.p2align 4,,15
-.globl memset.pathscale.em64t
-#else /* defined(BUILD_OS_DARWIN) */
 	.file	1	"memset_em64t.s"
 	.text
 	.p2align 4,,15
 	.section .text
 .globl memset.pathscale.em64t
 	.type	memset.pathscale.em64t, @function	# memset (rdi, esi, rdx)
-#endif /* defined(BUILD_OS_DARWIN) */
 memset.pathscale.em64t:	# bb_entry
 	movq	%rdi,%rax		# return the first arg
 

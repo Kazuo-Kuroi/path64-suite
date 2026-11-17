@@ -54,14 +54,7 @@ extern	void	vcisf(float *, complex *, long, long, long);
 #pragma weak vcisf = __vcisf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vcisf( float *x, complex *y, long count, long stridex,
-  long stridey );
-#pragma weak vcisf
-void vcisf( float *x, complex *y, long count, long stridex, long stridey ) {
-  __vcisf(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vcisf(float *, complex *, long, long, long);
 void    vcisf() __attribute__ ((weak, alias ("__vcisf")));
 #endif

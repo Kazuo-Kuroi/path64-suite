@@ -68,7 +68,7 @@ static boolean	 end_task_do_blk(void);
 static void	 finish_cdir_id(void);
 static void	 loop_end_processing(void);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 static void      check_loop_bottom_nesting(void);
 # endif
 
@@ -221,7 +221,7 @@ static void finish_cdir_id(void)
 
       NTR_IR_TBL(init_idx);
       IR_OPR(init_idx) = Init_Opr;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       IR_OPR(init_idx) = Null_Opr;
 # endif
 
@@ -3561,7 +3561,7 @@ static void end_type_blk(boolean	err_call)
 
          if (!aligned) {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
             switch(ATT_ALIGNMENT(CURR_BLK_NAME)) {
             case Align_Bit:
@@ -3680,7 +3680,7 @@ static void loop_end_processing()
    int		save_curr_stmt_sh_idx; 
    int		sh_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN) 
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int		blk_idx;
 # endif
 
@@ -3688,7 +3688,7 @@ static void loop_end_processing()
    TRACE (Func_Entry, "loop_end_processing", NULL);
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN) 
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    /* If the current loop is in a loop nest preceded by a BLOCKABLE directive,*/
    /* make sure all the loops in the DO-variable list of the directive are    */
@@ -3853,7 +3853,7 @@ static void loop_end_processing()
 # endif
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
        
    /* If the current loop is in a loop nest preceded by an INTERCHANGE,       */
    /* PDO, PARALLELDO, or DOACROSS directive, check to see if the current     */
@@ -6170,7 +6170,7 @@ boolean remove_pdo_blk(boolean  cannot_nest,
 }  /* remove_pdo_blk */
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
 
 /******************************************************************************\

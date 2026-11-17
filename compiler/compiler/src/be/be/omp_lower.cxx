@@ -276,10 +276,6 @@ static void OMP_Prompf_Finish()
  * Return the WN for the lowered PU.
  ***********************************************************************/
 
-#if defined(BUILD_OS_DARWIN)
-/* Bug in gcc 4.0.1? Previous extern "C" declaration in omp_lower.h ignored */
-extern "C" { WN *OMP_Prelower(PU_Info *current_pu, WN *pu); }
-#endif /* defined(BUILD_OS_DARWIN) */
 
 WN *OMP_Prelower(PU_Info *current_pu, WN *pu)
 {

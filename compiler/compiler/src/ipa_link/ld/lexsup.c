@@ -49,7 +49,7 @@
 #endif
 
 #ifndef PATH_SEPARATOR
-#if defined (__MSDOS__) || (defined (_WIN32) && ! defined (__CYGWIN32__))
+#if defined (__MSDOS__)
 #define PATH_SEPARATOR ';'
 #else
 #define PATH_SEPARATOR ':'

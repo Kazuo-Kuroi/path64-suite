@@ -55,13 +55,7 @@ extern	double	sin(double);
 #pragma weak sin = __sin
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __sin(double);
-#pragma weak sin
-double sin( double x) {
-  return __sin( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __sin(double);
 
 double    sin() __attribute__ ((weak, alias ("__sin")));
@@ -573,12 +567,7 @@ of significance)\n");
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __sinl(long double);
-long double sinl( long double x ) {	
-  return ( (long double)__sin((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __sinl(long double);
 
 long double    sinl() __attribute__ ((weak, alias ("__sinl")));

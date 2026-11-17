@@ -225,7 +225,7 @@ feclearexcept(int excepts)
 #  define FEGETENV fegetenv
 #endif /* defined(TARG_whatever) */
 
-#if defined(BUILD_OS_DARWIN) || defined(__sun)
+#if defined(__sun)
 /* Environment doesn't provide these functions */
 
 int
@@ -267,7 +267,7 @@ fedisableexcept(int excepts) {
 
   return (~save) & FE_ALL_EXCEPT;
 }
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
 ieee_class _Ieee_class_4_(float *f) {
   ieee_class result;

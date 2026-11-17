@@ -12,10 +12,7 @@ add_custom_target(be-all)
 add_dependencies(compiler-stage be-all)
 
 #Hack for Window building
-IF((${CMAKE_SYSTEM_NAME} MATCHES "Windows"))
-ELSE() 
     ADD_SUBDIRECTORY(csu)
-ENDIF()
 
 ADD_SUBDIRECTORY(common/com)
 ADD_SUBDIRECTORY(driver)
@@ -30,10 +27,7 @@ ADD_SUBDIRECTORY(common/util)
 ADD_SUBDIRECTORY(be)
 
 #Hack for Window building
-IF((${CMAKE_SYSTEM_NAME} MATCHES "Windows"))
-ELSE() 
     ADD_SUBDIRECTORY(libpscrt)
-ENDIF()
 
 IF(PATH64_ENABLE_GNU_FRONTEND)
     ADD_SUBDIRECTORY(wgen)
@@ -65,11 +59,8 @@ ADD_SUBDIRECTORY(libm)
 ADD_SUBDIRECTORY(libmpath)
 
 #Hack for Window building
-IF((${CMAKE_SYSTEM_NAME} MATCHES "Windows")) 
-ELSE()
     ADD_SUBDIRECTORY(instrumentation)
     ADD_SUBDIRECTORY(arith)
-ENDIF()
 
 # TODO : Can't determine linking method
 
@@ -91,8 +82,4 @@ ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 # http://hub.opensolaris.org/bin/download/Project+muskoka/virtual_memory/opensolarisvm1.pdf
 # http://docs.sun.com/app/docs/doc/816-0210/6m6nb7mf1?a=view
 # http://cvs.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/uts/sun4/os/startup.c
-# 
-
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-     ADD_SUBDIRECTORY(windows)
-ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+#

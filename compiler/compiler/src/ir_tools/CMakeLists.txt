@@ -77,10 +77,6 @@ path64_multiarch_link_libraries(ir_size erdesc m)
 path64_set_multiarch_property(ir_size COMPILE_FLAGS
                               "-I${CMAKE_CURRENT_SOURCE_DIR}/../common/com/@ARCH@ -I${PATHSCALE_BINARY_DIR}/common/targ_info/@ARCH@")
 path64_install_multiarch(ir_size)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows") 
-    path64_multiarch_link_libraries(ir_b2a winlib iberty)
-    path64_multiarch_link_libraries(ir_size winlib iberty)
-endif() 
 
 
 foreach(arch ${PATH64_ENABLE_ARCHES})

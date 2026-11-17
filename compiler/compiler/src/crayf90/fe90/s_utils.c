@@ -150,7 +150,7 @@ boolean resolve_ext_opr(opnd_type 	*opnd,
    int		col;
    int		darg_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int		false_list_idx 		= NULL_IDX;
 # endif
 
@@ -691,7 +691,7 @@ boolean resolve_ext_opr(opnd_type 	*opnd,
              (cmd_line_flags.runtime_argument ||
              cmd_line_flags.runtime_arg_call)) {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             list1_idx = IR_IDX_R(ir_idx);
             list2_idx = NULL_IDX;
 
@@ -751,7 +751,7 @@ boolean resolve_ext_opr(opnd_type 	*opnd,
                (IR_LIST_CNT_R(ir_idx))++;
             }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             if (false_list_idx != NULL_IDX) {
                IL_NEXT_LIST_IDX(list2_idx) = false_list_idx;
                list1_idx = false_list_idx;
@@ -2955,7 +2955,7 @@ void gen_entry_dope_code(int	 attr_idx)
    }
    else if (ATD_IN_COMMON(attr_idx)) {
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       func = gen_common_dv_init;
       opr = Init_Opr;
 # else
@@ -2980,7 +2980,7 @@ void gen_entry_dope_code(int	 attr_idx)
       goto EXIT;
    }
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    if (ATP_PGM_UNIT(SCP_ATTR_IDX(curr_scp_idx)) == Module &&
        ATD_IN_COMMON(attr_idx)) {
@@ -5493,7 +5493,7 @@ void    short_circuit_branch(void)
             if (IR_SHORT_CIRCUIT_L(log_idx)) {
                left_is_worse = TRUE;
             }
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             else {
                left_is_worse = FALSE;
             }
@@ -7151,7 +7151,7 @@ boolean	gen_internal_dope_vector(int_dope_type		*dope_vec,
 
    dope_vec->unused_1 = 0;
 
-# if defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    /*************\
    |* UNUSED 2  *|
    \*************/
@@ -7166,7 +7166,7 @@ boolean	gen_internal_dope_vector(int_dope_type		*dope_vec,
 
    dope_vec->num_dims = exp_desc->rank;
 
-# if defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 # ifndef _TYPE_CODE_64_BIT
    /*************\
    |* UNUSED 3  *|
@@ -8455,7 +8455,7 @@ int gen_static_integer_array_tmp(int	size,
 
    TRACE (Func_Entry, "gen_static_integer_array_tmp", NULL);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    type_idx = SA_INTEGER_DEFAULT_TYPE;
 # else
    type_idx = CG_INTEGER_DEFAULT_TYPE;
@@ -9089,7 +9089,7 @@ int	set_up_logical_constant(long_type	*the_constant,
 
 /* BRIANJ KAYKAY - Should this use arith? */
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (TYP_LINEAR(type_idx) == Logical_8) {
 # if defined(_HOST_LITTLE_ENDIAN) && defined(_TARGET_LITTLE_ENDIAN)
       *(long long *)the_constant = value;
@@ -12033,7 +12033,7 @@ void runtime_ptr_chk_driver(void)
 void gen_copyin_bounds_stmt(int	attr_idx)
 
 {
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int		col;
    int		ir_idx;
    int		line;

@@ -96,7 +96,6 @@ AM_CONDITIONAL(USE_ALTIVEC, test x$use_altivec = xhas_altivec)
 
 get_arch() {
  case "$1" in
-  arm*) echo arm;;
   i?86) echo x86;;
   hppa*) echo hppa;;
   mips*) echo mips;;
@@ -111,7 +110,6 @@ host_arch=`get_arch $host_cpu`
 target_arch=`get_arch $target_cpu`
 
 AM_CONDITIONAL(REMOTE_ONLY, test x$target_arch != x$host_arch)
-AM_CONDITIONAL(ARCH_ARM, test x$target_arch = xarm)
 AM_CONDITIONAL(ARCH_IA64, test x$target_arch = xia64)
 AM_CONDITIONAL(ARCH_HPPA, test x$target_arch = xhppa)
 AM_CONDITIONAL(ARCH_MIPS, test x$target_arch = xmips)
@@ -144,7 +142,6 @@ AC_ARG_ENABLE(cxx_exceptions,
 # C++ exception handling doesn't work too well on x86
 case $target_arch in
   x86*) enable_cxx_exceptions=no;;
-  arm*) enable_cxx_exceptions=no;;
   mips*) enable_cxx_exceptions=no;;
   *) enable_cxx_exceptions=yes;;
 esac

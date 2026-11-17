@@ -44,13 +44,7 @@ extern	double	trunc(double);
 #pragma weak trunc = __trunc
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __trunc(double);
-#pragma weak trunc
-double trunc( double arg ) {
-  return __trunc( arg );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __trunc(double);
 double    trunc() __attribute__ ((weak, alias ("__trunc")));
 #endif

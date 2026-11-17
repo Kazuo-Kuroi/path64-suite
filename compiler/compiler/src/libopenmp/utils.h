@@ -95,15 +95,5 @@ extern void __pmp_profile_disable (void);
 extern void __pmp_profile_dump (void);
 extern void __pmp_profile_reset (void);
 
-#if defined(BUILD_OS_DARWIN)
-/* Pass this to get_sysctl_int() to get the equivalent of
- * sysconf(_SC_NPROCESSORS_ONLN); (hw.ncpu, hw.activecpu, hw.availcpu,
- * and hw.logicalcpu are also available, so might need to change this
- * definition of any of those is closer to the meaning of _SC_NPROCESSORS_ONLN)
- */
-#define SYSCTL_NPROCESSORS_ONLN "hw.physicalcpu"
-extern void *darwin_memalign(size_t, size_t, char *);
-extern long int get_sysctl_int(char *);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 #endif

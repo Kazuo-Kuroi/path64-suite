@@ -52,9 +52,6 @@ extern  char    **__Argv;       /* Pointer to pointer to arguments */
 #elif defined(__linux) || defined(__sun) || defined(__FreeBSD__)
 extern	int	f__xargc;	/* Number of argv fields */
 extern	char	**f__xargv;	/* Pointer to pointer to arguments */
-#elif defined(BUILD_OS_DARWIN)
-extern int NXArgc;
-extern char **NXArgv;
 #else
 extern  int     __xargc;         /* Number of argv fields */
 extern  char    **__xargv;       /* Pointer to pointer to arguments */
@@ -91,8 +88,6 @@ _PXFGETARG(
 	if (argnum < 0 || argnum >= __Argc) {
 #elif defined(__linux) || defined(__sun) || defined(__FreeBSD__)
 	if (argnum < 0 || argnum >= f__xargc) {
-#elif defined(BUILD_OS_DARWIN)
-	if (argnum < 0 || argnum >= NXArgc) {
 #else
 	if (argnum < 0 || argnum >= __xargc) {
 #endif
@@ -107,8 +102,6 @@ _PXFGETARG(
 		argstr	= __Argv[argnum];
 #elif defined(__linux) || defined(__sun) || defined(__FreeBSD__)
 		argstr	= f__xargv[argnum];
-#elif defined(BUILD_OS_DARWIN)
-		argstr	= NXArgv[argnum];
 #else
 		argstr	= __xargv[argnum];
 #endif

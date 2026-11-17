@@ -52,11 +52,7 @@ char *ldpath_for_pixie = NULL;
  * in the OPTIONS table.
  */
 
-#ifdef _WIN32
-#define PCC  "CX"
-#else
 #define PCC  "CC"
-#endif
 
 #define MAX_LANG_NAMES 5
 typedef struct lang_struct {

@@ -436,7 +436,7 @@ static int cri_ptr_type(int	type_idx)
 |*									      *|
 \******************************************************************************/
 
-#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #if COMPILER_VERSION < 730
 static void dummydummydummy(void *a, void *b){}
 #endif
@@ -493,7 +493,7 @@ static boolean optimize_reshape(opnd_type	*result_opnd,
       info_idx1 = IL_ARG_DESC_IDX(list_idx1);
       info_idx2 = IL_ARG_DESC_IDX(list_idx2);
 
-#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #if COMPILER_VERSION < 730
       /* Work around 7.2.1.2 optimizer bug */
       dummydummydummy(&info_idx1,&info_idx2);
@@ -641,7 +641,7 @@ static boolean optimize_reshape(opnd_type	*result_opnd,
 
          attr_idx = find_base_attr(&IL_OPND(list_idx1), &unused1, &unused2);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          if (AT_OBJ_CLASS(attr_idx) == Data_Obj) {
             ATD_NOT_PT_UNIQUE_MEM(attr_idx) = TRUE;
          }
@@ -1221,7 +1221,7 @@ void    erf_intrinsic(opnd_type     *result_opnd,
    int		list_idx1;
    int		ir_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    opnd_type	  opnd;
 # endif
 
@@ -1238,7 +1238,7 @@ void    erf_intrinsic(opnd_type     *result_opnd,
                  spec_idx,
                  FALSE);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 4232 */
    /* If we're defining a statement function X which calls some
     * other function Y, there's no need to generate code to copy
@@ -1851,7 +1851,7 @@ void    iand_intrinsic(opnd_type     *result_opnd,
 
 
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = INTEGER_DEFAULT_TYPE;
    if (arg_info_list[info_idx1].ed.type == Integer) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = 
@@ -1864,7 +1864,7 @@ void    iand_intrinsic(opnd_type     *result_opnd,
        arg_info_list[info_idx1].ed.linear_type == Typeless_8 ||
        arg_info_list[info_idx1].ed.linear_type == Real_8) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Integer_8;
 # endif
    }
@@ -2039,13 +2039,13 @@ void    iand_intrinsic(opnd_type     *result_opnd,
    if (TYP_LINEAR(ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx))) == Integer_8 ||
        TYP_LINEAR(ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx))) == Typeless_8) {
       typeless_idx = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       typeless_idx = Integer_8;
 # endif
    }
    else {
       typeless_idx = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       typeless_idx = INTEGER_DEFAULT_TYPE;
       if (arg_info_list[info_idx1].ed.type == Integer) {
          typeless_idx = arg_info_list[info_idx1].ed.linear_type;
@@ -2758,7 +2758,7 @@ void    sign_intrinsic(opnd_type     *result_opnd,
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = arg_info_list[info_idx1].ed.type_idx;
    type_idx  = ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx));
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (arg_info_list[info_idx1].ed.linear_type == Real_16) {
       ATP_EXTERNAL_INTRIN(*spec_idx) = TRUE;
    }
@@ -2810,7 +2810,7 @@ void    sign_intrinsic(opnd_type     *result_opnd,
       }
       else {
          IR_OPR(ir_idx) = Sign_Opr;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          if (on_off_flags.recognize_minus_zero &&
              arg_info_list[info_idx1].ed.type == Real) {
             IR_OPR(ir_idx) = Ieee_Copy_Sign_Opr;
@@ -3020,7 +3020,7 @@ void    shift_intrinsic(opnd_type     *result_opnd,
 
 
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = INTEGER_DEFAULT_TYPE;
    if (arg_info_list[info_idx1].ed.type == Integer) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = 
@@ -3034,7 +3034,7 @@ void    shift_intrinsic(opnd_type     *result_opnd,
        arg_info_list[info_idx1].ed.linear_type == Typeless_8 ||
        arg_info_list[info_idx1].ed.linear_type == Real_8) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Integer_8;
 # endif
    }
@@ -3654,7 +3654,7 @@ void    not_intrinsic(opnd_type     *result_opnd,
 
       if (ATP_INTRIN_ENUM(*spec_idx) == Compl_Intrinsic) {
          ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = INTEGER_DEFAULT_TYPE;
          if (arg_info_list[info_idx1].ed.type == Integer) {
             ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) =
@@ -3668,7 +3668,7 @@ void    not_intrinsic(opnd_type     *result_opnd,
              (arg_info_list[info_idx1].ed.linear_type == Typeless_8) ||
              (arg_info_list[info_idx1].ed.linear_type == Real_8)) { 
             ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
               ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Integer_8;
 # endif
          }
@@ -4373,7 +4373,7 @@ void    ranget_intrinsic(opnd_type     *result_opnd,
    info_idx1 = IL_ARG_DESC_IDX(list_idx1);
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = TYPELESS_DEFAULT_TYPE;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Integer_8;
 # endif
 
@@ -4393,7 +4393,7 @@ void    ranget_intrinsic(opnd_type     *result_opnd,
                                   Priv, TRUE);
       ATD_STOR_BLK_IDX(tmp_attr) = SCP_SB_STACK_IDX(curr_scp_idx);
       ATD_TYPE_IDX(tmp_attr) = INTEGER_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       ATD_TYPE_IDX(tmp_attr) = Integer_8;
 # endif
       AT_SEMANTICS_DONE(tmp_attr) = TRUE;
@@ -4428,7 +4428,7 @@ void    ranget_intrinsic(opnd_type     *result_opnd,
       }
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    COPY_OPND(old_opnd, IL_OPND(list_idx1));
    cast_to_type_idx(&old_opnd, &arg_info_list[info_idx1].ed, Integer_8);
    COPY_OPND(IL_OPND(list_idx1), old_opnd);
@@ -4682,7 +4682,7 @@ void    mask_intrinsic(opnd_type     *result_opnd,
    list_idx1 = IR_IDX_R(ir_idx);
    info_idx1 = IL_ARG_DESC_IDX(list_idx1);
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = INTEGER_DEFAULT_TYPE;
    if (arg_info_list[info_idx1].ed.type == Integer) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) =
@@ -4695,7 +4695,7 @@ void    mask_intrinsic(opnd_type     *result_opnd,
 # ifdef _TARGET32
    if (arg_info_list[info_idx1].ed.linear_type == Integer_8) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Integer_8;
 # endif
    }
@@ -4911,7 +4911,7 @@ void    length_intrinsic(opnd_type     *result_opnd,
 {
    int            ir_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    opnd_type	  opnd;
 # endif
 
@@ -4927,7 +4927,7 @@ void    length_intrinsic(opnd_type     *result_opnd,
                  spec_idx,
                  FALSE);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 4232 */
    /* See comment in erf_intrinsic() */
    if (!defining_stmt_func) {
@@ -5043,7 +5043,7 @@ void    unit_intrinsic(opnd_type     *result_opnd,
 {
    int            ir_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    opnd_type	  opnd;
 # endif
 
@@ -5059,7 +5059,7 @@ void    unit_intrinsic(opnd_type     *result_opnd,
                  spec_idx,
                  FALSE);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 4232 */
    /* See comment in erf_intrinsic() */
    if (!defining_stmt_func) {
@@ -7029,7 +7029,7 @@ void    cvmgp_intrinsic(opnd_type     *result_opnd,
 
    if (arg_info_list[info_idx1].ed.type == Logical) {
       type_idx = LOGICAL_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       if (arg_info_list[info_idx1].ed.type == Logical) {
          type_idx = arg_info_list[info_idx1].ed.linear_type;
       }
@@ -7037,7 +7037,7 @@ void    cvmgp_intrinsic(opnd_type     *result_opnd,
    }
    else {
       type_idx = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       type_idx = INTEGER_DEFAULT_TYPE;
       if (arg_info_list[info_idx1].ed.type == Integer) {
          type_idx = arg_info_list[info_idx1].ed.linear_type;
@@ -7053,14 +7053,14 @@ void    cvmgp_intrinsic(opnd_type     *result_opnd,
           (arg_info_list[info_idx2].ed.linear_type == Typeless_8) ||
           (arg_info_list[info_idx2].ed.linear_type == Real_8)) { 
          type_idx = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          type_idx = Integer_8;
 # endif
       }
 
       if (arg_info_list[info_idx1].ed.type == Real &&
           arg_info_list[info_idx2].ed.type == Real) {
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          type_idx = arg_info_list[info_idx1].ed.linear_type;
 # endif
       }
@@ -7275,7 +7275,7 @@ void    csmg_intrinsic(opnd_type     *result_opnd,
 
 
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = INTEGER_DEFAULT_TYPE;
    if (arg_info_list[info_idx1].ed.type == Integer) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) =
@@ -7295,7 +7295,7 @@ void    csmg_intrinsic(opnd_type     *result_opnd,
        (arg_info_list[info_idx3].ed.linear_type == Typeless_8) ||
        (arg_info_list[info_idx3].ed.linear_type == Real_8)) {
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx)) = Integer_8;
 # endif
    }
@@ -8156,7 +8156,7 @@ void    ibits_intrinsic(opnd_type     *result_opnd,
    opnd_type	  opnd;
    int            typeless_idx;
 
-# if !(defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if !(defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int            cn_idx;
    int            cn_idx2;
    long		  num;
@@ -8191,14 +8191,14 @@ void    ibits_intrinsic(opnd_type     *result_opnd,
 
    if (TYP_LINEAR(ATD_TYPE_IDX(ATP_RSLT_IDX(*spec_idx))) == Integer_8) {
       typeless_idx = Typeless_8;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       typeless_idx = Integer_8;
 # endif
 
    }
    else {
       typeless_idx = TYPELESS_DEFAULT_TYPE;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       typeless_idx = INTEGER_DEFAULT_TYPE;
       if (arg_info_list[info_idx1].ed.type == Integer) {
          typeless_idx = arg_info_list[info_idx1].ed.linear_type;
@@ -8230,7 +8230,7 @@ void    ibits_intrinsic(opnd_type     *result_opnd,
       fold_it = TRUE;
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    IR_OPR(ir_idx) = Ibits_Opr;
    COPY_OPND(IR_OPND_L(ir_idx), IR_OPND_R(ir_idx));
@@ -9318,7 +9318,7 @@ void    ishftc_intrinsic(opnd_type     *result_opnd,
                          int           *spec_idx)
 {
 
-# if !(defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if !(defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int            ishft2_idx;
    int            minus_idx;
    int            uminus_idx;
@@ -9525,7 +9525,7 @@ void    ishftc_intrinsic(opnd_type     *result_opnd,
       fold_it = TRUE;
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    IR_OPR(ir_idx) = Ishftc_Opr;
    COPY_OPND(IR_OPND_L(ir_idx), IR_OPND_R(ir_idx));
@@ -10087,7 +10087,7 @@ void    mvbits_intrinsic(opnd_type     *result_opnd,
                   NO_Tbl_Idx, NULL_IDX);
    
    IR_OPR(ir_idx) = Asg_Opr;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    IR_OPR(ir_idx) = Mvbits_Opr;
 # else
    IR_FLD_R(ir_idx) = IR_Tbl_Idx;
@@ -10495,7 +10495,7 @@ void    random_seed_intrinsic(opnd_type     *result_opnd,
 	 /* SIZE should return the number of default integer elements needes */
 	 /* to store the seed */
          cn_idx = C_INT_TO_CN(CG_INTEGER_DEFAULT_TYPE, (8/int_sz)*16);
-# elif (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#elif (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          cn_idx = C_INT_TO_CN(CG_INTEGER_DEFAULT_TYPE, 64);
 # else
          cn_idx = CN_INTEGER_ONE_IDX;
@@ -11598,7 +11598,7 @@ void    cshift_intrinsic(opnd_type     *result_opnd,
    ATP_EXTERNAL_INTRIN(*spec_idx) = FALSE;
 # endif
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    ATP_EXTERNAL_INTRIN(*spec_idx) = TRUE;
 # endif
 
@@ -11677,7 +11677,7 @@ void    cshift_intrinsic(opnd_type     *result_opnd,
       info_idx3 = IL_ARG_DESC_IDX(list_idx3);
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (list_idx3 != NULL_IDX && 
        IL_IDX(list_idx3) != NULL_IDX &&
        IL_FLD(list_idx3) == CN_Tbl_Idx) {
@@ -16662,7 +16662,7 @@ void    clock_intrinsic(opnd_type     *result_opnd,
    TRACE (Func_Entry, "clock_intrinsic", NULL);
 
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    CLEAR_TBL_NTRY(type_tbl, TYP_WORK_IDX);
    TYP_TYPE(TYP_WORK_IDX) = Character;
    TYP_LINEAR(TYP_WORK_IDX) = CHARACTER_DEFAULT_TYPE;
@@ -17966,7 +17966,7 @@ void    dot_product_intrinsic(opnd_type     *result_opnd,
 {
    int            ir_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int            list_idx1;
    int            info_idx1;
 # endif
@@ -17980,7 +17980,7 @@ void    dot_product_intrinsic(opnd_type     *result_opnd,
 
    ir_idx = OPND_IDX((*result_opnd));
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    list_idx1 = IR_IDX_R(ir_idx);
    info_idx1 = IL_ARG_DESC_IDX(list_idx1);
 # endif
@@ -18000,7 +18000,7 @@ void    dot_product_intrinsic(opnd_type     *result_opnd,
       io_item_must_flatten = TRUE;
       IR_OPR(ir_idx) = Dot_Product_Opr;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       if (arg_info_list[info_idx1].ed.type == Logical) {
          IR_OPR(ir_idx) = Dot_Product_Logical_Opr;
       }
@@ -18099,7 +18099,7 @@ void    matmul_intrinsic(opnd_type     *result_opnd,
       }
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    if (res_exp_desc->rank == 1) {
        ATP_EXTERNAL_INTRIN(*spec_idx) = !opt_flags.mv_matmul_inline;
@@ -18532,7 +18532,7 @@ void    transfer_intrinsic(opnd_type     *result_opnd,
       }
 
       if (
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
           FALSE &&     /* never inline this intrinsic for IRIX */
 # endif
           arg_info_list[info_idx1].ed.type != Character &&

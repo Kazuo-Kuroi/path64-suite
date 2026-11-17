@@ -195,7 +195,7 @@ void complete_intrinsic_definition(int		generic_attr)
       /* static intrinsic table now to reflect the  */
       /* correct result type of this intrinsic.     */
 
-# if defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#if defined(_TARGET_OS_LINUX)
          if (intrin_tbl[intrin_tbl_idx].n_specifics == 1) {
             if (intrin_tbl[intrin_tbl_idx].id_str.string[0] == 'Q' ||
                 (intrin_tbl[intrin_tbl_idx].id_str.string[0] == 'C' &&
@@ -1163,7 +1163,7 @@ void parse_prog_unit (void)
    int		sh_idx;
    int		old_end_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int		ir_idx;
 # endif
 
@@ -1506,7 +1506,7 @@ void parse_prog_unit (void)
 
       }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       if (stmt_type != Directive_Stmt) {
          directives_are_global = FALSE;
       }
@@ -2755,7 +2755,7 @@ extern	void init_type(void)
    }
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    if (cmd_line_flags.s_pointer8) {
       storage_bit_size_tbl[CRI_Ptr_8] = 64;

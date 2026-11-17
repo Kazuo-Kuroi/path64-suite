@@ -68,13 +68,7 @@ extern	float	log1pf(float);
 #pragma weak log1pf = __log1pf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __log1pf(float);
-#pragma weak log1pf
-float log1pf( float x ) {
-  return __log1pf( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __log1pf(float);
 float    log1pf(float) __attribute__ ((weak, alias ("__log1pf")));
 #endif

@@ -38,8 +38,6 @@
  */
 #if defined(UNICOS) || defined(UNIX_NAMING_CONVENTION)
 #define SUBNAME _L4LGEMMX
-#elif defined(BUILD_COMPILER_GNU) && defined(BUILD_OS_DARWIN)
-#define SUBNAME underscore_l4lgemmx_
 #else
 #define SUBNAME _l4lgemmx_
 #endif

@@ -55,14 +55,7 @@ extern	void	vasinf(float *, float *, long, long, long);
 #pragma weak vasinf = __vasinf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vasinf( float *x, float *y, long count, long stridex,
-  long stridey );
-#pragma weak vasinf
-void vasinf( float *x, float *y, long count, long stridex, long stridey ) {
-  __vasinf(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vasinf(float *, float *, long, long, long);
 void    vasinf() __attribute__ ((weak, alias ("__vasinf")));
 #endif

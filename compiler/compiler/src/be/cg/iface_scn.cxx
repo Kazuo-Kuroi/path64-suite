@@ -46,7 +46,6 @@
  * ====================================================================
  */
 
-#if ! defined(BUILD_OS_DARWIN)
 
 #if defined(__GNUC__)
 #include <sys/types.h>
@@ -1357,12 +1356,3 @@ Interface_Scn_Add_Call( ST *call_sym, WN *call_wn)
     }
   }
 }
-
-
-#else /* ! defined(BUILD_OS_DARWIN) */
-#include "wn.h"
-extern void Interface_Scn_Begin_File( void ) {}
-extern void Interface_Scn_End_File( void ) {}
-extern void Interface_Scn_Add_Def( ST *, WN *) {}
-extern void Interface_Scn_Add_Call( ST *, WN *) {}
-#endif /* ! defined(BUILD_OS_DARWIN) */

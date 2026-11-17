@@ -21,18 +21,9 @@ UniversalArchs.eprintf := i386
 Configs += 10.4
 UniversalArchs.10.4 := i386 x86_64
 
-# Configuration for targetting armv6. We need a few additional functions which
-# must be in the same linkage unit.
-Configs += armv6
-UniversalArchs.armv6 := armv6
-
 # Configuration for use with kernel/kexts.
 Configs += cc_kext
-UniversalArchs.cc_kext := armv6 i386 x86_64
-
-# FIXME: Don't build an armv7 slice currently, they have the same functions.
-#
-#UniversalArchs.cc_kext := armv6 armv7 i386 x86_64
+UniversalArchs.cc_kext := i386 x86_64
 
 ###
 
@@ -46,8 +37,6 @@ CFLAGS := -Wall -Werror -O3 -fomit-frame-pointer
 
 FUNCTIONS.eprintf := eprintf
 FUNCTIONS.10.4 := eprintf floatundidf floatundisf floatundixf
-FUNCTIONS.armv6 := switch16 switch32 switch8 switchu8 \
-                   save_vfp_d8_d15_regs restore_vfp_d8_d15_regs
 
 CCKEXT_COMMON_FUNCTIONS := \
 	absvdi2 \
@@ -105,64 +94,7 @@ CCKEXT_COMMON_FUNCTIONS := \
 	udivmoddi4 \
 	umoddi3
 
-CCKEXT_ARM_FUNCTIONS := $(CCKEXT_COMMON_FUNCTONS) \
-	adddf3 \
-	addsf3 \
-	aeabi_cdcmpeq \
-	aeabi_cdrcmple \
-	aeabi_cfcmpeq \
-	aeabi_cfrcmple \
-	aeabi_dcmpeq \
-	aeabi_dcmpge \
-	aeabi_dcmpgt \
-	aeabi_dcmple \
-	aeabi_dcmplt \
-	aeabi_drsub \
-	aeabi_fcmpeq \
-	aeabi_fcmpge \
-	aeabi_fcmpgt \
-	aeabi_fcmple \
-	aeabi_fcmplt \
-	aeabi_frsub \
-	aeabi_idivmod \
-	aeabi_uidivmod \
-	cmpdf2 \
-	cmpsf2 \
-	div0 \
-	divdf3 \
-	divsf3 \
-	divsi3 \
-	extendsfdf2 \
-	ffssi2 \
-	fixdfsi \
-	fixsfsi \
-	floatsidf \
-	floatsisf \
-	floatunsidf \
-	floatunsisf \
-	gtdf2 \
-	gtsf2 \
-	ltdf2 \
-	ltsf2 \
-	modsi3 \
-	muldf3 \
-	mulsf3 \
-	negdf2 \
-	negsf2 \
-	subdf3 \
-	subsf3 \
-	switch16 \
-	switch32 \
-	switch8 \
-	switchu8 \
-	truncdfsf2 \
-	udivsi3 \
-	umodsi3 \
-	unorddf2 \
-	unordsf2
 
-FUNCTIONS.cc_kext.armv6 := $(CCKEXT_ARM_FUNCTIONS)
-FUNCTIONS.cc_kext.armv7 := $(CCKEXT_ARM_FUNCTIONS)
 
 CCKEXT_X86_FUNCTIONS := $(CCKEXT_COMMON_FUNCTIONS) \
 	divxc3 \
@@ -239,10 +171,6 @@ CCKEXT_MISSING_FUNCTIONS := \
 	aeabi_fcmpge aeabi_fcmpgt aeabi_fcmple aeabi_fcmplt aeabi_frsub aeabi_idivmod \
 	aeabi_uidivmod
 
-FUNCTIONS.cc_kext.armv6 := \
-	$(filter-out $(CCKEXT_MISSING_FUNCTIONS),$(FUNCTIONS.cc_kext.armv6))
-FUNCTIONS.cc_kext.armv7 := \
-	$(filter-out $(CCKEXT_MISSING_FUNCTIONS),$(FUNCTIONS.cc_kext.armv7))
 FUNCTIONS.cc_kext.i386 := \
 	$(filter-out $(CCKEXT_MISSING_FUNCTIONS),$(FUNCTIONS.cc_kext.i386))
 FUNCTIONS.cc_kext.x86_64 := \

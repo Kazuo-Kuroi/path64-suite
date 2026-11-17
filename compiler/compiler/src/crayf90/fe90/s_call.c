@@ -189,7 +189,7 @@ dont_bounds_check_base_subtree(opnd_type *base_opnd) {
 }
 #endif /* KEY Bug 11250 */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 static	void		set_inline_state(int, int);
 # endif
 
@@ -358,7 +358,7 @@ boolean call_list_semantics(opnd_type     *result_opnd,
    int                 spec_idx;
    int		       type_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int		       false_list_idx 		= NULL_IDX;
 # endif
 #ifdef KEY /* Bug 572 */
@@ -403,7 +403,7 @@ boolean call_list_semantics(opnd_type     *result_opnd,
    locked_in              = AT_LOCKED_IN(attr_idx);
    AT_LOCKED_IN(attr_idx) = TRUE;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    IR_INLINE_STATE(ir_idx) = Not_Specified_Sgi;
    set_inline_state(ir_idx, attr_idx);
 # endif
@@ -419,7 +419,7 @@ boolean call_list_semantics(opnd_type     *result_opnd,
       locked_in              = locked_in || AT_LOCKED_IN(attr_idx);
       AT_LOCKED_IN(attr_idx) = TRUE;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       set_inline_state(ir_idx, attr_idx);
 # endif
 
@@ -431,7 +431,7 @@ boolean call_list_semantics(opnd_type     *result_opnd,
 
       attr_idx = ATP_DUMMY_PROC_LINK(attr_idx);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       set_inline_state(ir_idx, attr_idx);
 # endif
 
@@ -1843,7 +1843,7 @@ CONTINUE:
                 (cmd_line_flags.runtime_argument ||
                  cmd_line_flags.runtime_arg_call)) {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                list_idx = IR_IDX_R(ir_idx);
                list_idx2 = NULL_IDX;
 
@@ -1902,7 +1902,7 @@ CONTINUE:
                   (IR_LIST_CNT_R(ir_idx))++;
                }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                if (false_list_idx) {
                   IL_NEXT_LIST_IDX(list_idx2) = false_list_idx;
                   list_idx = false_list_idx;
@@ -3359,7 +3359,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 
          /* replace with zero */
        
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          if (explicit &&
              ! io_call &&
              (AT_OBJ_CLASS(dummy) == Data_Obj &&
@@ -3414,7 +3414,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 
          }
          else {
-#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
            NTR_IR_TBL(fcd_idx);
            IR_OPR(fcd_idx) = Aloc_Opr;
            IR_TYPE_IDX(fcd_idx) = CRI_Ptr_8;
@@ -3520,7 +3520,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
          }
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          NTR_IR_TBL(ir_idx);
          IR_OPR(ir_idx)      = Aloc_Opr;
          IR_TYPE_IDX(ir_idx) = CRI_Parcel_Ptr_8;
@@ -4182,7 +4182,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
          }
       }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       if (association == CHECK_CONTIG_FLAG &&
           arg_info_list[info_idx].ed.type == Character) {
 
@@ -4261,7 +4261,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 	    pass_address_count += 1;
 #endif /* _DEBUG */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 7424 */
             if (clear_pt_unique_mem(dummy)) {
 #endif /* KEY Bug 7424 */
@@ -4377,7 +4377,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
             pass_section_address_count += 1;
 #endif /* _DEBUG */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 7424 */
             if (clear_pt_unique_mem(dummy)) {
 #endif /* KEY Bug 7424 */
@@ -4430,7 +4430,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
             pass_address_from_dv_count += 1;
 #endif /* _DEBUG */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 7424 */
             if (clear_pt_unique_mem(dummy)) {
 #endif /* KEY Bug 7424 */
@@ -4488,7 +4488,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
             pass_dv_count += 1;
 #endif /* _DEBUG */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 7424 */
             if (clear_pt_unique_mem(dummy)) {
 #endif /* KEY Bug 7424 */
@@ -4558,7 +4558,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 
                tmp_dv_idx = create_tmp_DV_asg(list_idx, info_idx);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 10157 */
  /* Original dope vector is used only in caller, and copy of dope vector is
   * used only in called procedure, so leave "pointer to unique memory"
@@ -4633,7 +4633,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
                tmp_dv_idx = create_tmp_DV_asg(list_idx, info_idx);
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 10157 */
  /* Original dope vector is used only in caller, and copy of dope vector is
   * used only in called procedure, so leave "pointer to unique memory"
@@ -4686,7 +4686,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
                 (TYP_TYPE(CN_TYPE_IDX(IL_IDX(list_idx))) == Integer ||
                  TYP_TYPE(CN_TYPE_IDX(IL_IDX(list_idx))) == Logical ||
                  TYP_TYPE(CN_TYPE_IDX(IL_IDX(list_idx))) == Real    ||
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                  (TYP_TYPE(CN_TYPE_IDX(IL_IDX(list_idx))) == Character &&
                   ! on_off_flags.pad_char_literals)                 ||
 # endif
@@ -4713,7 +4713,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
                 arg_info_list[info_idx].ed.type == Character &&
                 dummy == NULL_IDX                            &&
              compare_cn_and_value(TYP_IDX(arg_info_list[info_idx].ed.type_idx),
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                                   storage_bit_size_tbl[INTEGER_DEFAULT_TYPE]/8,
 # else
                                   TARGET_CHARS_PER_WORD,
@@ -4728,7 +4728,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
                TYP_CHAR_CLASS(TYP_WORK_IDX) = Const_Len_Char;
                TYP_FLD(TYP_WORK_IDX)        = CN_Tbl_Idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                the_constant = storage_bit_size_tbl[INTEGER_DEFAULT_TYPE]/8;
 # else
                the_constant = TARGET_CHARS_PER_WORD;
@@ -5076,7 +5076,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 
                tmp_idx = gen_compiler_tmp(line, col, Priv, TRUE);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                ATD_NOT_PT_UNIQUE_MEM(tmp_idx) = TRUE;
                ATD_NOT_PT_UNIQUE_MEM(
                      (find_left_attr(&IL_OPND(list_idx)))) = TRUE;
@@ -5164,7 +5164,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 
                tmp_idx = gen_compiler_tmp(line, col, Priv, TRUE);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                ATD_NOT_PT_UNIQUE_MEM(tmp_idx) = TRUE;
                ATD_NOT_PT_UNIQUE_MEM(
                         (find_left_attr(&IL_OPND(list_idx)))) = TRUE;
@@ -5279,7 +5279,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
 
             tmp_dv_idx = gen_compiler_tmp(line, col, Priv, TRUE);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Bug 7424 */
             if (clear_pt_unique_mem(dummy)) {
 #endif /* KEY Bug 7424 */
@@ -5367,7 +5367,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
             /* generate address temp */
 
 # if 0
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             NTR_IR_LIST_TBL(false_list_idx);
             NTR_IR_TBL(false_parm_idx);
             IR_OPR(false_parm_idx) = False_Parm_Opr;
@@ -5397,7 +5397,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
             ATD_STOR_BLK_IDX(addr_tmp_idx)  = SCP_SB_STACK_IDX(curr_scp_idx);
             AT_SEMANTICS_DONE(addr_tmp_idx) = TRUE;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             ATD_NOT_PT_UNIQUE_MEM(addr_tmp_idx) = TRUE;
             ATD_NOT_PT_UNIQUE_MEM(find_left_attr(&IL_OPND(list_idx))) = TRUE;
 # endif
@@ -5560,7 +5560,7 @@ boolean final_arg_work(opnd_type	*list_opnd,
                                      TRUE, 
                                      FALSE);
 #endif /* KEY Bug 8117 */
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 #ifdef KEY /* Sicortex bug 7156 */
             if (clear_pt_unique_mem(tmp_idx)) {
 #endif /* KEY Sicortex bug 7156 */
@@ -8016,7 +8016,7 @@ void flatten_function_call(opnd_type     *result)
          AT_SEMANTICS_DONE(tmp_idx)= TRUE;
       }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       ATD_NOT_PT_UNIQUE_MEM(tmp_idx) = TRUE;
 # endif
 
@@ -8037,7 +8037,7 @@ void flatten_function_call(opnd_type     *result)
                               Priv);
 
          ATD_AUTO_BASE_IDX(tmp_idx)	= base_tmp_idx;
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          ATD_NOT_PT_UNIQUE_MEM(base_tmp_idx) = TRUE;
 # endif
 
@@ -8137,7 +8137,7 @@ void flatten_function_call(opnd_type     *result)
             IL_FLD(list_idx) = CN_Tbl_Idx;
             the_constant     = 2L;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             if (TYP_LINEAR(ATD_TYPE_IDX(tmp_array_idx)) == Integer_4) {
                the_constant++;
             }
@@ -9456,7 +9456,7 @@ int	get_stmt_tmp(int	type_idx,
       goto EXIT;
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (dump_flags.mp) {
       goto EXIT;
    }
@@ -10450,7 +10450,7 @@ int create_argchck_descriptor(opnd_type		*call_opnd)
    SH_P2_SKIP_ME(SH_PREV_IDX(curr_stmt_sh_idx)) = TRUE;
 
 
-# if defined(_INIT_RELOC_BASE_OFFSET) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_INIT_RELOC_BASE_OFFSET) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    /* Check to make sure that SB_FIRST_ATTR_IDX has a value.*/
    /* Create a temp as an overlay for the first object if   */
    /* there is no FIRST attr.                               */
@@ -13190,7 +13190,7 @@ static boolean check_elemental_conformance(int			start_il_idx,
 |*									      *|
 \******************************************************************************/
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 static void set_inline_state(int	ir_idx,
 			     int	attr_idx)
 

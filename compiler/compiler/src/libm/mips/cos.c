@@ -55,13 +55,7 @@ extern	double	cos(double);
 #pragma weak cos = __cos
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __cos(double);
-#pragma weak cos
-double cos(double x) {
-  return __cos(x);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __cos(double);
 
 double    cos() __attribute__ ((weak, alias ("__cos")));
@@ -581,12 +575,7 @@ of significance)\n");
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __cosl(long double);
-long double cosl( long double x ) {
-  return ( (long double)__cos((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __cosl(long double);
 
 long double    cosl() __attribute__ ((weak, alias ("__cosl")));

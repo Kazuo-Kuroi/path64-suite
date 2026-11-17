@@ -40,7 +40,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#if __GNUC__ >=3 || defined(_MSC_VER)
+#if __GNUC__ >=3
 #include <list>
 #include <map>
 #include <vector>
@@ -59,7 +59,7 @@ using std::string;
 #include <algo.h>
 #include <string.h>
 #include <sstream.h>
-#endif // __GNUC__ >=3 || defined(_MSC_VER)
+#endif
 
 #ifdef DYNAMIC_CODE_GEN
 #include "dyn_isa_topcode.h"  // Specific adaptation

@@ -60,15 +60,7 @@ extern	float	cabsf(struct __fcabs_s);
 #pragma weak cabsf = __cabsf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-#if 0 /* Builtin cabsf has conflicting declaration */
-extern float __cabsf(struct __fcabs_s z);
-#pragma weak cabsf
-float cabsf(struct __fcabs_s z) {
-  return __cabsf(z);
-}
-#endif
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __cabsf(struct __fcabs_s);
 float    cabsf() __attribute__ ((weak, alias ("__cabsf")));
 #endif

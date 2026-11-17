@@ -459,7 +459,7 @@ void	process_cmd_line(int   argc, char *argv[])
                                  BASIC_RECS    | COMPILER_RECS;
       }
 
-#     if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
          if (dump_flags.cray_compatible) {
             cmd_line_flags.s_default64 = TRUE;
@@ -959,8 +959,7 @@ static void init_cmd_line (void)
    cmd_line_flags.s_doubleprecision16	= FALSE;		/*-s doublep  */
    cmd_line_flags.s_doublecomplex16	= FALSE;		/*-s doublec  */
 
-# if defined(_TARGET_SV2) || \
-       ((defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)) && defined(_TARGET_OS_UNICOS))
+#if defined(_TARGET_SV2) || ((defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX)) && defined(_TARGET_OS_UNICOS))
    cmd_line_flags.s_pointer8		= TRUE;			/*-s pointer8 */
 # else
    cmd_line_flags.s_pointer8		= FALSE;		/*-s pointer8 */
@@ -1369,7 +1368,7 @@ static void process_d_option (char *optargs)
          on_off_flags.abort_if_any_errors = FALSE;
          break;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       case 'c':
          on_off_flags.pad_char_literals = FALSE;
          break;
@@ -1648,7 +1647,7 @@ static void process_e_option (char *optargs)
          on_off_flags.abort_if_any_errors = TRUE; 
          break;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       case 'c':
          on_off_flags.pad_char_literals = TRUE;
          break;
@@ -6757,7 +6756,7 @@ static void set_system_module_path( void )
          strcpy(FP_NAME_PTR(file_path_tbl_idx), directory);
          save_file_path_tbl_idx	= file_path_tbl_idx;
 
-# if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 
          if (is_directory(FP_NAME_PTR(file_path_tbl_idx))) {
 
@@ -6814,7 +6813,7 @@ static void set_system_module_path( void )
          FP_CLASS(file_path_tbl_idx)       	= Unknown_Fp;
          FP_SYSTEM_FILE(file_path_tbl_idx)	= TRUE;
 
-# if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
          length = strlen(directory) + 1;
 # else
          length = strlen(directory) + strlen(MODULE_USE_SYSTEM_FILE) + 1;
@@ -6831,7 +6830,7 @@ static void set_system_module_path( void )
 
          strcpy(FP_NAME_PTR(file_path_tbl_idx), directory);
 
-# if ! (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
          ptr = FP_NAME_PTR(file_path_tbl_idx) + strlen(directory);
          strcpy(ptr, "/");
          strcpy(++ptr, MODULE_USE_SYSTEM_FILE);

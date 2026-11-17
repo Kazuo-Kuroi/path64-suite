@@ -61,14 +61,7 @@ extern	void	vexpf(float *, float *, long, long, long);
 #pragma weak vexpf = __vexpf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vexpf( float *x, float *y, long count, long stridex,
-  long stridey );
-#pragma weak vexpf
-void vexpf( float *x, float *y, long count, long stridex, long stridey ) {
-  __vexpf(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vexpf(float *, float *, long, long, long);
 void    vexpf() __attribute__ ((weak, alias ("__vexpf")));
 #endif

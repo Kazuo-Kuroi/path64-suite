@@ -37,8 +37,6 @@
  */
 #if defined(_UNICOS) || defined(UNIX_NAMING_CONVENTION)
 #define SUBNAME _I4JGEMMX
-#elif defined(BUILD_COMPILER_GNU) && defined(BUILD_OS_DARWIN)
-#define SUBNAME underscore_i4jgemmx_
 #else
 #define SUBNAME _i4jgemmx_
 #endif

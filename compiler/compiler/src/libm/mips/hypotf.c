@@ -61,13 +61,7 @@ extern	float	hypotf(float, float);
 #pragma weak hypotf = __hypotf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __hypotf(float, float);
-#pragma weak hyptof
-float hypotf( float x, float y ) {
-  return __hypotf( x, y );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __hypotf(float, float);
 float    hypotf(float, float) __attribute__ ((weak, alias ("__hypotf")));
 #endif

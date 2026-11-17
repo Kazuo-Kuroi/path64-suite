@@ -372,13 +372,6 @@ main (int argc, char *argv[])
 
 	/* Check target specifications for consistency: */
 	Check_Target ();
-#if defined(BUILD_OS_DARWIN)
-	/* Mach-O X86_64 requires PIC */
-	if (abi == ABI_M64) {
-	  toggle(&pic, TRUE);
-	  add_option_seen(O_fpic);
-	}
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	if (show_search_path) {
 		print_search_path();

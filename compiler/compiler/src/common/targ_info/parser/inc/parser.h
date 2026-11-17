@@ -33,13 +33,8 @@ typedef short               PARSER_s16T;
 typedef unsigned short      PARSER_u16T;
 typedef int                 PARSER_s32T;
 typedef unsigned int        PARSER_u32T;
-#if defined(WIN32) && !defined(__MINGW32__)
-typedef __int64             PARSER_s64T;
-typedef unsigned __int64    PARSER_u64T;
-#else
 typedef long long           PARSER_s64T;
 typedef unsigned long long  PARSER_u64T;
-#endif
 typedef int                 PARSER_INT64[2];
 
 /*---------------------------*

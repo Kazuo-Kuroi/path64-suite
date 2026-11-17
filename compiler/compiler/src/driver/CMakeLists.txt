@@ -177,10 +177,6 @@ function(add_driver config_name
     add_executable(pathcc${suffix} ${PATHSCALE_DRIVER_SRCS} "${targ_info_source}")
     set_property(TARGET pathcc${suffix} PROPERTY COMPILE_FLAGS "-I${include_dir}")
 
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        target_link_libraries(pathcc${suffix} iberty)
-    endif()
-
     if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
         set_property(TARGET pathcc${suffix} PROPERTY LINK_FLAGS "-static")
     endif()
@@ -309,25 +305,6 @@ set_property(TARGET table PROPERTY COMPILE_FLAGS "-I${CMAKE_CURRENT_BINARY_DIR}/
 
 # Detecting gcc and configuring sort_options script
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-
-add_executable(sort_options sort_options.cpp)
-GET_TARGET_PROPERTY(sort_options_exe sort_options LOCATION)
-
-add_custom_command(
-        OUTPUT tmp.options.cpp
-        COMMAND cpp -traditional -P ${driver_defs} -DPSC_PRODNAME='"Compiler"' -DKEY -DLITTLE_ENDIAN_HOST -DHOST_IA32 -DNOOPT ${CMAKE_CURRENT_SOURCE_DIR}/OPTIONS > tmp.options.cpp 
-        DEPENDS OPTIONS
-        )
-
-add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/OPTIONS.P
-        # COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/sort_options.sh ${CMAKE_CURRENT_SOURCE_DIR} OPTIONS -DX8664 -DPSC_PRODNAME='"Compiler"' -DKEY   -DLITTLE_ENDIAN_HOST -DHOST_IA32 -DNOOPT > ${CMAKE_CURRENT_BINARY_DIR}/OPTIONS.P 
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/sort_options.${SHELL_EXT} ${sort_options_exe} > ${CMAKE_CURRENT_BINARY_DIR}/OPTIONS.P 
-        DEPENDS sort_options.${SHELL_EXT} OPTIONS sort_options tmp.options.cpp
-        )
-
-else()
 
 # Detecting gawk and gcc and configuring sort_options script
 set(SORT_OPTIONS ${CMAKE_CURRENT_BINARY_DIR}/sort_options.sh)
@@ -345,7 +322,6 @@ add_custom_command(
         DEPENDS ${SORT_OPTIONS} OPTIONS
         )
 
-endif()
 
 
 add_custom_command(
@@ -360,12 +336,7 @@ add_custom_command(
         )
 
 # Generate the version strings	
-if(WIN32)
-	file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}" BUILD_ROOT)
-	string(REPLACE "\\" "\\\\" BUILD_ROOT "${BUILD_ROOT}")
-else()
-	set(BUILD_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
-endif()
+set(BUILD_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
 
 site_name(BUILD_HOST)
 mark_as_advanced(BUILD_HOST)
@@ -505,24 +476,12 @@ endif()
 
 
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-
-target_link_libraries(table iberty winlib)
-target_link_libraries(${exe_refix}pathcc iberty winlib ws2_32)
-
-add_custom_target(
-    stageit-driver ALL
-    DEPENDS pathcc
-)
-
-else()
 
 if(PATH64_ENABLE_CXX)
     add_custom_command(
         OUTPUT ${Path64_BINARY_DIR}/bin/pathCC ${Path64_BINARY_DIR}/lib/${PSC_FULL_VERSION}
         DEPENDS pathcc
         # Paths in symbolic links should be relative. Otherwise bootstrap will not work
-		# TODO does this work with LINK_COPY on windows?
         COMMAND ${CMAKE_COMMAND} -E ${LINK_COPY} pathcc ${Path64_BINARY_DIR}/bin/pathCC
     )
 
@@ -538,7 +497,6 @@ if(PATH64_ENABLE_CXX)
     install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" -E ${LINK_COPY} \"pathCC${CMAKE_EXECUTABLE_SUFFIX}\" \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/pathCC-${PSC_FULL_VERSION}${CMAKE_EXECUTABLE_SUFFIX}\")")
 endif()
 
-endif()
 
 if(PATH64_ENABLE_FORTRAN)
 install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" -E ${LINK_COPY} \"pathcc${CMAKE_EXECUTABLE_SUFFIX}\" \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/pathf95${CMAKE_EXECUTABLE_SUFFIX}\")")

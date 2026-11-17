@@ -28,7 +28,7 @@ INCLUDE_DIRECTORIES(
 )
 
 SET( Achitectures
- i386 x86_64 ppc arm
+ i386 x86_64 ppc
  )
 
 SET( Configurations

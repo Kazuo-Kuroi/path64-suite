@@ -53,14 +53,7 @@ extern	void	vcosf(float *, float *, long, long, long);
 #pragma weak vcosf = __vcosf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vcosf( float *x, float *y, long count, long stridex,
-  long stridey );
-#pragma weak vcosf
-void vcosf( float *x, float *y, long count, long stridex, long stridey ) {
-  __vcosf(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vcosf(float *, float *, long, long, long);
 void    vcosf() __attribute__ ((weak, alias ("__vcosf")));
 #endif

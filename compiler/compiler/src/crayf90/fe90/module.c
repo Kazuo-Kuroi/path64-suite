@@ -64,7 +64,7 @@ static char USMID[] = "\n@(#)5.0_pl/sources/module.c	5.17	09/30/99 15:47:54\n";
 
 # include <errno.h>
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)) && defined(_MODULE_TO_DOT_o)
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) && defined(_MODULE_TO_DOT_o)
 # include <fcntl.h>
 # include <libelf.h>
 # include <sys/elf.h>
@@ -258,7 +258,7 @@ static	boolean	search_for_duplicate_attrs;
 
 extern	char	compiler_gen_date[];
 
-# if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 # pragma inline set_mod_link_tbl_for_typ
 # pragma inline set_mod_link_tbl_for_cn
 # pragma inline set_mod_link_tbl_for_ir
@@ -10308,7 +10308,7 @@ static	void	find_files_in_directory(int	dir_idx)
                okay = TRUE;
             }
 
-# if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
             else if (EQUAL_STRS(suffix, ".a")) {
                okay = TRUE;
             }

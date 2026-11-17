@@ -678,7 +678,7 @@ typedef enum {
 
 typedef struct  type_descriptor  {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)) || defined(_TARGET_MONGOOSE)
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_MONGOOSE)
     unsigned     const_flag      :  1;
     unsigned     volatile_flag   :  1;
     unsigned     signed_flag     :  1;

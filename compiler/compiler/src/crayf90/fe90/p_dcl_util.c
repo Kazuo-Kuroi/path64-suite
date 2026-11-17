@@ -703,7 +703,7 @@ static	void	parse_kind_selector(int function_ret_kind_flag)
       }
 # endif
 
-# if defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#if defined(_TARGET_OS_LINUX)
       if ((TYP_TYPE(ATD_TYPE_IDX(AT_WORK_IDX)) == Complex ||
            TYP_TYPE(ATD_TYPE_IDX(AT_WORK_IDX)) == Real) &&
           TYP_DCL_VALUE(ATD_TYPE_IDX(AT_WORK_IDX)) == 16) {
@@ -973,7 +973,7 @@ parse_non_char_kind_selector(boolean double_precision) {
 
 # ifdef _TARGET_OS_MAX /* Msg was issued when DOUBLE PRECISION was parsed.*/
 	       linear_type = Real_8;
-# elif defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#elif defined(_TARGET_OS_LINUX)
 	       PRINTMSG(TOKEN_LINE(token), 541, Error, 
 			TOKEN_COLUMN(token));
 # else
@@ -1008,7 +1008,7 @@ parse_non_char_kind_selector(boolean double_precision) {
 			TOKEN_COLUMN(token),
 			type_str, num, type_str, 8);
 	       linear_type = Real_8;
-# elif defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#elif defined(_TARGET_OS_LINUX)
 	       PRINTMSG(TOKEN_LINE(token), 541, Error, 
 			TOKEN_COLUMN(token));
 # else
@@ -1048,7 +1048,7 @@ parse_non_char_kind_selector(boolean double_precision) {
 		     TOKEN_COLUMN(token),
 		     type_str, num, type_str, 16);
 	    linear_type = Complex_8;
-# elif defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#elif defined(_TARGET_OS_LINUX)
 	       PRINTMSG(TOKEN_LINE(token), 541, Error, 
 			TOKEN_COLUMN(token));
 # else
@@ -3316,7 +3316,7 @@ boolean	parse_int_spec_expr(long		*len_idx,
    expr_mode_type	save_expr_mode	= expr_mode;
    int			type_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN)
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    int			cvrt_idx;
    int			new_type;
 # endif
@@ -3419,7 +3419,7 @@ boolean	parse_int_spec_expr(long		*len_idx,
       *len_idx          = (long) OPND_IDX(len_opnd);
       *field_type       = CN_Tbl_Idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN)
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
       if (!parsing_kind_selector) {
          new_type	= NULL_IDX;
@@ -3484,7 +3484,7 @@ boolean	parse_int_spec_expr(long		*len_idx,
 
    else {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN)
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       new_type	= NULL_IDX;
 
       if (!parsing_kind_selector) { 

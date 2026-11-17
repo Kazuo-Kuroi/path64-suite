@@ -60,13 +60,7 @@ extern	double	atan(double);
 #pragma weak atan = __atan
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __atan(double);
-#pragma weak atan
-double atan( double x ) {
-  return __atan( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __atan(double);
 
 double    atan() __attribute__ ((weak, alias ("__atan")));
@@ -354,12 +348,7 @@ struct exception	exstruct;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-#pragma weak atanl
-long double atanl( long double x ) {	
-	return ( (long double)__atan((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __atanl(long double);
 
 long double    atanl() __attribute__ ((weak, alias ("__atanl")));

@@ -40,7 +40,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <pwd.h>
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
 #define BLANK   ((int) ' ')
 
@@ -102,9 +102,9 @@ _PXFGETLOGIN(
 #if 1 /* cuserid() is deprecated */
   struct passwd *p_passwd = getpwuid(geteuid());
   if (p_passwd != NULL && (loginptr = p_passwd->pw_name) != NULL)
-#else /* defined(BUILD_OS_DARWIN) */
+#else
   if ((loginptr = cuserid(NULL)) != NULL)
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
   {
     loginlen = strlen(loginptr);
     *ILEN = loginlen;    

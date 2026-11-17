@@ -59,13 +59,7 @@ extern	double	hypot(double, double);
 #pragma weak hypot = __hypot
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __hypot(double, double);
-#pragma weak hypot
-double hypot( double arg1, double arg2) {
-  return __hypot( arg1, arg2 );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __hypot(double, double);
 
 double    hypot() __attribute__ ((weak, alias ("__hypot")));
@@ -332,12 +326,7 @@ struct exception	exstruct;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  long double  __hypotl(long double, long double);
-long double hypotl( long double arg1, long double arg2) {
-  return ( (long double)__hypot((double)arg1, (double)arg2) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __hypotl(long double, long double);
 long double    hypotl() __attribute__ ((weak, alias ("__hypotl")));
 

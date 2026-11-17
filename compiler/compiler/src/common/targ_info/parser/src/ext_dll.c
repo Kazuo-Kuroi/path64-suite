@@ -29,9 +29,6 @@
 #define GUESSPATHLEN MAXPATHLEN
 #endif
 
-#ifdef WIN32
-#define GUESSPATHLEN _MAX_PATH
-#endif
 
 #ifndef GUESSPATHLEN
 #error "Undefined macro 'GUESSPATHLEN'"
@@ -41,18 +38,6 @@
 #error "Undefined macro 'FILENAME_MAX'"
 #endif
 
-#if defined(WIN32) || defined(__MINGW32__)
-static char *
-win32_get_proc_path( char *proc_name ) {
-  char *pdir = (char*)malloc(GUESSPATHLEN+1);
-  char *ignored ;  
-  if (!SearchPath(NULL, proc_name, ".exe", GUESSPATHLEN, pdir, &ignored)) {
-    free(pdir);
-    pdir = 0;
-  }
-  return pdir;
-}
-#endif
 
 #if defined(__linux)
 #include <libgen.h>
@@ -89,9 +74,6 @@ linux_get_proc_path( char *proc_name ) {
 char *
 PARSER_GetProcPath( char *proc_name)
 {
-#if defined(WIN32) || defined(__MINGW32__)
-  return win32_get_proc_path( proc_name );
-#endif
 
 #ifdef __linux
   return linux_get_proc_path( proc_name );

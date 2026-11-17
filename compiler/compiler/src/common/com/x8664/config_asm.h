@@ -177,25 +177,15 @@ static char *config_asm_rcs_id = "$Source$ $Revision$";
 #define AS_SDATA	".sdata"
 #define AS_SECTION	".section"
 #define AS_SIZE         ".size"
-#if defined(BUILD_OS_DARWIN)
-#define AS_SPACE	".space"
-#define AS_STRING	".asciz"
-#else /* defined(BUILD_OS_DARWIN) */
 #define AS_SPACE	".skip"
 #define AS_STRING	".string"
-#endif /* defined(BUILD_OS_DARWIN) */
 #define AS_TEXT 	".text"
 #define AS_TYPE         ".type"
 #define AS_TYPE_FUNC	"@function"
 #define AS_TYPE_OBJECT	"@object"
 #define AS_WEAK		".weak"
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-#define AS_WORD		".long"
-#define AS_WORD_UNALIGNED ".long" 
-#else /* defined(BUILD_OS_DARWIN) */
 #define AS_WORD		".4byte"
 #define AS_WORD_UNALIGNED ".4byte" 
-#endif /* defined(BUILD_OS_DARWIN) */
 #define AS_IDENT	"#ident" /* Make this ASM_CMNT_START if no ident */
 
 extern BOOL CG_emit_non_gas_syntax;

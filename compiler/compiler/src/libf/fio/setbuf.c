@@ -34,16 +34,11 @@
 #include "util/utildefs.h"
 #include "ffio/spec_parse.h"
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support alias; probably backward compatibility is not needed
-* on new platform anyway */
-#else /* defined(BUILD_OS_DARWIN) */
 /* For backward compatibility */
 extern int setlinebuf_(_f_int *unit);
 #pragma weak setlinebuf_ = _Setlinebuf
 extern int setbuf_(_f_int *unit, char *buf, size_t size);
 #pragma weak setbuf_ = _Setbuf
-#endif /* defined(BUILD_OS_DARWIN) */
 
 /*
  * unum		logical unit number

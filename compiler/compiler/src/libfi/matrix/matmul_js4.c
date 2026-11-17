@@ -37,8 +37,6 @@
  */
 #if defined(_UNICOS) || defined(UNIX_NAMING_CONVENTION)
 #define SUBNAME _JS4GEMMX
-#elif defined(BUILD_COMPILER_GNU) && defined(BUILD_OS_DARWIN)
-#define SUBNAME underscore_js4gemmx_
 #else
 #define SUBNAME _js4gemmx_
 #endif

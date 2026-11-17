@@ -49,14 +49,8 @@ dcomplex z_sin_(dcomplex *z)
   return __zsin(z->dreal, z->dimag);
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-dcomplex z_sin(dcomplex *z) { return z_sin_(z); }
-#pragma weak z_sin
-#else /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY /* Bug 15104 */
 weakalias(z_sin_, z_sin);
 #else /* KEY Bug 15104 */
 defalias(z_sin_, z_sin);
 #endif /* KEY Bug 15104 */
-#endif /* defined(BUILD_OS_DARWIN) */

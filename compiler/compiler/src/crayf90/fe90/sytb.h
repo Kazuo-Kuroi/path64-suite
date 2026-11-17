@@ -1133,7 +1133,7 @@ union	stor_blk_tbl_entry	{struct	{
                                  boolean	equivalenced	:  1;
 #ifdef KEY /* Bug 14150 */
                                  boolean	bind_attr   	:  1;
-#else /* defined(BUILD_OS_DARWIN) */
+#else
                                  boolean	UNUSED   	:  1;
 #endif /* KEY Bug 14150 */
                                  boolean	name_in_stone	:  1;
@@ -1166,7 +1166,7 @@ union	stor_blk_tbl_entry	{struct	{
  * without making old .mod files incompatible. */
 				 Uint		ext_name_idx	: 24;
 				 Uint		ext_name_len	:  8;
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 				 Uint		pad_amount	: 16;
 				 Uint		UNUSED3		: 16;
 #endif /* KEY Bug 14150 */

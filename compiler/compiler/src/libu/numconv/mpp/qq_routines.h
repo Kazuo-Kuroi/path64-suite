@@ -27,12 +27,12 @@
 #if defined(_WORD32) || defined(__mips) || defined(_LITTLE_ENDIAN)
 /* Implementation's most efficient floating types */
 /* These are defined in fp.h for CRAYIEEE systems */
-#if ! defined(BUILD_OS_DARWIN) && ! defined(__linux) && ! defined(__sun) && ! defined(__FreeBSD__)
+#if !defined(__linux) && !defined(__sun) && !defined(__FreeBSD__)
 /* Darwin, we get these definitions for free from math.h, though they may
  * not be what we'd like (e.g. -march=i386 uses long double). */
 typedef double          float_t;   /* >=24 bit real */
 typedef double          double_t;  /* >=48 bit real */
-#endif /* ! defined(BUILD_OS_DARWIN) */
+#endif
 
 typedef unsigned long long      uint64;
 typedef          long long      int64;
@@ -67,7 +67,7 @@ int		ilogb(FLOAT64 x);
 FLOAT64 copysign(FLOAT64 x, FLOAT64 y);
 #endif
 
-#if ! defined(BUILD_OS_DARWIN) && ! defined(__FreeBSD__)
+#if !defined(__FreeBSD__)
 /* The following defines are in fp.h for PVP. */
 /* number classifications */
 #define FP_NAN		0
@@ -75,7 +75,7 @@ FLOAT64 copysign(FLOAT64 x, FLOAT64 y);
 #define FP_NORMAL	2
 #define FP_SUBNORMAL	3
 #define FP_ZERO		4
-#endif /* ! defined(BUILD_OS_DARWIN) */
+#endif
 
 #if defined(_SOLARIS) || defined(__mips) || defined(_LITTLE_ENDIAN) || \
     (defined(_ABSOFT) && !defined(_LD64))  /* 128-bit for nonUNICOS */

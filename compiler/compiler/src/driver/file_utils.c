@@ -39,10 +39,6 @@
 #include <sys/param.h>
 #include <errno.h>
 
-#ifdef _WIN32
-//#include <windows.h> // This conflicts with other stuff
-unsigned int __stdcall GetModuleFileNameA(void*, char*, unsigned int);
-#endif
 
 #include "errors.h"
 #include "string_utils.h"
@@ -205,17 +201,6 @@ file_utils_set_program_name(char *name)
 
         saved_orig_program_name = name;
 
-#ifdef _WIN32
-	if (GetModuleFileNameA(0, filename, sizeof(filename))) {
-		p = filename;
-		while ((p = strchr (p, '\\')) != NULL) {
-			*p = '/';
-		}
-		executable_dir = string_copy(dirname(filename));
-	} else {
-		executable_dir = string_copy("/");
-	}
-#else
 	if (strchr(name, '/')) {
 		/* argv[0] was an absolute path, trust it */
 		p = strdup(name);
@@ -249,7 +234,6 @@ file_utils_set_program_name(char *name)
 
 	executable_dir = string_copy("/");
 	free(path);
-#endif
 }
 
 #ifdef KEY

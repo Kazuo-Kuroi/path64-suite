@@ -383,7 +383,7 @@ Targ_Emit_Const (FILE *fl,	    /* File to which to write */
 
       case MTYPE_STRING: {
 	INTSC count;
-#if defined(KEY) && ! defined(BUILD_OS_DARWIN)	// Use .rept/.endr to reduce .s file size.  Bug 4620.
+#if defined(KEY)
 	if (rc > 1)
 	  fprintf(fl, ".rept %ld\n", rc);
 	char *p = Index_to_char_array (TCON_cp(tc));
@@ -1208,9 +1208,6 @@ Targ_Emit_EH_Const (FILE *fl,	    /* File to which to write */
 
 
 #if defined(BACK_END) || defined(QIKKI_BE)
-#if defined(BUILD_OS_DARWIN)
-void Em_Targ_Emit_Const (void *, TCON, BOOL, INTSC) {}
-#else /* defined(BUILD_OS_DARWIN) */
 /* ====================================================================
  *
  * Em_Targ_Emit_Const
@@ -1332,7 +1329,6 @@ Em_Targ_Emit_Const (void *scn,	    /* Section to which to write */
 			  Mtype_Name(TCON_ty(tc)) ) );
     }
 } /* Em_Targ_Emit_Const */
-#endif /* defined(BUILD_OS_DARWIN) */
 #endif /* BACK_END */
 
 #if !defined(MONGOOSE_BE) && !defined(QIKKI_BE)

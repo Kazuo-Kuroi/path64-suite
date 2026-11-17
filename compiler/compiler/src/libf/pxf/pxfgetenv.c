@@ -80,21 +80,21 @@ extern char *_fc_acopy(_fcd f);
 #ifndef _UNICOS
 #include <stddef.h>
 
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 extern char **environ;
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 extern char **_environ;
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
 char *
 _GETENV(char *name)
 {
 	char *s1, *s2;
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 	char **p = environ;
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 	char **p = _environ;
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 	char *ret = NULL;
 	if (p == NULL)
 		return(ret);

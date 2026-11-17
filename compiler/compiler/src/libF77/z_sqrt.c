@@ -58,14 +58,8 @@ dcomplex z_sqrt_(dcomplex *z)
   return __zsqrt(z->dreal, z->dimag);
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-dcomplex z_sqrt(dcomplex *z) { return z_sqrt_(z); }
-#pragma weak z_sqrt
-#else /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY /* Bug 15104 */
 weakalias(z_sqrt_, z_sqrt);
 #else /* KEY Bug 15104 */
 defalias(z_sqrt_, z_sqrt);
 #endif /* KEY Bug 15104 */
-#endif /* defined(BUILD_OS_DARWIN) */

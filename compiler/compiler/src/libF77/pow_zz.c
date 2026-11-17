@@ -38,7 +38,7 @@ sincos(double d, double *s, double *c) {
   *s = sin(d);
   *c = cos(d);
   }
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
 #ifdef KEY
 dcomplex __powzz(double adreal, double adimag, double bdreal, double bdimag)
@@ -70,11 +70,5 @@ void pow_zz_(dcomplex *r, dcomplex *a, dcomplex *b)
   *r = __powzz(a->dreal, a->dimag, b->dreal, b->dimag);
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-void pow_zz(dcomplex *r, dcomplex *a, dcomplex *b) { pow_zz_(r, a, b); }
-void pow_zz__(dcomplex *r, dcomplex *a, dcomplex *b) { pow_zz_(r, a, b); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(pow_zz_, pow_zz);
 defalias(pow_zz_, pow_zz__);
-#endif /* defined(BUILD_OS_DARWIN) */

@@ -86,9 +86,6 @@
 #include "ir_reader.h"		// for fdump_tree()
 
 #ifdef SHARED_BUILD
-#if defined(BUILD_OS_DARWIN)
-extern char * Ipa_File_Name;
-#endif /* defined(BUILD_OS_DARWIN) */
 #endif
 
 #ifdef KEY

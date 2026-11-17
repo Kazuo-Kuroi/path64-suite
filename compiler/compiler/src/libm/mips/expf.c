@@ -67,13 +67,7 @@ extern	float	expf(float);
 #pragma weak expf = __expf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __expf(float);
-#pragma weak expf
-float expf( float x ) {
-  return __expf( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __expf(float);
 float    expf(float) __attribute__ ((weak, alias ("__expf")));
 #endif

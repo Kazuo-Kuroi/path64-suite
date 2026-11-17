@@ -3568,7 +3568,7 @@ static void start_new_scp(void)
 
       SCP_SB_STACK_IDX(curr_scp_idx)	= SCP_SB_STACK_IDX(parent_idx);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
       /* Set the scope for the darg block to the parent scope. */
 

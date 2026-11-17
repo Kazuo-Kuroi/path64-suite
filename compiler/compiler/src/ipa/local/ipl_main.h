@@ -58,7 +58,7 @@ extern BOOL DoPreopt;
 extern WN_MAP Summary_Map;
 extern WN_MAP Stmt_Map;
 
-#if defined(__linux__) || defined(BUILD_OS_DARWIN) || defined(__FreeBSD__) || defined(__sun) || defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__sun) || defined(__NetBSD__) || defined(__OpenBSD__)
 #define USE_ELF_SYMBOL_TABLE
 #endif
 

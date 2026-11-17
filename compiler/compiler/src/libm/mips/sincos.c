@@ -58,13 +58,7 @@ extern	void	sincos(double, double *, double *);
 #pragma weak sincos = __sincos
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __sincos(double, double *, double *);
-#pragma weak sincos
-void sincos(double x, double *sinx, double *cosx) {
-  return __sincos(x, sinx, cosx);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __sincos(double, double *, double *);
 
 void    sincos() __attribute__ ((weak, alias ("__sincos")));
@@ -513,17 +507,7 @@ L:
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __sincosl(long double, long double *, long double *);
-void sincosl(long double x, long double *sinxl, long double *cosxl) {
-  double sinx, cosx;
-
-   __sincos((double)x, &sinx, &cosx);
-
-   *sinxl = sinx;
-   *cosxl = cosx;
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __sincosl(long double, long double *, long double *);
 
 void    sincosl() __attribute__ ((weak, alias ("__sincosl")));

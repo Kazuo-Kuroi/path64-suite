@@ -29,7 +29,6 @@ SET( Generic_SRCS
 # ADD_SUBDIRECTORY( ppc )
 #ADD_SUBDIRECTORY( x86_64 )
 # ADD_SUBDIRECTORY( i386 )
-# ADD_SUBDIRECTORY( arm )
 
 # List of functions needed for each architecture.
 SET( SRCS_x86_32
@@ -55,19 +54,6 @@ SET( PPC_Functions
  gcc_qadd.c gcc_qdiv.c gcc_qmul.c gcc_qsub.c multc3.c
  powitf2.c restFP.c saveFP.c trampoline_setup.c
  clear_cache.c enable_execute_stack.c
- )
-
-SET( ARM_Functions
- adddf3vfp.c addsf3vfp.c bswapdi2.c bswapsi2.c divdf3vfp.c
- divsf3vfp.c eqdf2vfp.c eqsf2vfp.c extendsfdf2vfp.c
- fixdfsivfp.c fixsfsivfp.c fixunsdfsivfp.c fixunssfsivfp.c
- floatsidfvfp.c floatsisfvfp.c floatunssidfvfp.c floatunssisfvfp.c
- gedf2vfp.c gesf2vfp.c gtdf2vfp.c gtsf2vfp.c
- ledf2vfp.c lesf2vfp.c ltdf2vfp.c ltsf2vfp.c
- muldf3vfp.c mulsf3vfp.c
- nedf2vfp.c negdf2vfp.c negsf2vfp.c nesf2vfp.c
- subdf3vfp.c subsf3vfp.c truncdfsf2vfp.c unorddf2vfp.c unordsf2vfp.c
- modsi3.c umodsi3.c udivsi3.c divsi3.c switch.c
  )
 
 

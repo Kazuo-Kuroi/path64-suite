@@ -213,13 +213,8 @@ double FN_PROTOTYPE(hypot)(double x, double y)
 #endif
 
   /* The sqrt can introduce another half ulp error. */
-#ifdef WINDOWS
-  /* VC++ intrinsic call */
-  _mm_store_sd(&retval, _mm_sqrt_sd(_mm_setzero_pd(), _mm_load_sd(&r)));
-#else
   /* Hammer sqrt instruction */
   asm volatile ("sqrtsd %1, %0" : "=x" (retval) : "x" (r));
-#endif
 
   /* If necessary scale the result back. This may lead to
      overflow but if so that's the correct result. */

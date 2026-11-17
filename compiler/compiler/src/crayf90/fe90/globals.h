@@ -2412,7 +2412,7 @@ union	target_machine_entry   {
  
 # if defined(_GETPMC_AVAILABLE)
 			 long		mcpmt;
-# elif defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#elif defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
                          char		mcpmt[12];
 # endif
 			 long		mcbank;
@@ -2462,7 +2462,7 @@ union	target_machine_entry   {
 
 # if defined(_GETPMC_AVAILABLE)
 		long	mc_tbl[128];
-# elif defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#elif defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
                 long    mc_tbl[130];                 
 # endif
 	};
@@ -3631,8 +3631,7 @@ typedef struct nmlist_goli {
 
 typedef struct {
     unsigned int        version :3;     /* contains NAMELIST_VERSION */
-#if (defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN)) && \
-    ! defined(_BITFIELD_RIGHT_TO_LEFT)
+#if (defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))) && !defined(_BITFIELD_RIGHT_TO_LEFT)
     unsigned int                :29;    /* unused */
     unsigned int                :16;    /* unused */
 #else
@@ -3651,8 +3650,7 @@ typedef struct {
 
 typedef struct nmlist_struclist {
 
-#if (defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN)) && \
-    ! defined(_BITFIELD_RIGHT_TO_LEFT)
+#if (defined(_TARGET64) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))) && !defined(_BITFIELD_RIGHT_TO_LEFT)
     unsigned int                  :32;  /* unused */
     unsigned int                  :16;  /* unused */
 #else

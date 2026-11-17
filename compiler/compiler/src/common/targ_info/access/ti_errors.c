@@ -29,10 +29,4 @@ static const char rcs_id[] = "$Source$ $Revision$";
 
 #include "ti_errors.h"
 
-#if defined(BUILD_OS_DARWIN)
-/* Put this in data section, not common, because Mach-O linker won't import
- * a common symbol from a .a archive to satisfy an undefined symbol in a .o */
-char TI_errmsg[TI_ERRMSG_BUFLEN] = { 0 };
-#else /* defined(BUILD_OS_DARWIN) */
 char TI_errmsg[TI_ERRMSG_BUFLEN];
-#endif /* defined(BUILD_OS_DARWIN) */

@@ -128,40 +128,6 @@ static int show_command_only(const char *name, const char *argv[])
 
 // Executes program with specified name, paramters and input/output.
 // Returns zero on success
-#ifdef _WIN32
-int execute (const char *name,
-             const char **argv,
-             const char *input,
-             const char *output,
-             const char **errmsg,
-             int *waitstatus)
-{
-    int errnum;
-
-    if(input != NULL || output != NULL) {
-        *errmsg = "execute input/output NYI";
-        return -1;
-    }
-
-    struct pex_obj *pex = pex_init(0, name, NULL);
-    if (pex == NULL) {
-        *errmsg = "pex_init failed";
-        return -1;
-    }
-
-    *errmsg = pex_run(pex, PEX_LAST, name, (char * const *)argv, output, NULL, &errnum);
-    if (*errmsg != NULL || !pex_get_status(pex, 1, waitstatus)) {
-        if (&errmsg == NULL) {
-            *errmsg = "can't get program status";
-        }
-        pex_free(pex);
-        return -1;
-    }
-
-    pex_free(pex);
-    return 0;
-}
-#else // !_WIN32
 int execute (const char *name,
              const char **argv,
              const char *input,
@@ -251,7 +217,6 @@ int execute (const char *name,
 
     return 0;
 }
-#endif // !_WIN32
 
 
 static void my_putenv(const char *name, const char *fmt, ...)
@@ -322,9 +287,6 @@ run_phase (phases_t phase, char *name, string_list_t *args)
     char *root_prefix;
     int status;
 
-#if defined(BUILD_OS_DARWIN)
-    int suppress_compiler_path = (phase == P_gas);
-#endif /* defined(BUILD_OS_DARWIN) */
     const boolean uses_message_system = 
             (phase == P_f90_fe || phase == P_cppf90_fe);
 
@@ -444,14 +406,8 @@ run_phase (phases_t phase, char *name, string_list_t *args)
     	asprintf(&l32_path, "%s:%s", my_path,
     		 ld_libraryn32_path);
 
-#if defined(BUILD_OS_DARWIN)
-    /* Darwin static linker uses LD_LIBRARY_PATH, but dynamic
-     * linker uses DYLD_LIBRARY_PATH */
-    my_putenv("DYLD_LIBRARY_PATH", "%s", l_path);
-#else /* defined(BUILD_OS_DARWIN) */
     my_putenv("LD_LIBRARY_PATH", "%s", l_path);
     my_putenv("LD_LIBRARYN32_PATH", "%s", l32_path);
-#endif /* defined(BUILD_OS_DARWIN) */
 		
     // Set up NLSPATH, for the Fortran front end.
     
@@ -501,16 +457,6 @@ run_phase (phases_t phase, char *name, string_list_t *args)
         // which is not what we want when we invoke gcc for
         // preprocessing.  Bug 10164.
 
-#if defined(BUILD_OS_DARWIN)
-        /* Driver uses gcc to run assembler. If we set COMPILER_PATH,
-         * gcc uses PSC version of cc1, which doesn't accept one of
-         * the options (-mmacosx-version-min=10.5.1) which Apple's
-         * gcc driver passes to Apple's cc1. Looks like the
-         * "is_matching_phase" test might already be trying to fix
-         * this, but it's not succeeding.
-         */
-        !suppress_compiler_path &&
-#endif
         !is_matching_phase(get_phase_mask(P_any_cpp), phase) &&
 #endif
         1) {

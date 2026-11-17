@@ -125,13 +125,8 @@ float FN_PROTOTYPE(hypotf)(float x, float y)
 #if USE_SOFTWARE_SQRT
     retval = sqrtf_amd_inline(r);
 #else
-#ifdef WINDOWS
-  /* VC++ intrinsic call */
-  _mm_store_sd(&retval, _mm_sqrt_sd(_mm_setzero_pd(), _mm_load_sd(&dr)));
-#else
     /* Hammer sqrt instruction */
     asm volatile ("sqrtsd %1, %0" : "=x" (retval) : "x" (dr));
-#endif
 #endif
 
     if (retval > large)

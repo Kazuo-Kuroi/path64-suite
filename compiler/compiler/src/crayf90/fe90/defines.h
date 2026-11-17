@@ -47,7 +47,6 @@
 /* _LINUX_LINUX             Host linux - target_linux  (assume intel for now) */
 /*                          This will change to a more meaningful name once   */
 /*                          we figure out what that will be.                  */
-/* _DARWIN_DARWIN	    Like _LINUX_LINUX, but for Macintosh OS X         */
 /*									      */
 /* _EXPR_EVAL    	    Can be specified with one of the above.  This     */
 /*               	    creates a frontend that can be used as the        */
@@ -82,7 +81,6 @@
 /*	_HOST_OS_UNICOS         Host operating system is UNICOS.	      */
 /*	_HOST_OS_IRIX           Host operating system is IRIX.		      */
 /*	_HOST_OS_LINUX          Host operating system is LINUX.		      */
-/*	_HOST_OS_DARWIN         Host operating system is DARWIN (MacOS X)     */
 /*									      */
 /*   Choose 1:                                           	 	      */
 /*	_TARGET_OS_MAX          Target operating system is MAX		      */
@@ -90,7 +88,6 @@
 /*	_TARGET_OS_UNICOS       Target operating system is UNICOS	      */
 /*	_TARGET_OS_IRIX         Target operating system is IRIX.	      */
 /*	_TARGET_OS_LINUX        Target operating system is LINUX.	      */
-/*	_TARGET_OS_DARWIN       Target operating system is DARWIN (MacOS X)   */
 /*									      */
 /*   Choose 1: 						 		      */
 /*	_TARGET_IEEE            IEEE					      */
@@ -498,7 +495,7 @@
 
 
 
-# if 1 /* defined(_LINUX_LINUX) || defined(_DARWIN_DARWIN) */
+# if 1
 
 # if 0
 /*******************************************************/
@@ -531,9 +528,6 @@
 #     if 1 /*defined(_LINUX_LINUX) */
 #	define _HOST_OS_LINUX			1
 #	define _TARGET_OS_LINUX			1
-#     elif defined(_DARWIN_DARWIN)
-#	define _HOST_OS_DARWIN			1
-#	define _TARGET_OS_DARWIN		1
 #     else /* _LINUX_LINUX */
 #	error "Define _HOST_OS_XXX and _TARGET_OS_XXX" /* Just in case */
 #     endif /* _LINUX_LINUX */

@@ -56,9 +56,6 @@
 #ifdef __FreeBSD__
 #include <sys/sysctl.h>
 #endif
-#ifdef _WIN32
-#include <alloca.h>
-#endif
 #include "driver_defs.h"
 
 #include "phases.h"
@@ -746,13 +743,13 @@ static void
 add_abi(string_list_t *args) {
 #ifdef TARG_X8664
     if (is_target_arch_X8664()) {
-#if defined(BUILD_OS_DARWIN) || defined(__sun)
+#if defined(__sun)
 		add_string(args, (abi == ABI_M32) ? "-m32" : "-m64");
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 		if( abi == ABI_M32 ){
 		  add_string(args, "-m32");
 		}
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
     }
 #endif /* TARG_X8664 */
 #ifdef TARG_MIPS
@@ -2488,7 +2485,6 @@ postprocess_ld_args (string_list_t *args, phases_t phase)
      * too.
      */
 
-#if !defined(BUILD_OS_DARWIN) /* -rpath-link not supported on Mac */
     for (p = args->head; p != NULL; p = p->next) {
 	char *dir = NULL;
 
@@ -2580,7 +2576,6 @@ postprocess_ld_args (string_list_t *args, phases_t phase)
             }
 	}
     }
-#endif /* defined(BUILD_OS_DARWIN) */
 }
 
 #define MAX_PHASE_ORDER 10
@@ -3319,9 +3314,6 @@ run_ar(void)
 void
 run_pixie (void)
 {
-#ifdef _WIN32
-    error("run_pixie is unimplemented\n");
-#else
  int link_status;
  string_list_t *args = init_string_list();
  char *pixie_file;
@@ -3349,15 +3341,11 @@ run_pixie (void)
       }
    }
  }
-#endif
 }
 
 void
 run_prof (void)
 {
-#ifdef _WIN32
-    error("run_prof is unimplemented\n");
-#else
  int link_status;
  string_list_t *args = init_string_list();
  char *bin_dot_pixie, *bin_plain;
@@ -3395,7 +3383,6 @@ run_prof (void)
       perror(program_name);
     }
  }
-#endif
 }
 
 void

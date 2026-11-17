@@ -2412,12 +2412,10 @@ static BOOL get_mem_dep(OP *pred_op, OP *succ_op, BOOL *definite, UINT8 *omega)
       pred_id == OP_map_idx(pred_op) &&
       succ_id == OP_map_idx(succ_op)) {
     dbg_found = 1;
-#ifndef WIN32
     if (getenv("CGD_DBG")) {
       fprintf(stderr, "PID: %d\n", getpid());
       scanf("\n");
     }
-#endif
   }
 #endif
 

@@ -89,15 +89,6 @@ void __remainder_piby2d2f(unsigned long ux, double *r, int *region)
       double dx;
       static const double
         piby2 = 1.57079632679489655800e+00; /* 0x3ff921fb54442d18 */
-#ifdef WINDOWS
-      static unsigned long pibits[] =
-      {
-        0LL,
-        5215LL, 13000023176LL, 11362338026LL, 67174558139LL,
-        34819822259LL, 10612056195LL, 67816420731LL, 57840157550LL,
-        19558516809LL, 50025467026LL, 25186875954LL, 18152700886LL
-      };
-#else
       static unsigned long pibits[] =
       {
         0L,
@@ -105,7 +96,6 @@ void __remainder_piby2d2f(unsigned long ux, double *r, int *region)
         34819822259L, 10612056195L, 67816420731L, 57840157550L,
         19558516809L, 50025467026L, 25186875954L, 18152700886L
       };
-#endif
 
 #ifdef DEBUGGING_PRINT
         printf("On entry, ux = %25.20e\n", ux);

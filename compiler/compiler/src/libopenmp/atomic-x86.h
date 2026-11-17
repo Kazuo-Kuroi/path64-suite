@@ -28,11 +28,7 @@
 #include <stdint.h>
 #include "cpuid.h"
 
-#if defined(BUILD_OS_DARWIN)
-#define LOCK_PREFIX "lock/"
-#else /* defined(BUILD_OS_DARWIN) */
 #define LOCK_PREFIX "lock "
-#endif /* defined(BUILD_OS_DARWIN) */
 
 static inline void __pmp_inline_atomic_add32 (volatile int32_t *p,
 					      int32_t addend)

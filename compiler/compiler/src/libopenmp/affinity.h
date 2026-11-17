@@ -24,11 +24,11 @@
 #ifndef __pmp_affinity_h
 #define __pmp_affinity_h
 
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 #include <unistd.h>
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 #include <linux/unistd.h>
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif

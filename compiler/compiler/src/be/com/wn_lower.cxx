@@ -51,10 +51,8 @@
 #if HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
-#ifndef _WIN32
 #include <signal.h>
 #include "elf_defines.h"
-#endif // !_WIN32
 
 #include "defs.h"
 #include "config.h"
@@ -7086,13 +7084,8 @@ static WN *lower_store(WN *block, WN *tree, LOWER_ACTIONS actions)
 		 WN_st(tree) == Float_Preg && 
 		 WN_load_offset(tree) == First_X87_Preg_Return_Offset &&
 		 (
-#if defined(BUILD_OS_DARWIN)
-		   /* Darwin -m32 returns Fortran SP complex in registers too */
-		   1
-#else /* defined(BUILD_OS_DARWIN) */
 		   PU_c_lang(Get_Current_PU()) ||
 		   PU_cxx_lang(Get_Current_PU())
-#endif /* defined(BUILD_OS_DARWIN) */
 		   )){
 	/* For C/C++ under -m32, if the return value is type
 	   "__complex__ float", the real part will be stored at %eax, and
@@ -9249,7 +9242,6 @@ static WN *lower_emulation(WN *block, WN *tree, LOWER_ACTIONS actions,
 
 
 #ifdef linux
-/* Note no sincos() on Darwin */
 /* ====================================================================
  *
  * WN *lower_cis_intrinsic(WN *block, WN *tree, LOWER_ACTIONS actions)

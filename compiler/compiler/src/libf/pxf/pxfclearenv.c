@@ -35,11 +35,11 @@
 #include <stddef.h>
 #endif
 
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 extern char **environ;
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 extern char **_environ;
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
 /*
  *  PXFCLEARENV  -- clear all environment variables
@@ -71,15 +71,15 @@ _PXFCLEARENV(
 {
   int i;
 
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
   for(i=0; environ[i] != NULL; i++) {
     environ[i] = NULL;
   }
-#else /* defined(BUILD_OS_DARWIN) */
+#else
   for(i=0; _environ[i] != NULL; i++) {
     _environ[i] = NULL;
   }
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
   *IERROR = 0;
 }

@@ -52,14 +52,7 @@ extern	void	vcis(double *, dcomplex *, long, long, long);
 #pragma weak vcis = __vcis
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vcis( double *x, dcomplex *y, long count, long stridex,
-  long stridey );
-#pragma weak vcis
-void vcis( double *x, dcomplex *y, long count, long stridex, long stridey ) {
-  __vcis(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vcis(double *, dcomplex *, long, long, long);
 void    vcis() __attribute__ ((weak, alias ("__vcis")));
 #endif

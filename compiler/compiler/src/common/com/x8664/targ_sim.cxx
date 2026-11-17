@@ -87,12 +87,7 @@ SIM SIM_Info[] = {
     {RAX,RDX,RDX-RAX}, {ST0,ST1,1}, {ST0,ST1,1},
     MTYPE_I4, MTYPE_F8, MTYPE_F8,
     0, 0, -64/*TODO*/, 
-#if defined(BUILD_OS_DARWIN)
-    /* Structures <= 8 bytes return via registers */
-    0, 64, RCX, 0
-#else /* defined(BUILD_OS_DARWIN) */
     0, 0, RCX, 0
-#endif /* defined(BUILD_OS_DARWIN) */
   },
 
   { /* ABI_n64 */
@@ -331,44 +326,6 @@ static BOOL Is_X87_Aggregate(const TY_IDX ty)
   }
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Like Classify_Aggregate(), but for Darwin IA32. According to
- * developer.apple.com, 4-byte structures are passed in EAX, 8-byte
- * structures are passed in EAX plus EDX, and larger structures are
- * passed by reference. However, I observe that the gcc provided by
- * Apple passes a structure containing a single real or a single
- * double using the X87 instead. */
-INT Classify_Aggregate32(const TY_IDX ty, 
-			  enum X86_64_PARM_CLASS classes[MAX_CLASSES])
-{
-  enum X86_64_PARM_CLASS subclasses[MAX_CLASSES];
-
-  if (TY_size(ty) > 8 || TY_size(ty) == 0 ||
-      TY_is_non_pod(ty) /* || TY_is_packed(ty) bug 11892 */)
-    return 0;
-
-  INT size_in_words = (TY_size(ty) + 3) / 4;
-  classes[0] = X86_64_INTEGER_CLASS;
-  classes[1] = X86_64_NO_CLASS;
-
-  FLD_ITER fld_iter = Make_fld_iter(TY_fld(ty));
-  FLD_HANDLE fld(fld_iter);
-  TYPE_ID first_field_type = TY_mtype(FLD_type(fld));
-  if (size_in_words == 1 && first_field_type == MTYPE_F4) {
-    classes[0] = X86_64_X87_CLASS;
-  }
-  else if (size_in_words == 2) {
-    if (first_field_type == MTYPE_F8) {
-      size_in_words = 1;
-      classes[0] = X86_64_X87_CLASS;
-    }
-    else {
-      classes[1] = X86_64_INTEGER_CLASS;
-    }
-  }
-  return size_in_words;
-}
-#endif /* defined(BUILD_OS_DARWIN) */
 
 /* This routine figures out the mtypes of the return registers that are 
  * used for returning an object of the given type.
@@ -511,12 +468,8 @@ Get_Return_Info(TY_IDX rtype, Mtype_Return_Level level, BOOL ff2c_abi)
 	   %eax and %edx, respectively.    (bug#2707)
 	 */
 	if( 
-#if defined(BUILD_OS_DARWIN)
-	    1 /* Darwin -m32 returns Fortran SP complex in registers too */
-#else /* defined(BUILD_OS_DARWIN) */
 	    PU_c_lang(Get_Current_PU()) ||
 	    PU_cxx_lang(Get_Current_PU())
-#endif /* defined(BUILD_OS_DARWIN) */
 	    ){
 
 	  if( level == Use_Simulated ){
@@ -623,25 +576,15 @@ Get_Return_Info(TY_IDX rtype, Mtype_Return_Level level, BOOL ff2c_abi)
 
       info.return_via_first_arg = TRUE;
 
-#if defined(BUILD_OS_DARWIN)
-      /* For Darwin, even -m32 returns small structures in registers */
-#else /* defined(BUILD_OS_DARWIN) */
       if (Is_Target_32bit())
 	break;
-#endif /* defined(BUILD_OS_DARWIN) */
 
       if (SIM_INFO.max_struct_result != 0) {
 
         if (size > 0 && 8 * size <= SIM_INFO.max_struct_result) {
 	    PREG_NUM next_float_return_num, next_int_return_num;
 	    enum X86_64_PARM_CLASS classes[MAX_CLASSES];
-#if defined(BUILD_OS_DARWIN)
-            INT n = Is_Target_32bit() ?
-	      Classify_Aggregate32(rtype, classes) :
-	      Classify_Aggregate(rtype, classes);
-#else /* defined(BUILD_OS_DARWIN) */
 	    INT n = Classify_Aggregate(rtype, classes);
-#endif /* defined(BUILD_OS_DARWIN) */
 	    if (n > 0) {
               info.return_via_first_arg = FALSE;
               info.count = n;

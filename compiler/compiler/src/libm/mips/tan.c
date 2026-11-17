@@ -59,13 +59,7 @@ extern	double	tan(double);
 #pragma weak tan = __tan
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __tan(double);
-#pragma weak tan
-double tan( double x ) {
-  return __tan( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __tan(double);
 
 double    tan() __attribute__ ((weak, alias ("__tan")));
@@ -565,12 +559,7 @@ of significance)\n");
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __tanl(long double);
-long double tanl( long double x ) {	
-  return ( (long double)__tan((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __tanl(long double);
 
 long double    tanl() __attribute__ ((weak, alias ("__tanl")));

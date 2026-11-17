@@ -168,8 +168,6 @@ static struct {
   { "st220",    PROC_ST220 },
   { "st231",    PROC_ST231 },
   { "st240",    PROC_ST240 },
-  { "arm9",     PROC_armv5 },
-  { "arm11",    PROC_armv6 },
   { "stxp70_v3",PROC_stxp70_v3 },
   { "stxp70_v4",PROC_stxp70_v4_novliw},
   { "stxp70v3", PROC_stxp70_v3 },
@@ -181,15 +179,6 @@ static struct {
 };
 
 
-#ifdef MUMBLE_ARM_BSP
-static struct {
-  char * pname;
-  RUNTIME pid;
-} Runtime_Map[] =
-{
-  { NULL,	RUNTIME_NONE }
-};
-#endif
 
 
 char *Ofast_Name = NULL;/* -Ofast= name */
@@ -711,63 +700,6 @@ Process_Targ_Group ( char *targ_args )
 }
 
 
-#ifdef TARG_ARM
-/* ====================================================================
- *
- * add_arm_phase_for_option
- *
- *   Add flag to all needed phase for ARM target option
- *
- * ====================================================================
- */
-static void
-add_arm_phase_for_option( int flag )
-{
-  add_phase_for_option(flag, P_be);
-  add_phase_for_option(flag, p_any_ipl);
-  add_phase_for_option(flag, P_any_fe);
-
-#ifdef PATH64_ENABLE_GNU_FRONTEND
-#if (GNU_FRONT_END==33)
-  /* (cbr) -TARG now passed to cpp */
-  add_phase_for_option(flag, P_gcpp);
-  add_phase_for_option(flag, P_gcpp_plus);
-#endif
-#endif // PATH64_ENABLE_GNU_FRONTEND
-
-  if (!already_provided(flag)) {
-    /* [CL] Only prepend this option if
-       not already provided by the user */
-    prepend_option_seen (flag);
-  }
-}
-
-
-static void
-add_arm_int_option(char* option_name, int imm, phases_t phase)
-{
-  char *str = alloca(strlen(option_name)+16);
-  int flag;
-  sprintf(str, option_name, imm);
-  flag = add_new_option(str);
-  add_phase_for_option(flag, phase);
-  if (!already_provided(flag)) {
-    prepend_option_seen (flag);
-  }
-}
-
-static void
-check_range(char* m1, char* m2, int min1, int max1, int min2, int max2)
-{
-  if ((max1>0) && (max2>0) &&
-       ((min1<=min2 && min2<=max1) ||
-        (min2<=min1 && min1<=max2)))
-   warning("Conflict between size ranges %s [%d:%d] and "
-           "%s [%d:%d]\n",
-           m1, min1, max1, m2, min2, max2);
-}
-
-#endif /* TARG_ARM */
 
 /* ====================================================================
  *
@@ -818,23 +750,6 @@ Check_Target ( void )
   }
 #endif
 
-#ifdef TARG_ARM
-  switch (proc) {
-  case UNDEFINED:
-    toggle(&proc, PROC_armv5);
-    /* fallthru arm default (armv5). */
-  case PROC_armv5:
-    flag = add_new_option("-TARG:proc=armv5");
-    break;
-  case PROC_armv6:
-    flag = add_new_option("-TARG:proc=armv6");
-    break;
-  }
-
-  if (proc != PROC_NONE) {
-    add_arm_phase_for_option(flag);
-  }
-#endif
 
   if (abi == UNDEFINED) {
        abi = get_platform_abi();
@@ -1872,96 +1787,6 @@ Process_ICachealgo_Group (string cache_args)
 #endif /* BCO_Enabled Thierry */
 
 
-#ifdef TARG_ARM
-
-#ifdef MUMBLE_ARM_BSP
-char * arm_core, arm_soc, arm_board;
-char * arm_core_name, arm_soc_name, arm_board_name;
-RUNTIME arm_runtime = UNDEFINED;
-char * arm_targetdir ; /* Set iff targetdir is command-line overriden */
-char * arm_libdir;
-#endif
-
-void
-Process_ARM_Targ (char * option,  char * targ_args )
-{
-  char *targ;
-  int i;
-  int flag;
-  buffer_t buf;
-#ifdef MUMBLE_ARM_BSP
-  char * spath;
-#endif
-
-  if (debug)
-    fprintf ( stderr, "Process_ARM_Targ %s%s\n", option,targ_args);
-
-#ifdef MUMBLE_ARM_BSP
-  if (strncasecmp (option, "-mlibdir", 8) == 0) {
-    if (is_directory(targ_args)) 
-      arm_libdir = string_copy (targ_args);
-    else
-      warning("libdir %s undefined. ", targ_args);
-  }
-
-  if (strncasecmp (option, "-mtargetdir", 11) == 0) {
-      if (is_directory(targ_args)) {
-	/* Substitution should happen only if core/soc/board hiearchy exists */
-	/* So we cannot use the obvious set_phase_dir (get_phase_mask(P_alt_library), targ_args) ; */
-	arm_targetdir = string_copy (targ_args);
-      } else {
-	warning("targetdir %s undefined. setting to default", targ_args);
-      }
-  }
-
-  if (arm_targetdir) 
-    spath = arm_targetdir;
-  else
-    spath = get_phase_dir(P_alt_library);
-#endif
-
-  if (strncasecmp (option, "-mcore", 6) == 0) {
-    for (i = 0; Proc_Map[i].pname != NULL; i++) {
-      if (same_string(targ_args, Proc_Map[i].pname)) {
-	toggle (&proc, Proc_Map[i].pid);
-      }
-    }
-    if ( proc == UNDEFINED ) {
-      warning("unsupported processor %s\n", targ_args);
-      proc = PROC_NONE;
-    }
-#ifdef MUMBLE_ARM_BSP
-    arm_core = concat_path(spath, concat_path("core", targ_args));
-    arm_core_name = string_copy (targ_args);
-#endif
-  }
-
-#ifdef MUMBLE_ARM_BSP
-  else if (strncasecmp (option, "-msoc", 5) == 0) {
-    arm_soc = concat_path(spath, concat_path("soc", targ_args));
-    arm_soc_name = string_copy (targ_args);
-  }
-
-  else if (strncasecmp (option, "-mboard", 7) == 0) {
-    arm_board = concat_path(spath, concat_path("board", targ_args));
-    arm_board_name = string_copy (targ_args);
-  }
-
-  else if (strncasecmp (option, "-mruntime", 9) == 0) {
-    for (i = 0; Runtime_Map[i].pname != NULL; i++) {
-      if (same_string(targ_args, Runtime_Map[i].pname)) {
-	toggle (&arm_runtime, Runtime_Map[i].pid);
-      }
-    }
-    if (arm_runtime == UNDEFINED ) {
-      arm_runtime = RUNTIME_BARE;
-      warning("runtime %s undefined. setting to bare", targ_args);
-    }
-  }
-
-#endif
-}
-#endif /* TARG_ARM */
 
 void
 print_multi_lib ()
@@ -2062,40 +1887,6 @@ static struct
   
 char *target_cpu = NULL;
 
-#if defined(BUILD_OS_DARWIN)
-#include <sys/types.h>
-#include <sys/sysctl.h>
-
-/* Fetch an integer-valued sysctl parameter
- * name		name of parameter in sysctl database
- * return	result, or ~0 if not found
- */
-static long int
-get_sysctl_int(char *name) {
-  long int old;
-  size_t oldlen = sizeof(old);
-  if (sysctlbyname(name, &old, &oldlen, 0, 0)) {
-    perror("sysctlbyname");
-    return (long int) ~0UL;
-    }
-  return old;
-  }
-
-/* Fetch a string-valued sysctl parameter
- * name		name of parameter in sysctl database
- * value	buffer in which to store value
- * value_nbytes	size of buffer
- * return	pointer to input buffer, or empty string for error
- */
-static char *
-get_sysctl_str(char *name, char *value, size_t value_nbytes) {
-  if (sysctlbyname(name, value, &value_nbytes, 0, 0)) {
-    /* perror("sysctlbyname"); */
-    *value = 0;
-    }
-  return value;
-  }
-#endif /* ! defined(BUILD_OS_DARWIN) */
 
 // Get the platform's default ABI.
 ABI

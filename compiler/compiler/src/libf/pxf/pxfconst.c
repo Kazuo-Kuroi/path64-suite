@@ -338,11 +338,11 @@ struct ctbl consttbl[] = {
         {"SIGURG",SIGURG},
 #ifdef SIGCLD
         {"SIGCLD",SIGCLD},
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
         {"SIGCHLD",SIGCHLD},
 #ifdef SIGPWR
         {"SIGPWR",SIGPWR},
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 #ifdef _UNICOS
         {"SIGMT",SIGMT},
         {"SIGMTKILL",SIGMTKILL},

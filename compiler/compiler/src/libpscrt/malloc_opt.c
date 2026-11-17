@@ -46,5 +46,5 @@ __pathscale_malloc_alg (int alg_num)
        mallopt(M_TRIM_THRESHOLD, -1);
        break;
   }       
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 }

@@ -1,6 +1,3 @@
-if ARCH_ARM
-include_HEADERS_tdep = include/libunwind-arm.h
-else
 if ARCH_IA64
 include_HEADERS_tdep = include/libunwind-ia64.h
 else
@@ -28,7 +25,6 @@ endif # ARCH_X86
 endif # ARCH_MIPS
 endif # ARCH_HPPA
 endif # ARCH_IA64
-endif # ARCH_ARM
 
 include_HEADERS_common = $(include_HEADERS_tdep)		\
 	include/libunwind-dynamic.h include/libunwind-ptrace.h
@@ -48,8 +44,6 @@ EXTRA_DIST = include/dwarf.h include/dwarf_i.h include/dwarf-eh.h	\
 	include/libunwind_i.h include/mempool.h				\
 	include/remote.h						\
 	include/libunwind-common.h.in					\
-	include/tdep-arm/dwarf-config.h					\
-	include/tdep-arm/jmpbuf.h include/tdep-arm/libunwind_i.h	\
 	include/tdep-ia64/jmpbuf.h include/tdep-ia64/rse.h 		\
 	include/libunwind-ia64.h include/tdep-ia64/libunwind_i.h	\
 	include/tdep-ia64/jmpbuf.h include/tdep-ia64/rse.h 		\

@@ -53,14 +53,7 @@ extern	void	vacos(double *, double *, long, long, long);
 #pragma weak vacos = __vacos
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vacos( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vacos
-void vacos( double *x, double *y, long count, long stridex, long stridey ) {
-  __vacos(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vacos(double *, double *, long, long, long);
 void    vacos() __attribute__ ((weak, alias ("__vacos")));
 #endif

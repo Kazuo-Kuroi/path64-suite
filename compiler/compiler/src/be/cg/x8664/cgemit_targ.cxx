@@ -140,16 +140,11 @@ CGEMIT_Prn_File_Dir_In_Asm(USRCPOS usrcpos,
                         const char *pathname,
                         const char *filename)
 {
-#if defined(BUILD_OS_DARWIN)
-  /* .file takes a single string arg in v1.38 as */
-  fprintf (Asm_File, "\t%s\t\"%s/%s\"\n", AS_FILE, pathname, filename);
-#else /* defined(BUILD_OS_DARWIN) */
   if (CG_emit_non_gas_syntax)
     fprintf (Asm_File, "\t%s\t%d\t\"%s/%s\"\n",
 	     AS_FILE, USRCPOS_filenum(usrcpos)-1, pathname, filename);
   else fprintf (Asm_File, "\t%s\t%d\t\"%s/%s\"\n",
 	   AS_FILE, USRCPOS_filenum(usrcpos), pathname, filename);
-#endif /* defined(BUILD_OS_DARWIN) */
 }
 
 extern void
@@ -158,11 +153,6 @@ CGEMIT_Prn_Line_Dir_In_Asm (USRCPOS usrcpos)
   if( !CG_emit_asm_dwarf) { 
     fprintf (Asm_File, " # "); //turn the rest into comment
   }
-#if defined(BUILD_OS_DARWIN)
-  /* Darwin as provides .line, not .loc */
-  fprintf (Asm_File, "\t.line\t%d\n", 
-	   USRCPOS_linenum(usrcpos));
-#else /* defined(BUILD_OS_DARWIN) */
   if (CG_emit_non_gas_syntax)
     fprintf (Asm_File, "\t.loc\t%d\t%d\t%d\n", 
 	     USRCPOS_filenum(usrcpos)-1,
@@ -173,7 +163,6 @@ CGEMIT_Prn_Line_Dir_In_Asm (USRCPOS usrcpos)
 	     USRCPOS_filenum(usrcpos),
 	     USRCPOS_linenum(usrcpos),
 	     USRCPOS_column(usrcpos));    
-#endif /* defined(BUILD_OS_DARWIN) */
   }
 
 
@@ -217,12 +206,6 @@ CGEMIT_Prn_Scn_In_Asm (FILE       *asm_file,
     if (Non_Default_Text_Section(current_pu))
       fprintf (asm_file, "\t.end\tliteral_prefix\n");
   }
-#if defined(BUILD_OS_DARWIN)
-  /* Darwin uses ".lcomm", not ".bss" */
-  else if (0 == strcmp(scn_name, BSS_RAW_NAME)) {
-    return;
-  }
-#endif /* defined(BUILD_OS_DARWIN) */
   
   /* Handle .text, .data, and .literal specially. */
 
@@ -251,11 +234,7 @@ CGEMIT_Prn_Scn_In_Asm (FILE       *asm_file,
     char scn_flags_string[5];
     char *p = &scn_flags_string[0];
     
-#if defined(BUILD_OS_DARWIN)
-    fprintf (asm_file, "\n\t%s %s", AS_SECTION, map_section_name(scn_name));
-#else /* defined(BUILD_OS_DARWIN) */
     fprintf (asm_file, "\n\t%s %s", AS_SECTION, scn_name);
-#endif /* defined(BUILD_OS_DARWIN) */
     if (CG_emit_non_gas_syntax && strcmp(scn_name, ".srdata") == 0) {
       static BOOL printed = FALSE;
       if (!printed) {
@@ -267,8 +246,6 @@ CGEMIT_Prn_Scn_In_Asm (FILE       *asm_file,
 	printed = TRUE;
       }
     }
-#if ! defined(BUILD_OS_DARWIN)
-    /* Mach-O assembler section directives don't use this syntax */
     if (! CG_emit_non_gas_syntax) {
       if ((scn_flags & SHF_WRITE) &&
           !(scn_name && !strncmp(scn_name,".gnu.linkonce.r.",16)))
@@ -285,36 +262,23 @@ CGEMIT_Prn_Scn_In_Asm (FILE       *asm_file,
       }
 #endif // __sun
 
-#if ! defined(_WIN32)
       if (scn_flags & SHF_ALLOC) *p++ = 'a';
-#endif
       if (scn_flags & SHF_EXECINSTR) *p++ = 'x';
 #ifdef KEY
-#if ! defined(_WIN32)
       if (scn_flags & SHF_TLS) *p++ = 'T';
-#else
-      FmtAssert(!(scn_flags & SHF_TLS), ("TLS not support"));
-#endif
 #endif
       *p = '\0'; // null terminate the string.
       fprintf (asm_file, ", \"%s\"", scn_flags_string);
-#ifndef _WIN32
       if (Is_Target_64bit() && strcmp (scn_name, ".eh_frame") == 0)
         fprintf (asm_file, ",@unwind");
       else if (scn_type == SHT_PROGBITS)
         fprintf (asm_file, ",@progbits");
       else if (scn_type == SHT_NOBITS)
         fprintf (asm_file, ",@nobits");
-#endif // !_WIN32
     }
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef TARG_X8664
-#if ! defined(BUILD_OS_DARWIN)
-    /* Mach-O linker rejects non-local labels in debug sections, but we are
-     * already generating a local label for each section elsewhere. */
     if (strcmp(scn_name, DEBUG_FRAME_SECTNAME) == 0) // bug 2463
       fprintf(asm_file, "\n.LCIE:");
-#endif /* defined(BUILD_OS_DARWIN) */
 
     // Generate a label at the start of the .eh_frame CIE
     if (!strcmp (scn_name, EH_FRAME_SECTNAME)) // bug 2729
@@ -331,11 +295,6 @@ CGEMIT_Prn_Scn_In_Asm (FILE       *asm_file,
 
   if (!CGEMIT_Align_Section_Once(scn_name))
     fprintf (asm_file, "\t%s\t%d\n", AS_ALIGN, scn_align);
-#if defined(BUILD_OS_DARWIN)
-  /* Darwin "as" doesn't automatically define the section name to be a symbol
-   * whose value is the origin of the section, so we must do it explicitly */
-  fprintf(asm_file, "%s:\n", scn_name);
-#endif /* defined(BUILD_OS_DARWIN) */
 }
 
 void
@@ -2121,9 +2080,6 @@ static void Adjust_Opnd_Name( OP* op, int opnd, char* name )
 
   if( ISA_OPERAND_VALTYP_Is_Literal(vtype) ){
     // Bug 578
-#if defined(BUILD_OS_DARWIN)
-    // Mach-O linker evidently handles this automatically
-#else /* defined(BUILD_OS_DARWIN) */
     // Add a reference to the PLT under -fPIC compilation.
     if ( Gen_PIC_Shared &&  
 	 !TN_is_label( OP_opnd(op,0) ) &&
@@ -2135,7 +2091,6 @@ static void Adjust_Opnd_Name( OP* op, int opnd, char* name )
             ST_is_weak_symbol(function))
         strcat( name, "@PLT" );
     }
-#endif /* defined(BUILD_OS_DARWIN) */
 
     if (name[0] != '$' &&   /* A '$' has been added by CGEMIT_Relocs_In_Asm() */
 	(opnd != OP_find_opnd_use(op,OU_offset) &&
@@ -2412,18 +2367,11 @@ void CGEMIT_Setup_Ctrl_Register( FILE* f )
 // Emits function used to retrieve the Instruction Pointer (bug 9675)
 void CGEMIT_Setup_IP_Calc (void)
 {
-#ifdef _WIN32
-  fprintf (Asm_File, "\n\t.section .gnu.linkonce.t.%s,\"x\"\n", ip_calc_funcname);
-  fprintf (Asm_File, "\t.globl _%s\n", ip_calc_funcname);
-// fprintf (Asm_File, "\t.hidden %s\n", ip_calc_funcname);  
-  fprintf (Asm_File, "_%s:\n", ip_calc_funcname);
-#else
   fprintf (Asm_File, "\n\t.section .gnu.linkonce.t.%s,\"ax\",@progbits\n", ip_calc_funcname);
   fprintf (Asm_File, "\t.globl %s\n", ip_calc_funcname);
   fprintf (Asm_File, "\t.hidden %s\n", ip_calc_funcname);
   fprintf (Asm_File, "\t.type %s, @function\n", ip_calc_funcname);
   fprintf (Asm_File, "%s:\n", ip_calc_funcname);
-#endif
   fprintf (Asm_File, "\tmovl (%%esp),%%ebx\n");
   fprintf (Asm_File, "\tret\n");
 }

@@ -76,13 +76,16 @@ if(NOT PSC_TARGET)
 			message(FATAL_ERROR "Could not run '${_dumpmachine_command}' - got ${_dumpmachine_result}. Can't automatically set variables.")
 		endif()
 		set(PSC_MACHINE "${_dumpmachine_output}" CACHE STRING "Target string")
-		if(PSC_MACHINE STREQUAL "mingw32")
-			set(PSC_TARGET "x86_32" CACHE STRING "Target string")
-		else()
-			set(PSC_TARGET "${_dumpmachine_output}" CACHE STRING "Target string")
-			message(STATUS "Detected PSC_TARGET as '${PSC_TARGET}'")
-		endif()
+		set(PSC_TARGET "${_dumpmachine_output}" CACHE STRING "Target string")
+		message(STATUS "Detected PSC_TARGET as '${PSC_TARGET}'")
 	endif()
+endif()
+
+# Reject removed ports for explicit triples as well as detected ones.
+string(TOLOWER "${PSC_TARGET}" _path64_target_triple)
+if(_path64_target_triple MATCHES "^(arm|aarch64|thumb|strongarm|xscale|ep9312|rsk6)"
+   OR _path64_target_triple MATCHES "(^|-)(darwin|macos|mingw|cygwin|win32|windows|msvc|wince|uwin|interix|pe$)")
+    message(FATAL_ERROR "Unsupported Path64 compiler target '${PSC_TARGET}'")
 endif()
 
 # PSC_TARGET implies defaults for PATH64_ENABLE_TARGETS
@@ -115,7 +118,7 @@ if(PATH64_ENABLE_TARGETS)
 	foreach(TARGET_NAME ${PATH64_ENABLE_TARGETS})
 		set(TARGET_FLAGS ${TARGET_FLAGS_${TARGET_NAME}})
 		if(NOT TARGET_FLAGS)
-			message(FATAL_ERROR "Don't know what flags to use for target '${TARGET_NAME}'")
+			message(FATAL_ERROR "Unsupported Path64 target '${TARGET_NAME}'")
 		endif()
 
 		# Determine a default value for PSC_CRTBEGIN_PATH_${TARGET_NAME}

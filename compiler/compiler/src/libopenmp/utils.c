@@ -425,12 +425,7 @@ static void __pmp_init_cpus (void)
   }
   __pmp_param.openmp_to_machine_cpu_map = openmp_to_machine_cpu_map;
 
-#if defined(BUILD_OS_DARWIN)
-  __pmp_param.machine_num_cpus =
-    MAX(1, get_sysctl_int(SYSCTL_NPROCESSORS_ONLN));
-#else /* defined(BUILD_OS_DARWIN) */
   __pmp_param.machine_num_cpus = MAX(1, sysconf(_SC_NPROCESSORS_ONLN));
-#endif /* defined(BUILD_OS_DARWIN) */
 
   if (use_all_cpus) {
     ;
@@ -1025,35 +1020,3 @@ void __pmp_reinit (void)
 
   __pmp_debug(PMP_DEBUG_INFO, "OpenMP is reinitialized\n");
 }
-
-#if defined(BUILD_OS_DARWIN)
-#include <sys/types.h>
-#include <sys/sysctl.h>
-
-/* No memalign available--best we can do is default (16 byte alignment) */
-void *darwin_memalign(size_t alignment, size_t size, char *message) {
-  (void) alignment;
-  void *result = malloc(size);
-  if (result == 0)
-  {
-    __pmp_fatal(message);
-  }
-  return result;
-}
-
-/* Fetch an integer-valued sysctl parameter
- * name		name of parameter in sysctl database
- * return	result, or ~0 if not found
- */
-long int
-get_sysctl_int(char *name) {
-  long int old;
-  size_t oldlen = sizeof(old);
-  if (sysctlbyname(name, &old, &oldlen, 0, 0)) {
-    perror("sysctlbyname");
-    return (long int) ~0UL;
-    }
-  return old;
-  }
-#endif /* defined(BUILD_OS_DARWIN) */
- 

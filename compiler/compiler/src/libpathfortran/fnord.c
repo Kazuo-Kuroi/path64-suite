@@ -105,11 +105,7 @@ static int common_init()
 
   if (enable_segv_handler) {
 
-#if defined(BUILD_OS_DARWIN)
-	static const size_t stack_size = MINSIGSTKSZ;
-#else /* defined(BUILD_OS_DARWIN) */
 	static const size_t stack_size = 4096;
-#endif /* defined(BUILD_OS_DARWIN) */
 	new_stack = malloc(stack_size);
 	stack_t ss = {
 		ss_sp: new_stack,

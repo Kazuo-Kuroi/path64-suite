@@ -106,29 +106,6 @@ static const	du	infinity =
 
 #define STRINGIFY(str) #str
 
-#if defined(BUILD_OS_DARWIN)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-#define DECLARE(ret_type, fn_name, arg_types...) \
-  ret_type __ ## fn_name(arg_types); \
-  ret_type fn_name(arg_types) { return __ ## fn_name(x, p_err); }
-extern	INT	c_q_le(QUAD x, QUAD y, INT *p_err);
-extern	INT	c_q_ge(QUAD x, QUAD y, INT *p_err);
-DECLARE(INT32,	c_ji_qint, QUAD x, INT *p_err );
-INT32 __c_fp_class_q(QUAD);
-INT32 c_fp_class_q(QUAD x) { return __c_fp_class_q(x); }
-DECLARE(UINT32,	c_ji_quint, QUAD x, INT *p_err );
-DECLARE(INT64,	c_ki_qint, QUAD x, INT *p_err );
-DECLARE(UINT64,	c_ki_quint, QUAD x, INT *p_err );
-DECLARE(float,	c_sngl_q, QUAD x, INT *p_err );
-DECLARE(double,	c_dble_q, QUAD x, INT *p_err );
-DECLARE(QUAD,	c_q_flotj, INT32 x, INT *p_err );
-DECLARE(QUAD,	c_q_flotju, UINT32 x, INT *p_err );
-DECLARE(QUAD,	c_q_flotk, INT64 x, INT *p_err );
-DECLARE(QUAD,	c_q_flotku, UINT64 x, INT *p_err );
-DECLARE(QUAD,	c_q_ext,  float x, INT *p_err );
-DECLARE(QUAD,	c_q_extd, double x, INT *p_err );
-DECLARE(QUAD,	c_q_trunc, QUAD x, INT *p_err );
-#else /* defined(BUILD_OS_DARWIN) */
 #define DECLARE(ret_type, fn_name, arg_types...) \
   ret_type __ ## fn_name(arg_types); \
   ret_type fn_name(arg_types) __attribute__((weak, alias("__" #fn_name)))
@@ -149,7 +126,6 @@ DECLARE(QUAD,	c_q_flotku, UINT64 n, INT *p_err );
 DECLARE(QUAD,	c_q_ext,  float x, INT *p_err );
 DECLARE(QUAD,	c_q_extd, double x, INT *p_err );
 DECLARE(QUAD,	c_q_trunc, QUAD x, INT *p_err );
-#endif /* defined(BUILD_OS_DARWIN) */
 extern	double	trunc(double x);
 
 /* quad to INT32 */

@@ -6,22 +6,12 @@
 # Optimized memset for Opteron/Athlon64.  Use mov/movnti with 64-bit integer
 # registers.
 
-#if defined(BUILD_OS_DARWIN)
-	.file	"memset_opteron.s"
-	.section __TEXT,__textcoal_nt,coalesced,pure_instructions
-	.p2align 4,,15
-.globl memset.pathscale.opteron
-	.globl memset
-memset:
-	.weak_definition memset
-#else /* defined(BUILD_OS_DARWIN) */
 	.file	1	"memset_opteron.s"
 	.text
 	.p2align 4,,15
 	.section .text
 .globl memset.pathscale.opteron
 	.type	memset.pathscale.opteron, @function	# memset (rdi, esi, rdx)
-#endif /* defined(BUILD_OS_DARWIN) */
 memset.pathscale.opteron:	# bb_entry
 	movq	%rdi,%rax		# return the first arg
 	cmpq	$0x7,%rdx
@@ -117,10 +107,8 @@ bb_11.memset_opteron:
 bb_12.memset_opteron:
 	retq
 
-#if ! defined(BUILD_OS_DARWIN)
 .weak memset
 	memset = memset.pathscale.opteron
-#endif /* defined(BUILD_OS_DARWIN) */
 
 #if (defined(__FreeBSD__) || defined(__linux__)) && defined(__ELF__)
     .section .note.GNU-stack,"",@progbits

@@ -53,14 +53,7 @@ extern	void	vsqrt(double *, double *, long, long, long);
 #pragma weak vsqrt = __vsqrt
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vsqrt( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vsqrt
-void vsqrt( double *x, double *y, long count, long stridex, long stridey ) {
-  __vsqrt(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern void __vsqrt(double *, double *, long, long, long);
 void    vsqrt() __attribute__ ((weak, alias ("__vsqrt")));
 #endif

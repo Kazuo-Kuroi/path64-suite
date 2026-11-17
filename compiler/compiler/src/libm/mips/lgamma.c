@@ -74,20 +74,7 @@ extern	double	lgamma(double);
 #pragma weak lgamma = __lgamma
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __gamma(double);
-extern double __lgamma(double);
-#pragma weak gamma
-#pragma weak lgamma
-#pragma weak signgam
-double gamma(double arg) {
-  return __gamma(arg);
-}
-double lgamma( double arg ) {
-  return __lgamma( arg );
-}
-int signgam = 0;
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __gamma(double);
 
 double    gamma() __attribute__ ((weak, alias ("__gamma")));
@@ -195,9 +182,6 @@ struct exception	exstruct;
 #endif
 
 	signgam = 1;
-#if defined(BUILD_OS_DARWIN)
-	__signgam = signgam;
-#endif /* defined(BUILD_OS_DARWIN) */
 
 	if ( arg != arg )
 	{
@@ -405,9 +389,6 @@ struct exception	exstruct;
 
 	if ( n&1 ) {
 		signgam = -1;
-#if defined(BUILD_OS_DARWIN)
-		__signgam = signgam;
-#endif /* defined(BUILD_OS_DARWIN) */
 	}
 
 	h = arg - z;	/* 0.0 < h < 1.0 */
@@ -557,19 +538,7 @@ double result;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  long double  __gammal(long double);
-extern  long double  __lgammal(long double);
-#pragma weak gammal
-#pragma weak lgammal
-#pragma weak signgaml
-long double gammal(long double arg) {
-  return __gammal(arg);
-}
-long double lgammal( long double arg ) {
-  return __lgammal( arg );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __gammal(long double);
 
 long double    gammal() __attribute__ ((weak, alias ("__gammal")));
@@ -584,10 +553,7 @@ extern	int  signgaml  __attribute__ ((weak, alias ("__signgaml")));
 
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-int __signgaml = 0;
-int signgaml = 0;
-#elif (__GNUC__ > 3)
+#if (__GNUC__ > 3)
 int	__signgaml = 0;
 #else
 int	signgaml = 0;

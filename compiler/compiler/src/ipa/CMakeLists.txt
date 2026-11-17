@@ -179,9 +179,6 @@ path64_set_multiarch_property(ipl COMPILE_FLAGS
 path64_add_multiarch_dependencies(ipl generate_preg_list generate_topcode)
 path64_install_multiarch(ipl)
 path64_add_dependencies_from_multiarch(compiler-stage ipl)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    path64_multiarch_link_multiarch_libraries(ipl comutil be-static)
-endif()
 
 path64_add_multiarch_executable(inline PATHSCALE_INLINE_SRCS)
 path64_set_multiarch_property(inline COMPILE_DEFINITIONS MONGOOSE_BE;_LIGHTWEIGHT_INLINER;_STDC_FORMAT_MACROS)

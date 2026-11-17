@@ -1686,10 +1686,7 @@ int ntr_const_tbl (int		 type_idx,
 /*        _HOST_OS_MAX also on UNICOS/mk MPP systems to indicate the host is  */
 /*        an MPP.							      */
 
-#if (defined(_HOST_OS_UNICOS)   &&  defined(_TARGET_OS_UNICOS))   ||           \
-    (defined(_HOST_OS_MAX)      &&  defined(_TARGET_OS_MAX))      ||           \
-    (defined(_HOST_OS_SOLARIS)  &&  defined(_TARGET_OS_SOLARIS))  ||           \
-    ((defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))      &&  (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)))
+#if (defined(_HOST_OS_UNICOS) && defined(_TARGET_OS_UNICOS)) || (defined(_HOST_OS_MAX) && defined(_TARGET_OS_MAX)) || (defined(_HOST_OS_SOLARIS) && defined(_TARGET_OS_SOLARIS)) || ((defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX)) && (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)))
 
    /* ASSUMPTION:  long and float occupy the same number of bits on PVP and   */
    /*              Solaris machines.  					      */
@@ -4000,7 +3997,7 @@ size_offset_type	stor_bit_size_of(int		 attr_idx,
    size_offset_type	result;
    int			type_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    long64		max_size;
 # endif
 
@@ -4148,7 +4145,7 @@ size_offset_type	stor_bit_size_of(int		 attr_idx,
                issue_msg		= FALSE;
                max_storage_size.fld	= NO_Tbl_Idx;
 
-#              if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
                   max_storage_size.type_idx	= Integer_8;
 
                   if (cmd_line_flags.s_pointer8) {
@@ -4185,7 +4182,7 @@ size_offset_type	stor_bit_size_of(int		 attr_idx,
 
                if (issue_msg) {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
                   if (cmd_line_flags.s_pointer8) {
                      constant	= max_storage_size;
@@ -4927,7 +4924,7 @@ int	compare_names(long	*id1,
 
    TRACE (Func_Entry, "compare_names", NULL);
 
-# if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 #  pragma _CRI shortloop
 # endif
 
@@ -5407,7 +5404,7 @@ int srch_linked_sn(char		*name,
       if (SN_NAME_LEN(*sn_idx) == length) {
          id1 = (long *) &(name_pool[SN_NAME_IDX(*sn_idx)]);
 
-# if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 #        pragma _CRI shortloop
 # endif
 
@@ -5598,7 +5595,7 @@ boolean	validate_kind(basic_type_type	 type,
 # if defined(_TARGET_OS_MAX)
             PRINTMSG(line, 543, Warning, column, 16, 8);
             *linear_type = Real_8;
-# elif defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#elif defined(_TARGET_OS_LINUX)
             PRINTMSG(line, 541, Error, column);
 # endif
             break;
@@ -5627,7 +5624,7 @@ boolean	validate_kind(basic_type_type	 type,
 # if defined(_TARGET_OS_MAX)
             PRINTMSG(line, 543, Warning, column, 16, 8);
             *linear_type = Complex_8;
-# elif defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)
+#elif defined(_TARGET_OS_LINUX)
             PRINTMSG(line, 541, Error, column);
 # endif
             break;
@@ -5788,7 +5785,7 @@ void assign_offset(int	attr_idx)
 
    if (ATD_IM_A_DOPE(attr_idx)) {
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       align_bit_length(&offset, storage_bit_size_tbl[CRI_Ptr_8]);
 
       if (ATD_CLASS(attr_idx) == Struct_Component) {
@@ -5876,7 +5873,7 @@ void assign_offset(int	attr_idx)
 
 # endif
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
 # if 0
    else if (cmd_line_flags.align8) {
@@ -5964,7 +5961,7 @@ void assign_offset(int	attr_idx)
                                           result.constant);
             }
 
-# if ! (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if !(defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
             /* -a dalign is always on for IRIX and there is no way to shut */
             /* it off, so we do not need to issue this warning for IRIX.   */
@@ -6119,7 +6116,7 @@ void assign_offset(int	attr_idx)
 
 # endif  /* DALIGN_TEST_CONDTION */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    else if (TYP_TYPE(type_idx) == Structure &&
             ATT_ALIGNMENT(TYP_IDX(type_idx)) > WORD_ALIGN) {
@@ -8939,7 +8936,7 @@ void set_binding_label(fld_type fld, int idx, token_type *new_binding_label) {
 |*      NONE                                                                  *|
 |*                                                                            *|
 \******************************************************************************/
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
 void	make_external_name(int	attr_idx,
 			   int	name_idx,

@@ -53,14 +53,7 @@ extern	void	vatan(double *, double *, long, long, long);
 #pragma weak vatan = __vatan
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vatan( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vatan
-void vatan( double *x, double *y, long count, long stridex, long stridey ) {
-  __vatan(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vatan(double *, double *, long, long, long);
 void    vatan() __attribute__ ((weak, alias ("__vatan")));
 #endif

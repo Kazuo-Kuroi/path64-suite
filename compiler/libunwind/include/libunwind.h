@@ -1,9 +1,7 @@
 /* Provide a real file - not a symlink - as it would cause multiarch conflicts
    when multiple different arch releases are installed simultaneously.  */
 
-#if defined __arm__
-# include "libunwind-arm.h"
-#elif defined __hppa__
+#if defined __hppa__
 # include "libunwind-hppa.h"
 #elif defined __ia64__
 # include "libunwind-ia64.h"

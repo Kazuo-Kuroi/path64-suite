@@ -32,9 +32,6 @@
 #include "lang_defs.h"
 #endif
 
-#ifdef _WIN32
-#include "pex.h"
-#endif // _WIN32
 
 extern int show_version;	/* show the compiler version */
 extern boolean show_copyright;	/* show the compiler copy right */

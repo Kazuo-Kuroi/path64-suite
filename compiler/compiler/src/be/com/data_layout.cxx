@@ -2468,8 +2468,7 @@ INT64 Finalize_Stack_Frame (void)
 	Frame_Size = MAX(0, Frame_Size - Stack_Offset_Adjustment);
   }
 
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
-// Darwin requires 16 byte alignment of the stack pointer even in -m32
+#if defined(__FreeBSD__)
 // (otherwise, for example, dynamic linking code faults on a movdqa
 // instruction). Because the "call" pushes a 4-byte return address onto the
 // stack which isn't included in Frame_Size, it's not sufficient just to
@@ -2491,7 +2490,7 @@ if(! Is_Target_64bit() ) {
     }
   }
 }
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 
   if ( Trace_Frame ) {
     Trace_Stack_Segments ( "Finalize_Stack_Frame", SP_Sym, FP_Sym);

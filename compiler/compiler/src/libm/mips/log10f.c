@@ -68,13 +68,7 @@ extern	float	log10f(float);
 #pragma weak log10f = __log10f
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __log10f(float);
-#pragma weak log10f
-float log10f( float x ) {
-  return __log10f( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __log10f(float);
 float    log10f(float) __attribute__ ((weak, alias ("__log10f")));
 #endif

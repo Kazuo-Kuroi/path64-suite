@@ -38,9 +38,6 @@
 
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
-#ifdef _WIN32
-#include <alloca.h>
-#endif
 
 #ifndef FRONT_END
 

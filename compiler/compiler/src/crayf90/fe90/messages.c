@@ -41,7 +41,7 @@ static char USMID[] = "\n@(#)5.0_pl/sources/messages.c	5.9	10/14/99 14:08:59\n";
 
 # define  __NLS_INTERNALS  1
 
-# if defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_LINUX)
 # include <nl_types.h>
 # include <nlcatmsg.h>
 
@@ -149,7 +149,7 @@ void init_msg_processing (char *argv[])
 
    if (msg_sys == (nl_catd) -1) {  /* (nl_catd) is msg_sys's type. */
 
-# if defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_LINUX)
       fprintf (stderr, PSC_NAME_PREFIX "f95 INTERNAL: Unable to open message system.\n");
 # else
       fprintf (stderr, "cf90 INTERNAL: Unable to open message system.\n");
@@ -1097,7 +1097,7 @@ void output_msg (int				glb_line_num,
          /* more of a clue as to what could possibly have happened and then   */
          /* added the specific check later for the "out of memory" case.      */
 
-# if defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_LINUX)
          fprintf(stderr, PSC_NAME_PREFIX "f95 INTERNAL: "
 #else       
          fprintf(stderr, "cft90 INTERNAL: "
@@ -1132,7 +1132,7 @@ void output_msg (int				glb_line_num,
       /* the "if" should be changed to a "switch" on the codes returned from  */
       /* __catgetmsg_error_code().					      */
 
-# if !(defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if !(defined(_HOST_OS_LINUX))
 
       if (__catgetmsg_error_code() == NL_ERR_MALLOC) {
          fprintf(stderr, "cft90 INTERNAL: "
@@ -1277,7 +1277,7 @@ void exit_compiler (int		code)
 
 # ifdef _DEBUG
 
-# if defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 
    /* Abort if this is a Limit or an Internal error.			      */
 
@@ -1765,7 +1765,7 @@ void print_buffered_messages(void)
       goto EMERGENCY_EXIT;
    }
 
-#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
   if (getenv("NLSPATH") == NULL) {
     /* NLSPATH is not set. */
     const char * const toolroot = getenv("TOOLROOT");

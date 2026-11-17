@@ -65,13 +65,7 @@ extern	double	expm1(double);
 #pragma weak expm1 = __expm1
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __expm1(double);
-#pragma weak expm1
-double expm1( double x ) {
-  return __expm1( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __expm1(double);
 
 double    expm1() __attribute__ ((weak, alias ("__expm1")));
@@ -444,12 +438,7 @@ struct exception	exstruct;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __expm1l(long double);
-long double expm1l( long double x ) {	
-  return ( (long double)__expm1((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __expm1l(long double);
 
 long double    expm1l() __attribute__ ((weak, alias ("__expm1l")));

@@ -53,14 +53,7 @@ extern	void	vsin(double *, double *, long, long, long);
 #pragma weak vsin = __vsin
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vsin( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vsin
-void vsin( double *x, double *y, long count, long stridex, long stridey ) {
-  __vsin(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vsin(double *, double *, long, long, long);
 void    vsin() __attribute__ ((weak, alias ("__vsin")));
 #endif

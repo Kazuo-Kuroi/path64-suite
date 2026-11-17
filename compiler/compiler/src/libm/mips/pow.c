@@ -69,13 +69,7 @@ extern	double	pow(double, double);
 #pragma weak pow = __pow
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __pow(double, double);
-#pragma weak pow
-double pow( double arg1, double arg2) {
-  return __pow( arg1, arg2 );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __pow(double, double);
 
 double    pow() __attribute__ ((weak, alias ("__pow")));
@@ -1274,12 +1268,7 @@ overunder:
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __powl(long double, long double);
-long double powl( long double arg1, long double arg2) {
-  return ( (long double)__pow((double)arg1, (double)arg2) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __powl(long double, long double);
 
 long double    powl() __attribute__ ((weak, alias ("__powl")));

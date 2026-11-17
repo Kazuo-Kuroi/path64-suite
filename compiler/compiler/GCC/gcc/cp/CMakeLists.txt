@@ -16,10 +16,6 @@ ENDIF(CMAKE_SYSTEM MATCHES "HP-UX")
 #-----------------------------------------------------------------------------
 # Special flags for some source files.
 
-IF(CYGWIN)
-  SET_SOURCE_FILES_PROPERTIES(../cppdefault.c PROPERTIES
-    COMPILE_FLAGS "-DTOOL_INCLUDE_DIR=/usr/include")
-ENDIF(CYGWIN)
 
 INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 CONFIGURE_FILE(${GCC_SOURCE_DIR}/gcc/path64_prefix.h.in
@@ -53,9 +49,6 @@ path64_multiarch_link_multiarch_libraries( cc1plus42 spin)
 path64_install_multiarch(cc1plus42)
 path64_add_dependencies_from_multiarch( compiler-stage cc1plus42 )
 
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    PATH64_MULTIARCH_LINK_LIBRARIES(cc1plus42 winlib)
-ENDIF()
 
 
 # Use the "-lx" option to disable map file generation on Borland.

@@ -277,13 +277,8 @@ float secnds_vms(float *start) {
   return result - stemp;
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-float secnds_(float *start) { return secnds_vms(start); }
-#else /* defined(BUILD_OS_DARWIN) */
 float secnds_(float *);
 #pragma weak secnds_ = secnds_vms
-#endif /* defined(BUILD_OS_DARWIN) */
 
 double dsecnds_vms(double *start) {
   float temp = *start;
@@ -292,12 +287,7 @@ double dsecnds_vms(double *start) {
   return result;
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-double dsecnds_(double *start) { return dsecnds_vms(start); }
-#else /* defined(BUILD_OS_DARWIN) */
 double dsecnds_(double *);
 #pragma weak dsecnds_ = dsecnds_vms
-#endif /* defined(BUILD_OS_DARWIN) */
 
 #endif /* KEY Bug 11640 */

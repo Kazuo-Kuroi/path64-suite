@@ -17,11 +17,7 @@ ENDIF()
 # Search for various include files and functions
 include(${Path64_SOURCE_DIR}/cmake/Modules/ConfigureChecks.cmake)
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(LINK_COPY copy_if_different)
-else()
-    set(LINK_COPY create_symlink)
-endif()
+set(LINK_COPY create_symlink)
 
 # Force the build_type=debug flags to sane values overriding users choices
 SET(CMAKE_C_FLAGS_DEBUG  "-O0 -g -D_DEBUG -DIs_True_On=1" CACHE STRING "Flags used by the compiler during debug builds." FORCE)
@@ -327,35 +323,15 @@ IF("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     ADD_DEFINITIONS(-D_GNU_SOURCE)
 ENDIF()
 
-#IF (${BUILD_TARGET_DIR} MATCHES "arm")
-#ADD_DEFINITIONS( -DTARG_ST
-#                -DTARG_ARM
-#                -DARM
-#                -DMUMBLE_ARM_BSP 
-#                -DSUPPORTS_SELECT
-#                -DBE_EXPORTED=
-#                -DTARGINFO_EXPORTED=
-#               )
-
 IF(${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
     # --export-dynamic is not supported on osol
-    SET(EXPORT_DYNAMIC_SUPPORTED "no")
-ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    # --export-dynamic is not supported on Windows
     SET(EXPORT_DYNAMIC_SUPPORTED "no")
 ELSE()
     SET(EXPORT_DYNAMIC_SUPPORTED "yes")
 ENDIF()
 
-IF (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    SET(SHELL_EXT cmd)
-    SET(SYMLINK_COMMAND ${CMAKE_COMMAND} -E copy_if_different) 
-    SET(PATH64_AUXILARY_LD_FLAGS '"-FIXME"')
-    # ADD_DEFINITIONS(-DPSC_FULL_VERSION="${PSC_FULL_VERSION}")
-ELSE()
-    SET(SHELL_EXT sh)
-    SET(SYMLINK_COMMAND ${CMAKE_COMMAND} -E create_symlink)
-ENDIF()
+SET(SHELL_EXT sh)
+SET(SYMLINK_COMMAND ${CMAKE_COMMAND} -E create_symlink)
 # build runtime search paths
 include(${Path64_SOURCE_DIR}/cmake/Modules/GCCRuntimeDirs.cmake)
 

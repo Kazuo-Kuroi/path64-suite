@@ -49,14 +49,8 @@ dcomplex z_log_(dcomplex *z)
   return __zlog(z->dreal, z->dimag);
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-dcomplex z_log(dcomplex *z) { return z_log_(z); }
-#pragma weak z_log
-#else /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY /* Bug 15104 */
 weakalias(z_log_, z_log);
 #else /* KEY Bug 15104 */
 defalias(z_log_, z_log);
 #endif /* KEY Bug 15104 */
-#endif /* defined(BUILD_OS_DARWIN) */

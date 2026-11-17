@@ -26,7 +26,6 @@
 
 #ident  "$Header$"
 
-#if ! defined(BUILD_OS_DARWIN)
 /* Mach-O doesn't implement aliases; Linux version ignores these anyway
  * because there's no C declaration of the alias id */
 #if defined(__STDC__) && defined(_LITTLE_ENDIAN)
@@ -37,7 +36,6 @@
         #pragma weak __catgetmsg_error_code = ___catgetmsg_error_code
 #endif
 #endif				/* end STDC and _LITTLE_ENDIAN */
-#endif /* ! defined(BUILD_OS_DARWIN) */
 
 /*
  * IMPORTANT:

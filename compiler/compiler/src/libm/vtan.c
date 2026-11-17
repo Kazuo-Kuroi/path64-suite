@@ -53,14 +53,7 @@ extern	void	vtan(double *, double *, long, long, long);
 #pragma weak vtan = __vtan
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vtan( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vtan
-void vtan( double *x, double *y, long count, long stridex, long stridey ) {
-  __vtan(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vtan(double *, double *, long, long, long);
 void    vtan() __attribute__ ((weak, alias ("__vtan")));
 #endif

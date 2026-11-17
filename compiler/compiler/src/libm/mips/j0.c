@@ -97,18 +97,7 @@ extern double y0(double);
 #pragma weak y0 = __y0
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __j0(double);
-extern double __y0(double);
-#pragma weak j0
-#pragma weak y0
-double j0( double arg ) {
-  return __j0( arg );
-}
-double y0( double x ) {
-  return __y0( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __j0(double);
 
 double    j0() __attribute__ ((weak, alias ("__j0")));
@@ -641,17 +630,7 @@ double	num, denom, result;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  long double  __j0l(long double);
-extern  long double  __y0l(long double);
-long double j0l( long double x ) {	
-  return ( (long double)__j0((double)x) );
-}
-
-long double y0l( long double x ) {	
-  return ( (long double)__y0((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __j0l(long double);
 
 long double    j0l() __attribute__ ((weak, alias ("__j0l")));

@@ -21,11 +21,7 @@ SET(iberty_SRCS
    # source file count: 46
   )
 
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    LIST(APPEND iberty_SRCS pex-win32.c)
-ELSE()
     LIST(APPEND iberty_SRCS pex-unix.c)
-ENDIF()
 
 FOREACH(f
     ASPRINTF ATEXIT BASENAME BSEARCH CLOCK GETCWD

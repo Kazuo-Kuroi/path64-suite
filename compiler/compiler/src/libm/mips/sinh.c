@@ -62,18 +62,7 @@ extern	double	cosh(double);
 #pragma weak cosh = __cosh
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  double  __sinh(double);
-extern  double  __cosh(double);
-#pragma weak sinh
-#pragma weak cosh
-double sinh( double x ) {
-  return __sinh( x );
-}
-double cosh( double x ) {
-  return __cosh( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __sinh(double);
 
 double    sinh() __attribute__ ((weak, alias ("__sinh")));
@@ -537,17 +526,7 @@ L:
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __sinhl(long double);
-extern long double __coshl(long double);
-long double sinhl( long double x ) {	
-  return ( (long double)__sinh((double)x) );
-}
-
-long double coshl( long double x ) {	
-  return ( (long double)__cosh((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __sinhl(long double);
 
 long double    sinhl() __attribute__ ((weak, alias ("__sinhl")));

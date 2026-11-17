@@ -241,16 +241,13 @@ int __pmp_get_stack_size_limit(const char *new_limit, long long *max_stack_ptr,
       (long) rl.rlim_cur, (long) rl.rlim_max);
   }
  
-#if defined(BUILD_OS_DARWIN)
-  physmem = get_sysctl_int("hw.memsize");
-  ncpus = get_sysctl_int(SYSCTL_NPROCESSORS_ONLN);
-#elif defined(__NetBSD__)
+#if defined(__NetBSD__)
   phys_mem = get_sysctl_int("hw.physmem64");
   ncpus = sysconf(_SC_NPROCESSORS_ONLN);
-#else /* defined(BUILD_OS_DARWIN) */
+#else
   phys_mem = (long long)sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGE_SIZE);
   ncpus = sysconf(_SC_NPROCESSORS_ONLN);
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
   nthreads = (nthreads > 0) ? nthreads : ncpus;
  
  

@@ -73,11 +73,7 @@ string_list_t *isystem_dirs = NULL;
 static char *tmpdir = NULL;
 static char *saved_object = NULL;
 
-#ifdef _WIN32
-#define DEFAULT_TMPDIR	"."
-#else
 #define DEFAULT_TMPDIR	"/tmp"
-#endif
 
 static string_pair_list_t *temp_obj_files = NULL;
 
@@ -118,9 +114,9 @@ get_object_file (char *src)
 	  char *p;
 #if !defined(__linux__)
 	  src = strcpy(alloca(strlen(src) + sizeof '\0'), src);
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 	  src = strdupa(src);
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 	  for (p = src; *p != '\0'; p++) {
 	    if (*p == '/')
 	      *p = '%';
@@ -229,15 +225,6 @@ init_temp_files (void)
 	for (i = 0; i < 3; i++) {
 		char *t = string_copy(getenv(tmpdir_env[i]));
 
-#ifdef _WIN32
-		if (t != NULL) {
-			char *s = t;
-
-			while ((s = strchr (s, '\\')) != NULL) {
-				*s = '/';
-			}
-		}
-#endif
 		if (t != NULL && is_directory(t) && directory_is_writable(t)) {
 			int len = strlen(t);
 

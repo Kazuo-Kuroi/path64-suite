@@ -50,13 +50,6 @@ extern int fp_class_l(long double);
 /*
  * Constants returned by the floating point fp_class_[fdq]() functions.
  */
-#if defined(BUILD_OS_DARWIN)
-/* Assuming we're using our own fp_class_[fdq]() functions and not the
- * standard fpclassify, we want to ignore any definitions from the environ
- * outside the compiler */
-#undef FP_SNAN
-#undef FP_QNAN
-#endif /* defined(BUILD_OS_DARWIN) */
 #define	FP_SNAN		0
 #define	FP_QNAN		1
 #define	FP_POS_INF	2

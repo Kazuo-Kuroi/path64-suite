@@ -58,13 +58,7 @@ extern	void	sincosf(float, float *, float *);
 #pragma weak sincosf = __sincosf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __sincosf(float, float *, float *);
-#pragma weak sincosf
-void sincosf(float x, float *sinx, float *cosx) {
-  return __sincosf(x, sinx, cosx);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __sincosf(float, float *, float *);
 void    sincosf(float, float *, float *) __attribute__ ((weak, alias ("__sincosf")));
 #endif

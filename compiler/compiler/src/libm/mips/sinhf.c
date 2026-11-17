@@ -66,18 +66,7 @@ extern	float	coshf(float);
 #pragma weak coshf = __coshf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  float  __sinhf(float);
-extern  float  __coshf(float);
-#pragma weak sinhf
-#pragma weak coshf
-float sinhf( float x ) {
-  return __sinhf( x );
-}
-float coshf( float x ) {
-  return __coshf( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __sinhf(float);
 float    sinhf(float) __attribute__ ((weak, alias ("__sinhf")));
 

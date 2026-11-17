@@ -55,14 +55,7 @@ extern	void	vacosf(float *, float *, long, long, long);
 #pragma weak vacosf = __vacosf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vacosf(float *x, float *y, long count, long stridex,
-  long stridey);
-#pragma weak vacosf
-void  vacosf(float *x, float *y, long count, long stridex, long stridey) {
-  return __vacosf(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vacosf(float *, float *, long, long, long);
 void    vacosf() __attribute__ ((weak, alias ("__vacosf")));
 #endif

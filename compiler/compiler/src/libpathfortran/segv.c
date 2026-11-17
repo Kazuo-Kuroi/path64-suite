@@ -28,9 +28,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#if defined(BUILD_OS_DARWIN)
-typedef unsigned long ulong;
-#endif /* defined(BUILD_OS_DARWIN) */
 
 typedef unsigned long ulong;
 

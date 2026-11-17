@@ -10,21 +10,12 @@
 #include "utils_hostdefs.h"
 #include "utils_memory.h"
 
-#if defined(WIN32) || defined(__CYGWIN32__)
-
-#include <sys/types.h>
-#include <sys/stat.h>
-
-typedef struct _stat utilsPathStat;
-
-#else
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
 typedef struct stat utilsPathStat;
 
-#endif
 
 #ifdef __cplusplus
 extern "C" {

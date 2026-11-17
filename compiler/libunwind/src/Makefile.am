@@ -33,7 +33,6 @@ libunwind_setjmp_la_LIBADD		= libunwind-$(arch).la -lc
 libunwind_setjmp_la_SOURCES_common	= setjmp/setjmp_i.h 	\
 					  setjmp/longjmp.c	\
 					  setjmp/siglongjmp.c
-libunwind_setjmp_la_SOURCES_arm		= arm/siglongjmp.S
 libunwind_setjmp_la_SOURCES_ia64	= ia64/setjmp.S  ia64/sigsetjmp.S  \
 					  ia64/longjmp.S ia64/siglongjmp.S
 libunwind_setjmp_la_SOURCES_hppa	= hppa/siglongjmp.S
@@ -107,31 +106,6 @@ dwarf_SOURCES_local =							     \
 
 dwarf_SOURCES_generic =							     \
 	dwarf/Gexpr.c dwarf/Gfde.c dwarf/Gparser.c dwarf/Gpe.c dwarf/Gstep.c
-
-# The list of files that go into libunwind and libunwind-arm:
-libunwind_la_SOURCES_arm_common = $(libunwind_la_SOURCES_common)	    \
-	$(dwarf_SOURCES_common)						    \
-	elf32.c elf32.h							    \
-	arm/init.h arm/offsets.h arm/unwind_i.h				    \
-	arm/is_fpreg.c arm/regname.c
-
-# The list of files that go into libunwind:
-libunwind_la_SOURCES_arm = $(libunwind_la_SOURCES_arm_common)		    \
-	$(libunwind_la_SOURCES_local)					    \
-	arm/getcontext.S						    \
-	$(dwarf_SOURCES_local)						    \
-	dwarf/Lfind_proc_info-lsb.c					    \
-	arm/Lcreate_addr_space.c arm/Lget_proc_info.c arm/Lget_save_loc.c   \
-	arm/Lglobal.c arm/Linit.c arm/Linit_local.c arm/Linit_remote.c	    \
-	arm/Lis_signal_frame.c arm/Lregs.c arm/Lresume.c arm/Lstep.c
-
-libunwind_arm_la_SOURCES_arm = $(libunwind_la_SOURCES_arm_common)	    \
-	$(libunwind_la_SOURCES_generic)					    \
-	$(dwarf_SOURCES_generic) 					    \
-	dwarf/Gfind_proc_info-lsb.c					    \
-	arm/Gcreate_addr_space.c arm/Gget_proc_info.c arm/Gget_save_loc.c   \
-	arm/Gglobal.c arm/Ginit.c arm/Ginit_local.c arm/Ginit_remote.c	    \
-	arm/Gis_signal_frame.c arm/Gregs.c arm/Gresume.c arm/Gstep.c
 
 # The list of files that go both into libunwind and libunwind-ia64:
 libunwind_la_SOURCES_ia64_common = $(libunwind_la_SOURCES_common)	    \
@@ -372,17 +346,6 @@ if OS_FREEBSD
  libunwind_la_SOURCES_x86_64_os_local = x86_64/Los-freebsd.c
 endif
 
-if ARCH_ARM
- lib_LTLIBRARIES_arch = libunwind-arm.la
- libunwind_la_SOURCES = $(libunwind_la_SOURCES_arm)
- libunwind_arm_la_SOURCES = $(libunwind_arm_la_SOURCES_arm)
- libunwind_arm_la_LDFLAGS = $(COMMON_SO_LDFLAGS) -version-info $(SOVERSION)
-if !REMOTE_ONLY
- libunwind_arm_la_LIBADD = libunwind.la -lc
-endif
- libunwind_setjmp_la_SOURCES	= $(libunwind_setjmp_la_SOURCES_common) \
-				  $(libunwind_setjmp_la_SOURCES_arm)
-else
 if ARCH_IA64
  ia64_mk_Gcursor_i_SOURCES = ia64/mk_Gcursor_i.c
  ia64_mk_Lcursor_i_SOURCES = ia64/mk_Lcursor_i.c
@@ -475,7 +438,6 @@ endif # ARCH_X86
 endif # ARCH_MIPS
 endif # ARCH_HPPA
 endif # ARCH_IA64
-endif # ARCH_ARM
 
 #
 # Don't link with standard libraries, because those may mention
@@ -493,7 +455,6 @@ AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/include/tdep-$(arch) -I.
 AM_CCASFLAGS = $(AM_CPPFLAGS)
 
 EXTRA_DIST =	elfxx.h elfxx.c unwind/unwind-internal.h	\
-		$(libunwind_la_SOURCES_arm)			\
 		$(libunwind_la_SOURCES_hppa)			\
 		$(libunwind_la_SOURCES_ia64)			\
 		$(libunwind_la_SOURCES_mips)			\
@@ -503,7 +464,6 @@ EXTRA_DIST =	elfxx.h elfxx.c unwind/unwind-internal.h	\
 		$(libunwind_la_SOURCES_common)			\
 		$(libunwind_la_SOURCES_local)			\
 		$(libunwind_la_SOURCES_generic)			\
-		$(libunwind_arm_la_SOURCES_arm)			\
 		$(libunwind_hppa_la_SOURCES_hppa)		\
 		$(libunwind_ia64_la_SOURCES_ia64)		\
 		$(libunwind_mips_la_SOURCES_mips)		\
@@ -511,7 +471,6 @@ EXTRA_DIST =	elfxx.h elfxx.c unwind/unwind-internal.h	\
 		$(libunwind_x86_64_la_SOURCES_x86_64)		\
 		$(libunwind_ptrace_a_SOURCES)			\
 		$(libunwind_setjmp_la_SOURCES_common)		\
-		$(libunwind_setjmp_la_SOURCES_arm)		\
 		$(libunwind_setjmp_la_SOURCES_hppa)		\
 		$(libunwind_setjmp_la_SOURCES_ia64)		\
 		$(libunwind_setjmp_la_SOURCES_mips)		\

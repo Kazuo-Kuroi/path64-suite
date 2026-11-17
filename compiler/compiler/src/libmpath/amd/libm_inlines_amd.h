@@ -236,11 +236,7 @@ unsigned int setPrecisionDouble(void)
 #if defined(USE_RESTOREPRECISION)
 void restorePrecision(unsigned int cwold)
 {
-#if defined(WINDOWS)
-#error Unknown machine
-#else
   /* There is no precision control on Hammer */
-#endif
   return;
 }
 #endif /* USE_RESTOREPRECISION */
@@ -254,17 +250,11 @@ void restorePrecision(unsigned int cwold)
  */
 static inline void clear_fpsw_flags(int flags)
 {
-#if defined(WINDOWS)
-  unsigned int cw = _mm_getcsr();
-  cw &= (~flags);
-  _mm_setcsr(cw);
-#else
   unsigned int cw;
   /* Get the current floating-point control/status word */
   asm volatile ("STMXCSR %0" : "=m" (cw));
   cw &= (~flags);
   asm volatile ("LDMXCSR %0" : : "m" (cw));
-#endif
 }
 #endif /* USE_CLEAR_FPSW_FLAGS */
 
@@ -277,15 +267,11 @@ static inline void clear_fpsw_flags(int flags)
  */
 static inline void raise_fpsw_flags(int flags)
 {
-#if defined(WINDOWS)
-  _mm_setcsr(_mm_getcsr() | flags);
-#else
   unsigned int cw;
   /* Get the current floating-point control/status word */
   asm volatile ("STMXCSR %0" : "=m" (cw));
   cw |= flags;
   asm volatile ("LDMXCSR %0" : : "m" (cw));
-#endif
 }
 #endif /* USE_RAISE_FPSW_FLAGS */
 
@@ -294,13 +280,9 @@ static inline void raise_fpsw_flags(int flags)
 /* Return the current floating-point status word */
 static inline unsigned int get_fpsw_inline(void)
 {
-#if defined(WINDOWS)
-  return _mm_getcsr();
-#else
   unsigned int sw;
   asm volatile ("STMXCSR %0" : "=m" (sw));
   return sw;
-#endif
 }
 #endif /* USE_GET_FPSW_INLINE */
 
@@ -308,12 +290,8 @@ static inline unsigned int get_fpsw_inline(void)
 /* Set the floating-point status word */
 static inline void set_fpsw_inline(unsigned int sw)
 {
-#if defined(WINDOWS)
-  _mm_setcsr(sw);
-#else
   /* Set the current floating-point control/status word */
   asm volatile ("LDMXCSR %0" : : "m" (sw));
-#endif
 }
 #endif /* USE_SET_FPSW_INLINE */
 
@@ -321,20 +299,12 @@ static inline void set_fpsw_inline(unsigned int sw)
 /* Clear all exceptions from the floating-point status word */
 static inline void clear_fpsw_inline(void)
 {
-#if defined(WINDOWS)
-  unsigned int cw;
-  cw = _mm_getcsr();
-  cw &= ~(AMD_F_INEXACT | AMD_F_UNDERFLOW | AMD_F_OVERFLOW |
-          AMD_F_DIVBYZERO | AMD_F_INVALID);
-  _mm_setcsr(cw);
-#else
   unsigned int cw;
   /* Get the current floating-point control/status word */
   asm volatile ("STMXCSR %0" : "=m" (cw));
   cw &= ~(AMD_F_INEXACT | AMD_F_UNDERFLOW | AMD_F_OVERFLOW |
           AMD_F_DIVBYZERO | AMD_F_INVALID);
   asm volatile ("LDMXCSR %0" : : "m" (cw));
-#endif
 }
 #endif /* USE_CLEAR_FPSW_INLINE */
 

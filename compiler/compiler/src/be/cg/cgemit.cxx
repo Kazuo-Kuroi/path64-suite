@@ -75,10 +75,6 @@
 #include <stamp.h>
 #include <vector>
 #include <sstream>
-#if defined(BUILD_OS_DARWIN)
-#include <set>
-#include <string>
-#endif /* defined(BUILD_OS_DARWIN) */
 
 #define	USE_STANDARD_TYPES 1
 #include "defs.h"
@@ -319,238 +315,6 @@ static INT32 *elf_index_array[MAX_SYMTAB_DEPTH] =
   {NULL,NULL,NULL,NULL,NULL,NULL};
 static INT max_elf_index[MAX_SYMTAB_DEPTH] = {0,0,0,0,0,0};
 
-#if defined(BUILD_OS_DARWIN)
-/*
- * Emit ".section" directive, mapping names onto the syntax that the Darwin
- * assember expects to see after the token ".section", and suppressing the
- * ".bss" directive entirely since Darwin doesn't support it
- * base		Symbol for section
- */
-static void
-emit_section_directive(ST *base) {
-  char *name = ST_name(base);
-  if (strcmp(name, BSS_RAW_NAME)) {
-    fprintf ( Asm_File, "\n\t%s %s\n", AS_SECTION, map_section_name(name));
-  }
-}
-
-/*
- * Transform an external symbol name by prepending an underscore (the usual
- * case), or synthesizing the jump-target label used to implement an indirect
- * call via a stub, or synthesizing the label used to implement a non-lazy
- * pointer to an external symbol.
- *
- * name		symbol name as it would appear in C source (e.g. "x")
- * which	(optional) how to transform name
- * returns	pointer to static underscorify_buffer containing the transformed
- *		name
- */
-static char *
-underscorify(char *name, darwin_indirect_t which = DO_UNDERSCORE) {
-  static char *underscorify_buffer = 0;
-  static unsigned underscorify_len = 0;
-
-  /* Don't mess with symbols like ".rodata" */
-  if (*name == '.') {
-    return name;
-  }
-
-  unsigned name_len = strlen(name);
-  const char *pattern = "%s"; /* Just in case */
-  switch (which) {
-    case DO_UNDERSCORE:
-      pattern = "_%s";
-      break;
-    case DO_STUB:
-      pattern = "L_%s$stub";
-      break;
-    case DO_NON_LAZY_PTR:
-      pattern = "L_%s$non_lazy_ptr";
-      break;
-    }
-  unsigned int sizeof_pattern = strlen(pattern) + sizeof '\0';
-  if (name_len + sizeof_pattern > underscorify_len) {
-    free(underscorify_buffer);
-    underscorify_buffer = (char *) malloc(2 * name_len + sizeof_pattern);
-  }
-  sprintf(underscorify_buffer, pattern, name);
-  return underscorify_buffer;
-}
-
-/*
- * Generate __IMPORT,__jump_table entry for symbol name the first time we
- * need it; or generate __IMPORT,__pointers entry for symbol "name" the
- * first time we need it
- * name		symbol name as it would appear in C source
- * which	which kind of entry to generate
- */
-static void
-gen_indirect(char *name, darwin_indirect_t which) {
-  static std::set<std::string> already_generated_jump;
-  static std::set<std::string> already_generated_ptr;
-  std::string sname(name);
-
-  if (DO_STUB == which) {
-    if (!already_generated_jump.insert(sname).second) {
-      return;
-      }
-    fprintf(Asm_File, "\t.section __IMPORT,__jump_table,symbol_stubs,"
-      "self_modifying_code+pure_instructions,5\n");
-    fprintf(Asm_File, "%s:\n", underscorify(name, which));
-    fprintf(Asm_File, "\t.indirect_symbol %s\n", underscorify(name,
-      DO_UNDERSCORE));
-    fprintf(Asm_File, "\thlt; hlt; hlt; hlt; hlt;\n");
-  } else if (DO_NON_LAZY_PTR == which) {
-    if (!already_generated_ptr.insert(sname).second) {
-      return;
-      }
-    fprintf(Asm_File, "\t.section __IMPORT,__pointers,"
-      "non_lazy_symbol_pointers\n");
-    fprintf(Asm_File, "%s:\n", underscorify(name, which));
-    fprintf(Asm_File, "\t.indirect_symbol %s\n", underscorify(name,
-      DO_UNDERSCORE));
-    fprintf(Asm_File, "\t.long 0\n");
-  }
-  fprintf(Asm_File, "\t%s __TEXT,__text\n", AS_SECTION);
-}
-
-/* Return log base 2 of an integer (use for .align on systems which expect
- * the argument to be the log of the alignment) */
-int
-logtwo(int value)
-{
-  int result = 0;
-  for (; value > 1; value >>= 1) {
-    result++;
-  }
-  return result;
-}
-
-/*
- * Darwin doesn't permit direct manipulation of the ".bss" section via
- * directives like ".section", ".org", ".skip", ".align". The only access
- * is via the ".lcomm" directive. So in Process_Bss_Data(), we make a list
- * of the symbols that are supposed to be in ".bss", computing the maximum
- * offset (size, actually) and alignment. At the end of compilation, we
- * emit ".lcomm .bss,<size>,<alignment>" followed by a
- * ".set <name>,.bss+<offset>" for each symbol.
- */
-struct darwin_remember {
-  char *name;
-  UINT64 offset;
-
-  darwin_remember(char *name_, UINT64 offset_): name(strdup(name_)),
-    offset(offset_) {}
-  ~darwin_remember() { free(name); }
-  private:
-    darwin_remember(darwin_remember &) {}
-  };
-
-class darwin_bss {
-  static vector< darwin_remember * > revisit_bss_list;
-  static UINT64 revisit_bss_size;
-  static unsigned revisit_bss_maxalign;
-  static vstring &qualified_name(vstring &, ST *);
-
-  static UINT64 update_bss_size(ST *, UINT64 *, unsigned * = 0);
-
-public:
-
-  static void remember_bss_symbol(ST *);
-  static void finish_bss_symbols(FILE *);
-};
-
-vector< darwin_remember * > darwin_bss::revisit_bss_list;
-UINT64 darwin_bss::revisit_bss_size;
-unsigned darwin_bss::revisit_bss_maxalign;
-
-// Modeled upon EMT_Write_Qualified_Name()
-vstring &
-darwin_bss::qualified_name(vstring &v, ST *st) {
-  // No name (can only be referred to as ".bss+offset")
-  if (0 == ST_name(st) || 0 == *(ST_name(st))) {
-    return v;
-  }
-  vstr_concat(v, underscorify(ST_name(st)));
-  // This name is already unique, don't change it.
-  if (!strncmp (ST_name(st), ".range_table.", strlen(".range_table."))) {
-    return v;
-  }
-  // See comment in EMT_Write_Qualified_Name
-  if ( ST_is_export_local(st) && ST_class(st) == CLASS_VAR) {
-    if (ST_level(st) == GLOBAL_SYMTAB)
-	vstr_sprintf(&v, vstr_len(v), "%s%d",
-	  Label_Name_Separator, ST_index(st));
-    else
-	vstr_sprintf(&v, vstr_len(v), "%s%d%s%d", Label_Name_Separator, 
-	    ST_pu(Get_Current_PU_ST()), Label_Name_Separator, ST_index(st) );
-  }
-  else if (*Symbol_Name_Suffix) {
-    vstr_concat(v, Symbol_Name_Suffix);
-  }
-  return v;
-}
-
-/*
- * sym		.bss symbol 
- * accum_size	Input: size of .bss prior to this symbol. Output: size
- *		following this symbol
- * maxalign	Input: Maximum alignment required prior to this symbol.
- *		Output: Maximum alignment following this symbol. Optional
- * returns	Offset from .bss to this particular symbol
- */
-UINT64
-darwin_bss::update_bss_size(ST *sym, UINT64 *accum_size, unsigned *maxalign) {
-  UINT64 save_accum_size = *accum_size;
-  UINT64 size = TY_size(ST_type(sym));
-  unsigned align = TY_align(ST_type(sym));
-  unsigned modalign = save_accum_size % align;
-  unsigned pad = modalign ? (align - modalign) : 0;
-  if (maxalign) {
-    *maxalign = MAX(align, (*maxalign));
-  }
-  *accum_size += (size + modalign);
-  return save_accum_size + pad;
-}
-
-/*
- * Add a symbol to the list of ".bss" symbols which we must revisit at the
- * end of compilation
- * sym		Symbol in ".bss" section
- */
-void
-darwin_bss::remember_bss_symbol(ST *sym) {
-  /* TBD: Might need other stuff from Print_Label? */
-  vstring v = vstr_begin(64);
-  char *name = vstr_str(qualified_name(v, sym));
-  revisit_bss_list.push_back(new darwin_remember(name,
-    update_bss_size(sym, &revisit_bss_size, &revisit_bss_maxalign)));
-  vstr_end(v);
-}
-
-/*
- * After seeing the entire list of .bss symbols from all calls to
- * Process_Bss_Data(), emit a ".lcomm .bss" directive to reserve space for all
- * of them, and then emit ".set" directives to define each one as an offset
- * from the beginning of ".lcomm".
- */
-void
-darwin_bss::finish_bss_symbols(FILE *asm_file) {
-  fprintf(asm_file, "\t.lcomm %s, %" SCNd64 ", %d\n",
-    BSS_RAW_NAME, revisit_bss_size, logtwo(revisit_bss_maxalign));
-  UINT64 accum_size = 0;
-  for (vector< darwin_remember * >::iterator bi = revisit_bss_list.begin();
-    bi != revisit_bss_list.end(); ++bi) {
-    darwin_remember *r = *bi;
-    fprintf(asm_file, "\t.set %s, %s+%" SCNd64 "\n",
-      r->name, BSS_RAW_NAME, r->offset);
-    delete r;
-  }
-  revisit_bss_size = 0;
-  revisit_bss_maxalign = 0;
-  revisit_bss_list.clear();
-}
-#endif /* defined(BUILD_OS_DARWIN) */
 
 static void
 Allocate_Elf_Index_Space (UINT level)
@@ -629,34 +393,6 @@ ST_name_decorated(ST *st)
 {
     char *name = ST_name(st);
 
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-
-#define SYM_PREFIX "_"
-
-    if (name[0] != '.' && name[0] != '@') {
-        static char *buffer = NULL;
-        static int buffer_size = 0;
-        int length = strlen(name) + sizeof(SYM_PREFIX);
-   
-        if (buffer_size < length) {
-            buffer_size = length + 128;
-
-            if (buffer != NULL) {
-                free(buffer);
-            }
-            buffer = (char *)malloc(buffer_size);
-
-            if (buffer == NULL) {
-                exit(RC_OVERFLOW_ERROR);
-            }
-        }
-
-        strcpy(buffer, SYM_PREFIX);
-        strcat(buffer, name);
-
-        name = buffer;
-    }
-#endif
 
     return name;
 }
@@ -902,11 +638,7 @@ EMT_Get_Qualified_Name (ST *st)
   std::ostringstream name;
 
   if (ST_name(st) && *(ST_name(st)) != '\0') {
-#if defined(BUILD_OS_DARWIN)
-    name << underscorify(ST_name(st));
-#else /* defined(BUILD_OS_DARWIN) */
     name << ST_name_decorated(st);
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY
 // This name is already unique, don't change it.
 	if (!strncmp (ST_name(st), ".range_table.", strlen(".range_table.")))
@@ -967,13 +699,9 @@ static void Print_Label (FILE *pfile, ST *st, INT64 size)
 	fputc ('\n', pfile);
 #ifdef KEY // bug 12145: write .hidden
 	if (ST_export(st) == EXPORT_HIDDEN) {
-#ifdef _WIN32
-          FmtAssert(0, ("hidden not support"));
-#else
 	  fprintf ( pfile, "\t.hidden\t");
 	  EMT_Write_Qualified_Name(pfile, st);
 	  fputc ('\n', pfile);
-#endif
 	}
 #endif
     }
@@ -983,20 +711,14 @@ static void Print_Label (FILE *pfile, ST *st, INT64 size)
 	fputc ('\n', pfile);
     }
     EMT_Visibility (pfile, ST_export(st), st);
-#if !defined(_WIN32) /* defined(BUILD_OS_DARWIN) */
 	// Bug 1275 and 4351
 	// Always emit the function type
-	// But Mach-O as 1.38 doesn't support .type
 	if (ST_class(st) == CLASS_FUNC) {
 	  fprintf ( pfile, "\t%s\t", AS_TYPE);
 	  EMT_Write_Qualified_Name(pfile, st);
 	  fprintf ( pfile, ", %s\n", AS_TYPE_FUNC);
 	}
-#endif
     if (ST_class(st) == CLASS_VAR
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-	&& 0 // Mach-O as 1.38 doesn't support .type
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef TARG_MIPS
 	&& !CG_emit_non_gas_syntax
 #endif
@@ -1005,14 +727,12 @@ static void Print_Label (FILE *pfile, ST *st, INT64 size)
     	EMT_Write_Qualified_Name (pfile, st);
     	fprintf (pfile, ", %s\n", AS_TYPE_OBJECT);
     }
-#if ! defined(BUILD_OS_DARWIN) && ! defined(_WIN32)
     if (size != 0 && !CG_inhibit_size_directive) {
 	/* if size is given, then emit value for asm */
       	fprintf ( pfile, "\t%s\t", AS_SIZE);
 	EMT_Write_Qualified_Name(pfile, st);
 	fprintf ( pfile, ", %" SCNd64 "\n", size);
     }
-#endif /* defined(BUILD_OS_DARWIN) */
     Base_Symbol_And_Offset (st, &base_st, &base_ofst);
     EMT_Write_Qualified_Name (pfile, st);
     fprintf ( pfile, ":\t%s 0x%" SCNx64 "\n", ASM_CMNT, base_ofst);
@@ -1043,9 +763,6 @@ Print_Common (FILE *pfile, ST *st)
     fprintf ( pfile, "\t%s\t", AS_COM);
     EMT_Write_Qualified_Name(pfile, st);
 #ifdef TARG_X8664
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32) /* .comm alignment arg not allowed */
-    fprintf ( pfile, ", %" SCNd64 "\n", TY_size(ST_type(st)));
-#else /* defined(BUILD_OS_DARWIN) */
     if (LNO_Run_Simd && Simd_Align && TY_size(ST_type(st)) >= 16){
 	//always make sandy bridge align to 32
 	  if(Target_AVX)
@@ -1056,7 +773,6 @@ Print_Common (FILE *pfile, ST *st)
     else
       fprintf ( pfile, ", %" SCNd64 ", %d\n", 
  	TY_size(ST_type(st)), TY_align(ST_type(st)));
-#endif /* defined(BUILD_OS_DARWIN) */
 #else
     fprintf ( pfile, ", %" SCNd64 ", %d\n", 
 		TY_size(ST_type(st)), TY_align(ST_type(st)));
@@ -1074,11 +790,7 @@ Print_Common (FILE *pfile, ST *st)
     // Bug 3923.
     fprintf ( pfile, "\t%s\t", AS_COM);
     EMT_Write_Qualified_Name(pfile, st);
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32) /* .comm alignment arg not allowed */
-    fputs (", 1\n", pfile);
-#else /* defined(BUILD_OS_DARWIN) */
     fputs (", 1, 1\n", pfile);
-#endif /* defined(BUILD_OS_DARWIN) */
   }
 #endif
 }
@@ -1092,17 +804,7 @@ Print_Common (FILE *pfile, ST *st)
  * ====================================================================
  */
 
-#if defined(BUILD_OS_DARWIN)
-/*
- * sym			symbol to add
- * which		(optional) if present and not DO_UNDERSCORE, then this
- *			symbol must be accessed indirectly to permit dynamic
- *			linking on Darwin
- */
-mINT32 EMT_Put_Elf_Symbol (ST *sym, darwin_indirect_t which)
-#else /* defined(BUILD_OS_DARWIN) */
 mINT32 EMT_Put_Elf_Symbol (ST *sym)
-#endif /* defined(BUILD_OS_DARWIN) */
 {
   unsigned char symbind;
   unsigned char symother;
@@ -1132,9 +834,6 @@ mINT32 EMT_Put_Elf_Symbol (ST *sym)
 	// if only .s file, then just do dummy mark that we have
 	// seen this symbol and emitted any type info for it.
 	if (ST_class(sym) == CLASS_FUNC
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-	&& 0 // Mach-O as 1.38 doesn't support .type
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef TARG_MIPS
 	&& !CG_emit_non_gas_syntax
 #endif
@@ -1213,15 +912,7 @@ mINT32 EMT_Put_Elf_Symbol (ST *sym)
 	      fputc ('\n', Asm_File);
 	    }
 	    else {
-#if defined(BUILD_OS_DARWIN)
-	      /* Indirect calls use jump table instead */
-	      if (DO_UNDERSCORE != which) {
-		fprintf(Asm_File, "\t%s\t%s\n", AS_GLOBAL,
-		  underscorify(ST_name(sym)));
-	      }
-#else /* defined(BUILD_OS_DARWIN) */
 	      fprintf(Asm_File, "\t%s\t%s\n", AS_GLOBAL, ST_name_decorated(sym));
-#endif /* defined(BUILD_OS_DARWIN) */
 	    }
 	  break;
 	case SCLASS_COMMON:
@@ -1279,15 +970,7 @@ mINT32 EMT_Put_Elf_Symbol (ST *sym)
 	    fputc ('\n', Asm_File);
 	  }
 	  else
-#if defined(BUILD_OS_DARWIN)
-	    /* Indirect calls use jump table instead */
-	    if (DO_UNDERSCORE != which) {
-	      fprintf(Asm_File, "\t%s\t%s\n", AS_GLOBAL,
-		underscorify(ST_name(sym)));
-	    }
-#else /* defined(BUILD_OS_DARWIN) */
 	    fprintf(Asm_File, "\t%s\t%s\n", AS_GLOBAL, ST_name_decorated(sym));
-#endif /* defined(BUILD_OS_DARWIN) */
 	}
       }
       else 
@@ -1443,9 +1126,6 @@ r_apply_l_const (
   }
 
   if ( TN_is_symbol(t) ) {
-#if defined(BUILD_OS_DARWIN)
-    darwin_indirect_t indirect = DO_UNDERSCORE;
-#endif /* defined(BUILD_OS_DARWIN) */
     st = TN_var(t);
     // call put_symbol so that we emit .type info, once per symbol
     if( (ST_class(st) != CLASS_CONST)
@@ -1453,28 +1133,7 @@ r_apply_l_const (
 	&& ( TN_relocs(t) != TN_RELOC_IA32_GLOBAL_OFFSET_TABLE )
 #endif
 	){
-#if defined(BUILD_OS_DARWIN)
-      /* Darwin dynamic linking requires that we emit an indirect call
-       * through a jump table. System and C library functions are supported
-       * only via dynamic linking. Since we can't know whether a function
-       * outside this compilation is available via static linking, we must
-       * assume that it might require dynamic linking. */
-      if (Is_Target_32bit() && ST_class(st) == CLASS_FUNC &&
-        ST_sclass(st) == SCLASS_EXTERN) {
-	if (OP_code(op) == TOP_call) {
-	  indirect = DO_STUB;
-	}
-	/* Need other instructions as well? */
-	else if (OP_code(op) == TOP_ldc32) {
-	  indirect = DO_NON_LAZY_PTR;
-	  op->opr = TOP_ld32_n32;
-	}
-      }
-      (void) EMT_Put_Elf_Symbol (st, indirect);
-      gen_indirect(EMT_Get_Qualified_Name(st).c_str(), indirect);
-#else /* defined(BUILD_OS_DARWIN) */
       (void) EMT_Put_Elf_Symbol (st);
-#endif /* defined(BUILD_OS_DARWIN) */
     }
     if (TN_relocs(t) != 0) {
         // use base if referring to current pu or local data
@@ -1497,16 +1156,11 @@ r_apply_l_const (
 	paren = CGEMIT_Relocs_In_Asm (t, st, buf, &val);
     } 
     else {
-#if defined(BUILD_OS_DARWIN)
-	*buf = vstr_concat(*buf, underscorify(
-                                 EMT_Get_Qualified_Name(st).c_str(), indirect));
-#else /* defined(BUILD_OS_DARWIN) */
 	if (ST_sym_class(st) == CLASS_CONST) {
 	  *buf = vstr_concat(*buf, EMT_get_TCON_name(st).c_str());
 	}
 	else
 	*buf = vstr_concat(*buf, EMT_Get_Qualified_Name(st).c_str());
-#endif /* defined(BUILD_OS_DARWIN) */
 	if (*Symbol_Name_Suffix != '\0')
 		*buf = vstr_concat(*buf, Symbol_Name_Suffix);
     }
@@ -5561,9 +5215,6 @@ Write_Symbol (
 		fprintf (Asm_File, " %+" SCNd64 "\n", sym_ofst);
 	}
 	if (ST_class(sym) == CLASS_FUNC
-#if defined(BUILD_OS_DARWIN) || defined(_WIN32)
-	&& 0 // Mach-O as 1.38 doesn't support .type
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef TARG_MIPS
 	&& !CG_emit_non_gas_syntax
 #endif
@@ -6163,13 +5814,9 @@ Change_Section_Origin (ST *base, INT64 ofst)
 	if (Assembly) {
 		if (base != cur_section) {
 			/* switch to new section. */
-#if defined(BUILD_OS_DARWIN)
-			emit_section_directive(base);
-#else /* defined(BUILD_OS_DARWIN) */
 			fprintf ( Asm_File, "\n\t%s %s\n", AS_SECTION,
 			ST_name(base)
 			);
-#endif /* defined(BUILD_OS_DARWIN) */
 		}
 #if !defined(TARG_MIPS) && !defined(TARG_MVP)
 #ifdef TARG_X8664
@@ -6396,11 +6043,7 @@ Process_Initos_And_Literals (SYMTAB_IDX stab)
       if (CG_file_scope_asm_seen &&
           TY_align (ST_type (st)) > 1)
         fprintf( Asm_File, "\t%s\t%d\n", AS_ALIGN, 
-#if defined(BUILD_OS_DARWIN)
-                 logtwo (TY_align (ST_type (st)))
-#else /* defined(BUILD_OS_DARWIN) */
                  TY_align (ST_type (st))
-#endif /* defined(BUILD_OS_DARWIN) */
                );
       else
         fprintf ( Asm_File, "\t%s\t0\n", AS_ALIGN );
@@ -6428,11 +6071,7 @@ Process_Initos_And_Literals (SYMTAB_IDX stab)
       if (CG_file_scope_asm_seen &&
           TY_align (ST_type (st)) > 1)
         fprintf( Asm_File, "\t%s\t%d\n", AS_ALIGN, 
-#if defined(BUILD_OS_DARWIN)
-                 logtwo (TY_align (ST_type (st)))
-#else /* defined(BUILD_OS_DARWIN) */
                  TY_align (ST_type (st))
-#endif /* defined(BUILD_OS_DARWIN) */
                );
       else
         fprintf ( Asm_File, "\t%s\t0\n", AS_ALIGN );
@@ -6466,11 +6105,7 @@ Process_Distr_Array ()
       if (CG_file_scope_asm_seen &&
           TY_align (ST_type (st)) > 1)
         fprintf( Asm_File, "\t%s\t%d\n", AS_ALIGN, 
-#if defined(BUILD_OS_DARWIN)
-                 logtwo (TY_align (ST_type (st)))
-#else /* defined(BUILD_OS_DARWIN) */
                  TY_align (ST_type (st))
-#endif /* defined(BUILD_OS_DARWIN) */
                );
       else
         fprintf ( Asm_File, "\t%s\t0\n", AS_ALIGN );
@@ -6560,12 +6195,6 @@ Process_Bss_Data (SYMTAB_IDX stab)
 
 	sym = *bssp;
 	Base_Symbol_And_Offset(sym, &base, &ofst);
-#if defined(BUILD_OS_DARWIN)
-        if (!strcmp(ST_name(base), BSS_RAW_NAME)) {
-	  darwin_bss::remember_bss_symbol(sym);
-	  continue;
-	}
-#endif  /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY // bug 10678
 	if (base != last_base) {
 	  if (last_base != NULL && not_yet_skip_amt > 0)
@@ -6596,21 +6225,13 @@ Process_Bss_Data (SYMTAB_IDX stab)
 	  ST* tmp_base = sym;
 	  BOOL has_named_section = FALSE;
 	  if ( ST_base(tmp_base) == base && ST_has_named_section (tmp_base)) {
-#if defined(BUILD_OS_DARWIN)
-	    emit_section_directive(base);
-#else /* defined(BUILD_OS_DARWIN) */
 	    fprintf ( Asm_File, "\n\t%s %s\n", AS_SECTION, ST_name(base));
-#endif /* defined(BUILD_OS_DARWIN) */
 	    has_named_section = TRUE;
 	  }
 	  while ( ST_base(tmp_base) != base ) {
 	    tmp_base = ST_base(tmp_base);	  
 	    if ( ST_has_named_section (tmp_base) ) {
-#if defined(BUILD_OS_DARWIN)
-	      emit_section_directive(base);
-#else /* defined(BUILD_OS_DARWIN) */
 	      fprintf ( Asm_File, "\n\t%s %s\n", AS_SECTION, ST_name(base));
-#endif /* defined(BUILD_OS_DARWIN) */
 	      has_named_section = TRUE;
 	      break;
 	    }
@@ -6625,11 +6246,7 @@ Process_Bss_Data (SYMTAB_IDX stab)
 		// this EXTERN variable 
 		// Get the alignment from the ST_type
 		fprintf( Asm_File, "\t%s\t%d\n", AS_ALIGN, 
-#if defined(BUILD_OS_DARWIN)
-			logtwo(TY_align( ST_type ( sym ) ))
-#else /* defined(BUILD_OS_DARWIN) */
 			TY_align( ST_type ( sym ) )
-#endif /* defined(BUILD_OS_DARWIN) */
 			);
 	      } else
 		fprintf( Asm_File, "\t%s\t0\n", AS_ALIGN );
@@ -6637,11 +6254,7 @@ Process_Bss_Data (SYMTAB_IDX stab)
 	    } else if ( CG_file_scope_asm_seen &&
 	                TY_align( ST_type ( sym ) ) > 1 ) {
 		fprintf( Asm_File, "\t%s\t%d\n", AS_ALIGN, 
-#if defined(BUILD_OS_DARWIN)
-			logtwo(TY_align( ST_type ( sym ) ))
-#else /* defined(BUILD_OS_DARWIN) */
 			TY_align( ST_type ( sym ) )
-#endif /* defined(BUILD_OS_DARWIN) */
 			);
 #endif /* KEY */
 	    } else
@@ -6784,13 +6397,9 @@ Setup_Text_Section_For_BB (BB *bb)
   BOOL cold_bb = BB_cold(bb);
   PU_base = cold_bb ? cold_base : text_base;
   if (cur_section != PU_base) {
-#if defined(BUILD_OS_DARWIN)
-    emit_section_directive(PU_base);
-#else /* defined(BUILD_OS_DARWIN) */
     if (Assembly) {
       fprintf (Asm_File, "\n\t%s %s\n", AS_SECTION, ST_name(PU_base));
     }
-#endif /* defined(BUILD_OS_DARWIN) */
     if (cold_bb) {
       PU_section = cold_section;
       text_PC = PC;
@@ -6900,11 +6509,7 @@ Setup_Text_Section_For_PU (ST *pu)
     Is_True(i == text_PC, ("Setup_Text_Section_For_PU: PC doesn't match"));
     text_PC = i;
   }
-#if defined(BUILD_OS_DARWIN)
-  emit_section_directive(text_base);
-#else /* defined(BUILD_OS_DARWIN) */
   if (Assembly) fprintf (Asm_File, "\t%s %s\n", AS_SECTION, ST_name(text_base));
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef TEMPORARY_STABS_FOR_GDB
   // This is an ugly hack to enable basic debugging for IA-32 target
   if (Assembly && Debug_Level > 0) {
@@ -7148,18 +6753,14 @@ EMT_Emit_PU ( FILE *asm_file, ST *pu, DST_IDX pu_dst, WN *rwn )
     // This is an ugly hack to enable basic debugging for IA-32 target
     if (Debug_Level > 0) {
       fprintf(Asm_File, ".stabs \"%s:F(0,1)\",36,0,0,%s\n", ST_name(pu), ST_name(pu));
-#if !defined(_WIN32)
       fprintf(Asm_File, "\t%s\t%s,%s\n", AS_TYPE, ST_name(pu), AS_TYPE_FUNC);
-#endif
     }
 #endif
 #else
     if (!CG_emit_non_gas_syntax) {
-#if !defined(_WIN32)
       fprintf (Asm_File, "\t%s\t", AS_TYPE);
       EMT_Write_Qualified_Name (Asm_File, pu);
       fprintf (Asm_File, ", %s\n", AS_TYPE_FUNC);
-#endif
     }
 #endif
     Print_Label (Asm_File, pu, 0);
@@ -7169,11 +6770,7 @@ EMT_Emit_PU ( FILE *asm_file, ST *pu, DST_IDX pu_dst, WN *rwn )
   if (Assembly) {
     if (cur_section != PU_base) {
 	/* reset to text section */
-#if defined(BUILD_OS_DARWIN)
-    	emit_section_directive(PU_base);
-#else /* defined(BUILD_OS_DARWIN) */
     	fprintf (Asm_File, "\n\t%s %s\n", AS_SECTION, ST_name(PU_base));
-#endif /* defined(BUILD_OS_DARWIN) */
 	cur_section = PU_base;
     }
   }
@@ -7330,13 +6927,10 @@ EMT_Emit_PU ( FILE *asm_file, ST *pu, DST_IDX pu_dst, WN *rwn )
   // Emit Last_Label at the end of the PU to guide Dwarf DW_AT_high_pc
   fprintf( Asm_File, "%s:\n", LABEL_name(Last_Label));
   Label_Last_BB_PU_Entry[pu_entries] = Last_Label;
-#if ! defined(BUILD_OS_DARWIN) && !defined(_WIN32)
-  // Mach-O as 1.38 doesn't support .size
   // Bug 1275
   fprintf( Asm_File, "\t.size %s, %s-%s\n", 
 	   ST_name_decorated(pu), LABEL_name(Last_Label),
 	   ST_name_decorated(pu));
-#endif /* defined(BUILD_OS_DARWIN) */
 #endif
   /* Revert back to the text section to end the PU. */
   Setup_Text_Section_For_BB(REGION_First_BB);
@@ -7874,11 +7468,7 @@ EMT_End_File( void )
 		newname = Index_To_Str(Save_Str2(ST_name(sym), "_symbol"));
 		if (Assembly) {
             char * sym_print_name = 
-#if defined(BUILD_OS_DARWIN)
-			  underscorify(newname)
-#else /* defined(BUILD_OS_DARWIN) */
 			  newname
-#endif /* defined(BUILD_OS_DARWIN) */
               ;
 
  			Change_Section_Origin (sym, 0);
@@ -7898,9 +7488,6 @@ EMT_End_File( void )
    * associated with file scope data here:
    */
   Process_Bss_Data (GLOBAL_SYMTAB);
-#if defined(BUILD_OS_DARWIN)
-  darwin_bss::finish_bss_symbols(Asm_File);
-#endif /* defined(BUILD_OS_DARWIN) */
   Process_Initos_And_Literals (GLOBAL_SYMTAB);
   // We need two calls to  Process_Initos_And_Literals (GLOBAL_SYMTAB)
   // because while writing out INITOs new literals may be allocated
@@ -7994,11 +7581,7 @@ EMT_End_File( void )
   for (i = 1; i <= last_scn; i++) {
       sym = em_scn[i].sym;
       if (Assembly) {
-#if defined(BUILD_OS_DARWIN)
-	emit_section_directive(sym);
-#else /* defined(BUILD_OS_DARWIN) */
 	fprintf (Asm_File, "\t%s %s\n", AS_SECTION, ST_name(sym));
-#endif /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY
 	fprintf (Asm_File, "\t%s\t%d\n", AS_ALIGN, STB_align(sym));
 #else
@@ -8024,19 +7607,10 @@ EMT_End_File( void )
 						   !Use_32_Bit_Pointers);
     }
 #ifdef KEY // bug 5561: mark stack as non-executable
-#if defined(BUILD_OS_DARWIN)
-    fprintf ( Asm_File, "\t%s\t.note.GNU-stack,\"\"\n", AS_SECTION);
-#elif defined(_WIN32)
-    fprintf ( Asm_File, "\t%s .note.GNU_stack,\"", AS_SECTION);
-    if (PU_has_trampoline)
-       fprintf ( Asm_File, "x");
-     fprintf ( Asm_File, "\"\n");
-#else
     fprintf ( Asm_File, "\t%s\t.note.GNU-stack,\"", AS_SECTION);
     if (PU_has_trampoline)
       fprintf ( Asm_File, "x");
     fprintf ( Asm_File, "\",@progbits\n");
-#endif /* defined(BUILD_OS_DARWIN) */
     Emit_Options ();
 #endif
 #ifdef TARG_MIPS
@@ -8084,79 +7658,3 @@ EMT_End_File( void )
 	}
   }
 }
-
-#if defined(BUILD_OS_DARWIN)
-typedef struct {
-  int is_debug_section;	/* True if this is a debug section */
-  const char *name;	/* Section name */
-  const char *asm_dir_name;	/* String to use in asm ".section" directive */
-  } map_section_t;
-
-/* If a section name doesn't need to be transformed for use in a ".section"
- * directive, then this table can omit an entry for it. */
-static map_section_t map_section_table[] = {
-  { 1, DEBUG_ABBREV_SECTNAME, "__DWARF,__debug_abbrev,regular,debug" },
-  { 1, DEBUG_ARANGES_SECTNAME, "__DWARF,__debug_aranges,regular,debug" },
-  { 1, DEBUG_FRAME_SECTNAME, "__DWARF,__debug_frame,regular,debug" },
-  { 1, DEBUG_INFO_SECTNAME, "__DWARF,__debug_info,regular,debug" },
-  { 1, DEBUG_LINE_SECTNAME, "__DWARF,__debug_line,regular,debug" },
-  { 1, DEBUG_LOC_SECTNAME, "__DWARF,__debug_loc,regular,debug" }, /* Need? */
-  { 1, DEBUG_MACINFO_SECTNAME, "__DWARF,__debug_macinfo,regular,debug" }, /* Need? */
-  { 1, DEBUG_PUBNAMES_SECTNAME, "__DWARF,__debug_pubnames,regular,debug" },
-  { 1, DEBUG_STR_SECTNAME, "__DWARF,__debug_str,regular,debug" },
-  { 0, EH_FRAME_SECTNAME,
-    "__TEXT,__eh_frame,coalesced,no_toc+strip_static_syms+live_support" },
-  { 0, ".data", "__DATA,__data" },
-  { 0, ".lit4", "__TEXT,__literal4" },
-  { 0, ".lit8", "__TEXT,__literal8" },
-  { 0, ".rodata","__TEXT,__const" },
-  { 0, ".text", "__TEXT,__text" }
-};
-
-static int
-cmp_section_name(const void *a_arg, const void *b_arg) {
-  map_section_t *a = (map_section_t *) a_arg;
-  map_section_t *b = (map_section_t *) b_arg;
-  return strcmp(a->name, b->name);
-}
-
-static map_section_t *
-map_search(const char *section_name) {
-  static int first_time = 1;
-  if (first_time) {
-    /* must sort map_section_table so bsearch works */
-    first_time = 0;
-    qsort(map_section_table,
-      (sizeof map_section_table) / (sizeof map_section_table[0]),
-      sizeof map_section_table[0],
-      cmp_section_name);
-  }
-  map_section_t key;
-  key.name = section_name;
-  return (map_section_t *) bsearch(&key,
-    map_section_table,
-    (sizeof map_section_table) / (sizeof *map_section_table),
-    sizeof *map_section_table,
-    cmp_section_name);
-}
-
-/* section_name		Symbol name representing object file section
- * return		string to use in asm ".section" directive to select
- *			that section */
-const char *
-map_section_name(const char *section_name) {
-  map_section_t *value = map_search(section_name);
-  return value ? value->asm_dir_name : section_name;
-}
-
-/* section_name		Symbol name representing object file section
- * return		1 if section is a "debug" section which should be
- *			emitted for -g, 0 otherwise
- */
-int
-is_debug_section(const char *section_name) {
-  map_section_t *value = map_search(section_name);
-  return value ? value->is_debug_section : 0;
-}
-#endif /* defined(BUILD_OS_DARWIN) */
-

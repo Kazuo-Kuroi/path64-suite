@@ -1096,7 +1096,7 @@ boolean folder_driver(char		*l_value_ptr,
          if (TYP_TYPE(l_type_idx) == Logical &&
              TYP_TYPE((*res_type_idx)) == Logical) {
 
-# if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
             if (l_linear_type == Logical_8 &&
                 (res_linear_type == Logical_1 ||
                  res_linear_type == Logical_2 ||
@@ -1213,8 +1213,7 @@ boolean folder_driver(char		*l_value_ptr,
          arith_type = linear_to_arith[res_linear_type];
          arith_type_l = linear_to_arith[l_linear_type];
 
-# if defined(_TARGET_OS_MAX) || defined(_TARGET_OS_SOLARIS) ||  \
-     (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if defined(_TARGET_OS_MAX) || defined(_TARGET_OS_SOLARIS) || (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
          if (TYP_TYPE((*res_type_idx)) == Integer) {
             arith_type = input_arith_type[res_linear_type];
@@ -3659,7 +3658,7 @@ int	ntr_int_const_tbl(int		type_idx,
 # if !defined(_HOST64) || !defined(_TARGET64)
    int		 new_type;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    long		*cn_ptr; 
 # endif
 # endif
@@ -3693,7 +3692,7 @@ int	ntr_int_const_tbl(int		type_idx,
         the_constant[1] = 0;
    }
 
-# elif (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#elif (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
    if (type_idx == NULL_IDX) { /* Set type according to size */
       new_type = cval_to_f_int(the_constant,

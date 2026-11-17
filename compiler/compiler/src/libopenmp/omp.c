@@ -91,11 +91,7 @@ void omp_set_num_threads_ (int *nthreads)
   __pmp_sample(PMP_PROFILE_OMP_SET_NUM_THREADS);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_set_num_threads__(int *nthreads) { omp_set_num_threads_(nthreads); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_set_num_threads_, omp_set_num_threads__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_get_num_threads (void)
 {
@@ -105,13 +101,8 @@ int omp_get_num_threads (void)
   return team_size;
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_get_num_threads_() { omp_get_num_threads(); }
-void omp_get_num_threads__() { omp_get_num_threads(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_num_threads, omp_get_num_threads_);
 defalias(omp_get_num_threads_, omp_get_num_threads__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_get_max_threads (void)
 {
@@ -123,13 +114,8 @@ int omp_get_max_threads (void)
   return max_threads;
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_get_max_threads_() { return omp_get_max_threads(); }
-int omp_get_max_threads__() { return omp_get_max_threads(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_max_threads, omp_get_max_threads_);
 defalias(omp_get_max_threads_, omp_get_max_threads__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_get_thread_num (void)
 {
@@ -140,13 +126,8 @@ int omp_get_thread_num (void)
   return local_id;
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_get_thread_num_() { return omp_get_thread_num(); }
-int omp_get_thread_num__() { return omp_get_thread_num(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_thread_num, omp_get_thread_num_);
 defalias(omp_get_thread_num_, omp_get_thread_num__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_get_num_procs (void)
 {
@@ -156,13 +137,8 @@ int omp_get_num_procs (void)
   return num_cpus;
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_get_num_procs_() { return omp_get_num_procs(); }
-int omp_get_num_procs__() { return omp_get_num_procs(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_num_procs, omp_get_num_procs_);
 defalias(omp_get_num_procs_, omp_get_num_procs__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_in_parallel (void)
 {
@@ -172,13 +148,8 @@ int omp_in_parallel (void)
   return in_parallel;
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_in_parallel_() { return omp_in_parallel(); }
-int omp_in_parallel__() { return omp_in_parallel(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_in_parallel, omp_in_parallel_);
 defalias(omp_in_parallel_, omp_in_parallel__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_set_dynamic (int dynamic)
 {
@@ -200,11 +171,7 @@ void omp_set_dynamic_ (int *dynamic)
   __pmp_sample(PMP_PROFILE_OMP_SET_DYNAMIC);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_set_dynamic__(int *dynamic) { omp_set_dynamic_(dynamic); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_set_dynamic_, omp_set_dynamic__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_get_dynamic (void)
 {
@@ -213,13 +180,8 @@ int omp_get_dynamic (void)
   return __pmp_get_param()->dynamic_threads;
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_get_dynamic_() { return omp_get_dynamic(); }
-int omp_get_dynamic__() { return omp_get_dynamic(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_dynamic, omp_get_dynamic_);
 defalias(omp_get_dynamic_, omp_get_dynamic__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_set_nested (int nested)
 {
@@ -235,11 +197,7 @@ void omp_set_nested_ (int *nested)
   __pmp_sample(PMP_PROFILE_OMP_SET_NESTED);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_set_nested__(int *nested) { omp_set_nested_(nested); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_set_nested_, omp_set_nested__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_get_nested (void)
 {
@@ -248,13 +206,8 @@ int omp_get_nested (void)
   return __pmp_get_param()->nested_forks;
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_get_nested_() { return omp_get_nested(); }
-int omp_get_nested__() { return omp_get_nested(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_nested, omp_get_nested_);
 defalias(omp_get_nested_, omp_get_nested__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 /* locks - assumes that *lock is writable */
 
@@ -264,26 +217,16 @@ void omp_init_lock (omp_lock_t *lock)
   void *result;
   __pmp_debug(PMP_DEBUG_CALLS, "omp_init_lock with lock %p\n", lock);
   __pmp_sample(PMP_PROFILE_OMP_INIT_LOCK);
-#if defined(BUILD_OS_DARWIN)
-  result = darwin_memalign(PMP_L2_ALIGNED, sizeof(pmp_lock_t),
-    "cannot allocate lock\n");
-#else /* defined(BUILD_OS_DARWIN) */
   if (posix_memalign(&result, PMP_L2_ALIGNED, sizeof(pmp_lock_t)) != 0) {
     __pmp_fatal("cannot allocate lock state\n");
   }
-#endif /* defined(BUILD_OS_DARWIN) */
   l = (pmp_lock_t *) result;
   __pmp_lock_init(l);
   *lock = l;
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_init_lock_(omp_lock_t *lock) { omp_init_lock(lock); }
-void omp_init_lock__(omp_lock_t *lock) { omp_init_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_init_lock, omp_init_lock_);
 defalias(omp_init_lock_, omp_init_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_destroy_lock (omp_lock_t *lock)
 {
@@ -292,13 +235,8 @@ void omp_destroy_lock (omp_lock_t *lock)
   __pmp_lock_destroy(*lock);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_destroy_lock_(omp_lock_t *lock) { omp_destroy_lock(lock); }
-void omp_destroy_lock__(omp_lock_t *lock) { omp_destroy_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_destroy_lock, omp_destroy_lock_);
 defalias(omp_destroy_lock_, omp_destroy_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_set_lock (omp_lock_t *lock)
 {
@@ -307,13 +245,8 @@ void omp_set_lock (omp_lock_t *lock)
   __pmp_lock(__pmp_get_current_global_id(), *lock);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_set_lock_(omp_lock_t *lock) { omp_set_lock(lock); }
-void omp_set_lock__(omp_lock_t *lock) { omp_set_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_set_lock, omp_set_lock_);
 defalias(omp_set_lock_, omp_set_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_unset_lock (omp_lock_t *lock)
 {
@@ -322,13 +255,8 @@ void omp_unset_lock (omp_lock_t *lock)
   __pmp_sample(PMP_PROFILE_OMP_UNSET_LOCK);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_unset_lock_(omp_lock_t *lock) { omp_unset_lock(lock); }
-void omp_unset_lock__(omp_lock_t *lock) { omp_unset_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_unset_lock, omp_unset_lock_);
 defalias(omp_unset_lock_, omp_unset_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_test_lock (omp_lock_t *lock)
 {
@@ -339,13 +267,8 @@ int omp_test_lock (omp_lock_t *lock)
   return success;
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_test_lock_(omp_lock_t *lock) { omp_test_lock(lock); }
-void omp_test_lock__(omp_lock_t *lock) { omp_test_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_test_lock, omp_test_lock_);
 defalias(omp_test_lock_, omp_test_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 /* nested locks - assumes that *lock is writable */
 
@@ -355,27 +278,17 @@ void omp_init_nest_lock (omp_nest_lock_t *lock)
   void *result;
   __pmp_debug(PMP_DEBUG_CALLS, "omp_init_nest_lock with lock %p\n", lock);
   __pmp_sample(PMP_PROFILE_OMP_INIT_NEST_LOCK);
-#if defined(BUILD_OS_DARWIN)
-  result = darwin_memalign(PMP_L2_ALIGNED, sizeof(pmp_nest_lock_t),
-    "cannot allocate lock\n");
-#else /* defined(BUILD_OS_DARWIN) */
   if (posix_memalign(&result, PMP_L2_ALIGNED, 
                      sizeof(pmp_nest_lock_t)) != 0) {
     __pmp_fatal("cannot allocate nested lock state\n");
   }
-#endif /* defined(BUILD_OS_DARWIN) */
   l = (pmp_nest_lock_t *) result;
   __pmp_nest_lock_init(l);
   *lock = l;
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_init_nest_lock_(omp_nest_lock_t *lock) { omp_init_nest_lock(lock); }
-void omp_init_nest_lock__(omp_nest_lock_t *lock) {omp_init_nest_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_init_nest_lock, omp_init_nest_lock_);
 defalias(omp_init_nest_lock_, omp_init_nest_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_destroy_nest_lock (omp_nest_lock_t *lock)
 {
@@ -384,13 +297,8 @@ void omp_destroy_nest_lock (omp_nest_lock_t *lock)
   __pmp_nest_lock_destroy(*lock);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_destroy_nest_lock_(omp_nest_lock_t *lock) { omp_destroy_nest_lock(lock); }
-void omp_destroy_nest_lock__(omp_nest_lock_t *lock) { omp_destroy_nest_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_destroy_nest_lock, omp_destroy_nest_lock_);
 defalias(omp_destroy_nest_lock_, omp_destroy_nest_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_set_nest_lock (omp_nest_lock_t *lock)
 {
@@ -399,13 +307,8 @@ void omp_set_nest_lock (omp_nest_lock_t *lock)
   __pmp_nest_lock(__pmp_get_current_global_id(), *lock);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_set_nest_lock_(omp_nest_lock_t *lock) { omp_set_nest_lock(lock); }
-void omp_set_nest_lock__(omp_nest_lock_t *lock) { omp_set_nest_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_set_nest_lock, omp_set_nest_lock_);
 defalias(omp_set_nest_lock_, omp_set_nest_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 void omp_unset_nest_lock (omp_nest_lock_t *lock)
 {
@@ -414,13 +317,8 @@ void omp_unset_nest_lock (omp_nest_lock_t *lock)
   __pmp_sample(PMP_PROFILE_OMP_UNSET_NEST_LOCK);
 }
 
-#if defined(BUILD_OS_DARWIN)
-void omp_unset_nest_lock_(omp_nest_lock_t *lock) { omp_unset_nest_lock(lock); }
-void omp_unset_nest_lock__(omp_nest_lock_t *lock) { omp_unset_nest_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_unset_nest_lock, omp_unset_nest_lock_);
 defalias(omp_unset_nest_lock_, omp_unset_nest_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 int omp_test_nest_lock (omp_nest_lock_t *lock)
 {
@@ -432,13 +330,8 @@ int omp_test_nest_lock (omp_nest_lock_t *lock)
 
 }
 
-#if defined(BUILD_OS_DARWIN)
-int omp_test_nest_lock_(omp_nest_lock_t *lock) { return omp_test_nest_lock(lock); }
-int omp_test_nest_lock__(omp_nest_lock_t *lock) { return omp_test_nest_lock(lock); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_test_nest_lock, omp_test_nest_lock_);
 defalias(omp_test_nest_lock_, omp_test_nest_lock__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 /* timing */
 
@@ -453,13 +346,8 @@ double omp_get_wtime (void)
   return t;
 }
 
-#if defined(BUILD_OS_DARWIN)
-double omp_get_wtime_() { return omp_get_wtime(); }
-double omp_get_wtime__() { return omp_get_wtime(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_wtime, omp_get_wtime_);
 defalias(omp_get_wtime_, omp_get_wtime__);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 double omp_get_wtick (void)
 {
@@ -469,10 +357,5 @@ double omp_get_wtick (void)
   return t;
 }
 
-#if defined(BUILD_OS_DARWIN)
-double omp_get_wtick_() { return omp_get_wtick(); }
-double omp_get_wtick__() { return omp_get_wtick(); }
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(omp_get_wtick, omp_get_wtick_);
 defalias(omp_get_wtick_, omp_get_wtick__);
-#endif /* defined(BUILD_OS_DARWIN) */

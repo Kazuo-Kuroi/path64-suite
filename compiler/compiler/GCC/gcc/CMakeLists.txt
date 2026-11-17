@@ -134,15 +134,11 @@ FOREACH(f ${extra_options})
 ENDFOREACH(f)
 
 # Find an awk tool.
-IF(WIN32 AND NOT CYGWIN)
-  SET(AWK_EXECUTABLE "${GCC_SOURCE_DIR}/config_cmake/nawk.exe")
-ELSE(WIN32 AND NOT CYGWIN)
   # Prefer GNU awk at any location over the native awk if possible.
   # The native awk on opensolaris causes opt-gather.awk to sort incorrectly.
   FIND_PROGRAM(AWK_EXECUTABLE NAMES gawk)
   FIND_PROGRAM(AWK_EXECUTABLE NAMES awk)
   MARK_AS_ADVANCED(AWK_EXECUTABLE)
-ENDIF(WIN32 AND NOT CYGWIN)
 
 ADD_CUSTOM_COMMAND(OUTPUT ${GCC_BINARY_DIR}/gcc/optionlist
   COMMAND ${AWK_EXECUTABLE} -f ${GCC_SOURCE_DIR}/gcc/opt-gather.awk ${ALL_OPT_FILES} > optionlist
@@ -434,11 +430,6 @@ ENDFOREACH(tgt)
 # insn-automata.c.
 
 SET(genautomata_EXTRA_LIBS m)
-IF(WIN32)
-  IF(NOT MINGW)
-    SET(genautomata_EXTRA_LIBS)
-  ENDIF(NOT MINGW)
-ENDIF(WIN32)
 FOREACH(tgt emit extract opinit peep output recog attrtab automata)
   ADD_EXECUTABLE(gen${tgt} gen${tgt}.c)
   TARGET_LINK_LIBRARIES(gen${tgt} gen ${gen${tgt}_EXTRA_LIBS})
@@ -596,9 +587,6 @@ path64_multiarch_link_multiarch_libraries( cc142 spin)
 path64_install_multiarch(cc142)
 path64_add_dependencies_from_multiarch( compiler-stage cc142 )
 
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    PATH64_MULTIARCH_LINK_LIBRARIES(cc142 winlib)
-ENDIF()
 
 
 ## changed pending verification

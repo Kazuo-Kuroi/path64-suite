@@ -2173,7 +2173,7 @@ CHECK_FOR_VARIABLE:
          process_blockable_dir();
 # endif
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
          check_mp_dir_nesting();
 # endif
 
@@ -6058,7 +6058,7 @@ static void process_interchange_dir(void)
 
 }  /* process_interchange_dir */
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
 /******************************************************************************\
 |*									      *|

@@ -124,14 +124,14 @@ static inline void __pmp_nest_lock_init (pmp_nest_lock_t *lock)
   if (pthread_mutexattr_init(&attr) != 0) {
     __pmp_fatal("cannot initialize pthread mutex attribute for nested lock\n");
   }
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
   /* Google search says the "_NP" stands for "nonportable", some GNU
    * Linux implementations have only that form, but others define
    * the symbols with and without "_NP" to be the same */
   if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != 0)
-#else /* defined(BUILD_OS_DARWIN) */
+#else
   if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP) != 0)
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
   {
     __pmp_fatal("cannot set pthread mutex attribute for nested lock\n");
   }

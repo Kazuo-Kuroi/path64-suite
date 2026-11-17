@@ -59,13 +59,7 @@ extern	double	acos(double);
 #pragma weak acos = __acos
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __acos(double);
-#pragma weak acos
-double acos(double x) {
-  return __acos(x);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __acos(double);
 
 double    acos() __attribute__ ((weak, alias ("__acos")));
@@ -315,12 +309,7 @@ struct exception	exstruct;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-#pragma weak acosl
-long double acosl( long double x ) {	
-	return ( (long double)__acos((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __acosl(long double);
 
 long double    acosl() __attribute__ ((weak, alias ("__acosl")));

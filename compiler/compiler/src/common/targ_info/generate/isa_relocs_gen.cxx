@@ -43,7 +43,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <assert.h>
-#if __GNUC__ >= 3 || defined(_MSC_VER)
+#if __GNUC__ >= 3
 #include <list>
 #include <vector>
 #include <cstring>	// For mem* and str*
@@ -52,7 +52,7 @@ using std::list;
 #else
 #include <list.h>
 #include <vector.h>
-#endif //  __GNUC__ >= 3 || defined(_MSC_VER)
+#endif
 
 #include "gen_util.h"
 #ifdef DYNAMIC_CODE_GEN

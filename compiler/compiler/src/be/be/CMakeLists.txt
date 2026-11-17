@@ -89,9 +89,6 @@ path64_set_multiarch_property(be-exec COMPILE_FLAGS
                               "-DSHARED_BUILD  -I${CMAKE_CURRENT_SOURCE_DIR}/@ARCH@  -I${CMAKE_CURRENT_SOURCE_DIR}/../com/@ARCH@ -I${CMAKE_CURRENT_SOURCE_DIR}/../cg/@ARCH@  -I${PATHSCALE_BINARY_DIR}/common/targ_info/@ARCH@ -I${CMAKE_CURRENT_SOURCE_DIR}/../../common/com/@ARCH@")
 path64_add_multiarch_multiarch_dependencies(be-exec generate_topcode)
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    path64_multiarch_link_libraries(be-exec winlib iberty)
-endif()
 
 set(link_flags "")
 if(PATH64_LIBDWARF_PATH)
@@ -111,11 +108,7 @@ path64_install_multiarch(be-exec)
 
 # ipl -> be symlinks
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set(LINK_COPY copy)
-else()
     set(LINK_COPY create_symlink)
-endif()
 
 set(ipl_symlink_deps)
 

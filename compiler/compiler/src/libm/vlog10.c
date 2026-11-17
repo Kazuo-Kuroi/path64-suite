@@ -53,14 +53,7 @@ extern	void	vlog10(double *, double *, long, long, long);
 #pragma weak vlog10 = __vlog10
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vlog10( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vlog10
-void vlog10( double *x, double *y, long count, long stridex, long stridey ) {
-  __vlog10(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vlog10(double *, double *, long, long, long);
 void    vlog10() __attribute__ ((weak, alias ("__vlog10")));
 #endif

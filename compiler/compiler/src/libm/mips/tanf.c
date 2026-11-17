@@ -61,13 +61,7 @@ extern	float	tanf(float);
 #pragma weak tanf = __tanf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __tanf(float);
-#pragma weak tanf
-float tanf( float x ) {
-  return __tanf( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __tanf(float);
 float    tanf(float) __attribute__ ((weak, alias ("__tanf")));
 #endif

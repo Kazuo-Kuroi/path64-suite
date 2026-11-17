@@ -38,7 +38,7 @@ static char USMID[] = "\n@(#)5.0_pl/sources/fecif.c	5.9	10/14/99 12:53:57\n";
 # include <nl_types.h>      /* Contains typedef for nl_catd and prototype for */
 			    /* __cat_path_name.				      */
 
-# if defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_LINUX)
 # include <nlcatmsg.h>
 # endif
 
@@ -80,8 +80,6 @@ static char USMID[] = "\n@(#)5.0_pl/sources/fecif.c	5.9	10/14/99 12:53:57\n";
 
 # if defined(_HOST_OS_SOLARIS) || defined(_HOST_OS_IRIX)
 #   include <sys/systeminfo.h>
-# elif defined(_HOST_OS_DARWIN)
-#   include <sys/param.h>
 # endif
 
 
@@ -144,7 +142,7 @@ void init_cif(char *comp_date_time, char *release_level)
 
    host_machine_type	host_machine_info;
 
-# elif defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#elif defined(_HOST_OS_SOLARIS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
    char		host_cpu_type[9];              /* Max of 8 chars (plus NULL). */
 # endif
 
@@ -289,7 +287,7 @@ void init_cif(char *comp_date_time, char *release_level)
    memcpy(cif_time, comp_date_time+18, 8);
    cif_time[8] = NULL_CHAR;
 
-# if defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_LINUX)
    msg_cat_name = "shouldnotgethere";
 # else
    msg_cat_name = (char *) __cat_path_name(msg_sys);
@@ -298,8 +296,6 @@ void init_cif(char *comp_date_time, char *release_level)
    strcpy(cpu_name, "LINUX");
 
 
-# elif defined(_HOST_OS_DARWIN)
-   strcpy(cpu_name, "DARWIN");
 # elif defined(_HOST_OS_SOLARIS) || defined(_HOST_OS_IRIX)
 
    if (sysinfo(SI_HOSTNAME, cpu_name, ((long int) MAXHOSTNAMELEN)) < 0L) {
@@ -323,8 +319,6 @@ void init_cif(char *comp_date_time, char *release_level)
    strcpy(host_cpu_type, "SPARC");
 # elif (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
    strcpy(host_cpu_type, "SGI");
-# elif defined(_HOST_OS_DARWIN)
-   strcpy(host_cpu_type, "MAC");
 # endif
 
    Cif_Cifhdr_Rec(c_i_f,
@@ -338,7 +332,7 @@ void init_cif(char *comp_date_time, char *release_level)
 
 # if defined(_GETPMC_AVAILABLE)
                   host_cpu_type.char_form);
-# elif defined(_HOST_OS_SOLARIS) || defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#elif defined(_HOST_OS_SOLARIS) || defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX)
                   host_cpu_type);
 # endif
 
@@ -2729,7 +2723,7 @@ void cif_summary_rec(char	*release_level,
       hms = elapsed_time;
 
 
-# if defined(_HOST_OS_UNICOS)  ||  (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))  || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_UNICOS) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 
       elapsed_time = elapsed_time - hms;
       milliseconds = (elapsed_time + .0005) * 1000;
@@ -3547,7 +3541,7 @@ void cif_machine_characteristics_rec(void)
 # endif
 
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX)) || defined(_TARGET_OS_DARWIN)
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
 
    /* Produce a dummy Machine Characteristics record for a IRIX.             */

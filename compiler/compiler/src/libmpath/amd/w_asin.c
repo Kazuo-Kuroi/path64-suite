@@ -139,13 +139,8 @@ double FN_PROTOTYPE(asin)(double x)
   if (transform)
     { /* Transform y into the range [0,0.5) */
       r = 0.5*(1.0 - y);
-#ifdef WINDOWS
-      /* VC++ intrinsic call */
-      _mm_store_sd(&s, _mm_sqrt_sd(_mm_setzero_pd(), _mm_load_sd(&r)));
-#else
       /* Hammer sqrt instruction */
       asm volatile ("sqrtsd %1, %0" : "=x" (s) : "x" (r));
-#endif
       y = s;
     }
   else

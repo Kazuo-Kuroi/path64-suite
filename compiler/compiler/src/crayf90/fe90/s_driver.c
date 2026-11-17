@@ -82,7 +82,7 @@ static void	pgm_unit_semantics(void);
 static void     reset_stmt_tmp_tbl(void);
 static void	storage_blk_resolution(void);
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 static void	gen_user_code_start_opr(void);
 static void	insert_global_sh(void);
 # endif
@@ -149,7 +149,7 @@ void semantics_pass_driver (void)
 
    curr_scp_idx = save_curr_scp_idx;
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (insert_global_directives &&
        global_stmt_sh_idx != NULL_IDX) {
 
@@ -510,7 +510,7 @@ PROCESS_SIBLING:
       idx                                       = AL_NEXT_IDX(idx);
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)) 
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    gen_user_code_start_opr();
 # endif
 
@@ -979,7 +979,7 @@ void	host_associated_attr_semantics(int	attr_idx,
          break;
       }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
       if (ATD_IM_A_DOPE(attr_idx)                                   &&
              ATD_CLASS(attr_idx)                     == Dummy_Argument &&
              ATD_ARRAY_IDX(attr_idx)                                   &&
@@ -1776,7 +1776,7 @@ void label_def_stmt_semantics(void)
       ATL_NOVECTOR(label_idx)  = TRUE;
    }
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    if (cdir_switches.notask_region) {
       ATL_NOTASK(label_idx)    = TRUE;
    }
@@ -3373,7 +3373,7 @@ FOUND:
                         SB_LEN_IDX(sb_idx)  = result.idx;
                      }
 
-# if ! (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if !(defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 
                     /* -a dalign is always on for IRIX and there is no */
                     /* way to shut it off, so we do not need to issue  */
@@ -5374,7 +5374,7 @@ void set_up_which_entry_tmp(void)
 |*									      *|
 \******************************************************************************/
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN)) 
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 static void gen_user_code_start_opr(void)
 
 {
@@ -5446,7 +5446,7 @@ static void gen_user_code_start_opr(void)
 |*									      *|
 \******************************************************************************/
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 static void insert_global_sh(void)
 
 {

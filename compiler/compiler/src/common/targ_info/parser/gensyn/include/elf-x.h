@@ -17,12 +17,6 @@ typedef unsigned short	Elf32_Half;    /**< ELF-32 half word */
 typedef unsigned int		Elf32_Off;     /**< ELF-32 offset */
 typedef int					Elf32_Sword;   /**< ELF-32 signed word */
 typedef unsigned int		Elf32_Word;    /**< ELF-32 word */
-#elif defined(WIN32) || defined(__CYGWIN__)
-typedef unsigned int		Elf32_Addr;    /**< ELF-32 address */
-typedef unsigned short	Elf32_Half;    /**< ELF-32 half word */
-typedef unsigned int		Elf32_Off;     /**< ELF-32 offset */
-typedef int					Elf32_Sword;   /**< ELF-32 signed word */
-typedef unsigned int		Elf32_Word;    /**< ELF-32 word */
 #else
 #error "Unknown target, please adapt elf-x.h to your platform"
 #endif

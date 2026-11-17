@@ -66,13 +66,7 @@ extern	double	log(double);
 #pragma weak log = __log
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __log(double);
-#pragma weak log
-double log( double x ) {
-  return __log( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __log(double);
 
 double    log() __attribute__ ((weak, alias ("__log")));
@@ -427,12 +421,7 @@ zeroarg:
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  long double  __logl(long double);
-long double logl( long double x ) {	
-  return ( (long double)__log((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __logl(long double);
 
 long double    logl() __attribute__ ((weak, alias ("__logl")));

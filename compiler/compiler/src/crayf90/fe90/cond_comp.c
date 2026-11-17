@@ -2200,8 +2200,7 @@ void enter_predefined_macros(void)
 # endif
 
 
-#if defined(_HOST_OS_UNICOS)  ||  defined(_HOST_OS_SOLARIS)  ||  \
-    defined(_HOST_OS_MAX) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if defined(_HOST_OS_UNICOS) || defined(_HOST_OS_SOLARIS) || defined(_HOST_OS_MAX) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 
    /******************\
    |* Predefine unix *|

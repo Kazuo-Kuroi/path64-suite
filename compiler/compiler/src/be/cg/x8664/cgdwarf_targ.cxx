@@ -107,11 +107,9 @@ Check_Dwarf_Rela(const Elf32_Rela &current_reloc)
 	     REL32_type(current_reloc)));
 }
 static const char *drop_these[] = {
-#if ! defined(BUILD_OS_DARWIN)
       // Assembler generates .debug_line from directives itself, so we
       // don't output it.
 	DEBUG_LINE_SECTNAME,
-#endif /* defined(BUILD_OS_DARWIN) */
      // gdb does not use the MIPS sections
      // debug_weaknames, etc.
 	DEBUG_VARNAMES_SECTNAME,
@@ -133,11 +131,7 @@ extern BOOL Is_Dwarf_Section_To_Emit(const char *name)
 	}
         // Bug 1516 - do not emit .debug_* sections if not -g
 	if (Debug_Level < 1 &&
-#if defined(BUILD_OS_DARWIN)
-	is_debug_section(name)
-#else /* defined(BUILD_OS_DARWIN) */
 	strncmp(name, ".debug_", 7) == 0
-#endif /* defined(BUILD_OS_DARWIN) */
 	)
 	  return FALSE;
         return TRUE;

@@ -37,7 +37,7 @@
 #include <stdio.h>
 #include <assert.h>
 // [HK]
-#if __GNUC__ >=3 || defined(_MSC_VER)
+#if __GNUC__ >=3
 #include <list>
 #include <vector>
 #include <utility>
@@ -48,7 +48,7 @@ using std::pair;
 #include <list.h>
 #include <vector.h>
 #include <pair.h>
-#endif // __GNUC__ >=3 || defined(_MSC_VER)
+#endif
 
 #ifdef DYNAMIC_CODE_GEN
 #include "dyn_isa_topcode.h"   /* Dynamic TOPcode */

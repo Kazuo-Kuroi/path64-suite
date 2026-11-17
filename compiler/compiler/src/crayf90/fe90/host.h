@@ -30,7 +30,7 @@
 /* module.                                                                */
 
 
-# if defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)
+#if defined(_HOST_OS_LINUX)
    typedef	long double		ldouble;
 # elif defined(_HOST_OS_SOLARIS) || defined(_HOST_OS_IRIX)
    typedef	double			ldouble;
@@ -72,11 +72,11 @@ typedef unsigned long                   Ulong;
 # include <limits.h>
 # include <unistd.h>
 
-# if defined(_HOST_OS_UNICOS) || defined(_HOST_OS_MAX) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if defined(_HOST_OS_UNICOS) || defined(_HOST_OS_MAX) || (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 # include <math.h>
 # include <sys/param.h>
 
-# if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN)) && defined(_DEBUG)
+#if !(defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX)) && defined(_DEBUG)
 # include <malloc.h>             /* Needed for malloc_check */
 # endif
 

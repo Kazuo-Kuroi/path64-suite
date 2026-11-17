@@ -41,28 +41,17 @@ void __pmp_team_init (pmp_team_t *team)
   team->single_count = 0;	/* no single hits yet */
   team->loop_count = 0;		/* no dynamic loops yet */
 
-#if defined(BUILD_OS_DARWIN)
-  result = darwin_memalign(PMP_L2_ALIGNED,
-    sizeof(pmp_thread_t *) * PMP_MAX_THREADS,
-    "cannot allocate team members array\n");
-#else /* defined(BUILD_OS_DARWIN) */
   if (posix_memalign(&result, PMP_L2_ALIGNED, 
                      sizeof(pmp_thread_t *) * PMP_MAX_THREADS) != 0) {
     __pmp_fatal("cannot allocate team members array\n");
   }
-#endif /* defined(BUILD_OS_DARWIN) */
   memset(result, 0, sizeof(pmp_thread_t *) * PMP_MAX_THREADS);
   team->members = (pmp_thread_t **) result;
 
-#if defined(BUILD_OS_DARWIN)
-  result = darwin_memalign(PMP_L2_ALIGNED, sizeof(pmp_loop_t) * PMP_MAX_LOOPS,
-    "cannot allocate team loops array\n");
-#else /* defined(BUILD_OS_DARWIN) */
   if (posix_memalign(&result, PMP_L2_ALIGNED,
                      sizeof(pmp_loop_t) * PMP_MAX_LOOPS) != 0) {
     __pmp_fatal("cannot allocate team loops array\n");
   }
-#endif /* defined(BUILD_OS_DARWIN) */
   memset(result, 0, sizeof(pmp_loop_t) * PMP_MAX_LOOPS);
   team->loops = (pmp_loop_t *) result;
   
@@ -86,14 +75,9 @@ pmp_team_t *__pmp_team_alloc (pmp_thread_t *master, int nthreads,
     /* This thread's team is currently in use, so must allocate
      * another one. This occurs due to nested parallelism. */
     void *result;
-#if defined(BUILD_OS_DARWIN)
-    result = darwin_memalign(PMP_L2_ALIGNED, sizeof(pmp_team_t),
-      "cannot allocate team\n");
-#else /* defined(BUILD_OS_DARWIN) */
     if (posix_memalign(&result, PMP_L2_ALIGNED, sizeof(pmp_team_t)) != 0) {
       __pmp_fatal("cannot allocate team\n");
     }
-#endif /* defined(BUILD_OS_DARWIN) */
     memset(result, 0, sizeof(pmp_team_t));
     team = (pmp_team_t *) result;
     __pmp_team_init(team);

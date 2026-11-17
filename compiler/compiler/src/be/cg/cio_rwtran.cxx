@@ -411,18 +411,10 @@ private:
 
   typedef pair< OP_OMEGA, OP * >                      op_copy_pair;
   typedef mempool_allocator< pair<OP_OMEGA const, OP *> > op_copy_allocator;
-#if defined(BUILD_OS_DARWIN)
-  /* temporary workaround for bugs in 4.0 g++ STL headers */
-  typedef std::map< OP_OMEGA, OP *, OP_OMEGA_less_prolog
-	       >    op_copy_map_prolog;
-  typedef std::map< OP_OMEGA, OP *, OP_OMEGA_less_epilog
-	       >    op_copy_map_epilog;
-#else /* defined(BUILD_OS_DARWIN) */
   typedef std::map< OP_OMEGA, OP *, OP_OMEGA_less_prolog,
 	       op_copy_allocator >    op_copy_map_prolog;
   typedef std::map< OP_OMEGA, OP *, OP_OMEGA_less_epilog,
 	       op_copy_allocator >    op_copy_map_epilog;
-#endif /* defined(BUILD_OS_DARWIN) */
 
   op_copy_map_prolog                                  _op_prolog_map;
   op_copy_map_epilog                                  _op_epilog_map;

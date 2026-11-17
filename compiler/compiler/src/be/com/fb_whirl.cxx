@@ -3686,7 +3686,6 @@ Read_Feedback_Info (FEEDBACK* fb, WN* tree, const Pu_Hdr& pu_hdr)
 
 } // Read_Feedback_Info
 
-#if 1 && ! defined(BUILD_OS_DARWIN) /* Temporarily remove whirl browser */
 #include <sys/types.h>
 #include "elf_defines.h"
 #include <ctype.h>
@@ -3716,4 +3715,3 @@ wb_gwe(WN *wn_root)
   WB_Set_Phase( WBP_NONE ); 
   WB_Terminate( &wb ); 
 }
-#endif

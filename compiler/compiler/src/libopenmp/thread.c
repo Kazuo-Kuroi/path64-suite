@@ -33,14 +33,12 @@
 
 #include <assert.h>
 #include <errno.h>
-#if defined(BUILD_OS_DARWIN)
-#include <unistd.h>
-#elif defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 #include <pthread_np.h>
 #include <sys/param.h>
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 #include <linux/unistd.h>
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 #include <sched.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -77,11 +75,7 @@ static inline pid_t gettid(void) { long tid; thr_self(&tid); return tid; }
 #else /* defined(__FreeBSD__) */
 extern pid_t gettid(void);
 pid_t gettid(void) { return syscall(SYS_gettid);}
-#if defined(BUILD_OS_DARWIN)
-int tkill(pid_t tid,int sig) { return syscall(SYS___pthread_kill, tid, sig);}
-#else /* defined(BUILD_OS_DARWIN) */
 int tkill(pid_t tid,int sig) { return syscall(SYS_tkill, tid, sig);}
-#endif /* defined(BUILD_OS_DARWIN) */
 #endif /* defined(__FreeBSD__) */
 #endif
 
@@ -510,11 +504,11 @@ void __pmp_thread_create (pmp_thread_t *thread)
     /* NOTE: it seems that mmap tends to allocate in an upwards direction
        so allocate the guard page first. */
     guard = mmap(0, param->thread_guard_size, PROT_NONE,
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
                  MAP_PRIVATE | MAP_ANON,
-#else /* defined(BUILD_OS_DARWIN) */
+#else
                  MAP_PRIVATE | MAP_ANONYMOUS,
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 		 0, 0);
     if (guard == MAP_FAILED) {
       __pmp_warning("unable to allocate a guard page of %ld bytes\n",
@@ -536,11 +530,11 @@ void __pmp_thread_create (pmp_thread_t *thread)
       __pmp_warning(
         "note this is more than the initial number of threads (%d)\n",
         param->initial_team_size);
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
       if (sizeof(long) == 4)
-#else /* defined(BUILD_OS_DARWIN) */
+#else
       if (__WORDSIZE == 32)
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
       {
 	int64_t total_stack = ((int64_t) param->thread_stack_size) *
                               ((int64_t) __pmp_manager.allocated_threads);

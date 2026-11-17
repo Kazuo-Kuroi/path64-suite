@@ -28,11 +28,7 @@
 #include <stdio.h>              /* for fprintf() */
 #include <string.h>
 
-#if defined(_WIN32) && !defined(__CYGWIN__)
-#include <windows.h>            /* for Win LoadLibrary(), GetProcAddress() */
-#else
 #include <dlfcn.h>              /* for sgidladd(), dlerror() */
-#endif
 
 #include <cmplrs/rcodes.h>
 
@@ -73,19 +69,11 @@ void *dso_load(const char *dso, const char *path, BOOL verbose)
         dso_path = (char *)dso;
     }
 
-#if defined(_WIN32) && !defined(__CYGWIN__)
-    dso_handle = (void *)LoadLibrary(dso_path);
-    if (dso_handle == NULL) {
-        fprintf(stderr, "Error loading %s: errcode=0x%08x\n",
-                        dso_path, GetLastError());
-    }
-#else
     dso_handle = (void *)dlopen(dso_path, RTLD_NOW | RTLD_GLOBAL);
     if (dso_handle == NULL) {
         fprintf(stderr, "Error loading %s: %s\n",
                         dso_path, dlerror());
     }
-#endif
 
     if (dso_handle == NULL) {
         exit(RC_SYSTEM_ERROR);
@@ -98,11 +86,7 @@ void *dso_get_interface(void *handle, const char *symbol)
 {
     void *function;
     
-#if defined(_WIN32) && !defined(__CYGWIN__)
-    function = (void *)GetProcAddress(handle, symbol);
-#else
     function = (void *)dlsym(handle, symbol);
-#endif
     if (function == NULL) {
         fprintf(stderr, "Can not find function %s in dll\n", symbol);
         exit(RC_SYSTEM_ERROR);
@@ -112,9 +96,5 @@ void *dso_get_interface(void *handle, const char *symbol)
 
 void dso_unload(void *handle)
 {
-#if defined(_WIN32) && !defined(__CYGWIN__)
-    FreeLibrary(handle);
-#else
     dlclose(handle);
-#endif
 }

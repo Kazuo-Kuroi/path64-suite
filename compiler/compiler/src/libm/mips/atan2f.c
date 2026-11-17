@@ -61,13 +61,7 @@ extern	float	atan2f(float, float);
 #pragma weak atan2f = __atan2f
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern float __atan2f(float, float);
-#pragma weak atan2f
-float atan2f( float y, float x ) {
-  return __atan2f( y, x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  float  __atan2f(float, float);
 float    atan2f(float, float) __attribute__ ((weak, alias ("__atan2f")));
 #endif

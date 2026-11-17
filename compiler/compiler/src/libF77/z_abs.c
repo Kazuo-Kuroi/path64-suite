@@ -50,16 +50,9 @@ double z_abs__(dcomplex *z)
   return(hypot(z->dreal, z->dimag));
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-double z_abs_(dcomplex *z) { return z_abs__(z); }
-double z_abs(dcomplex *z) { return z_abs__(z); }
-#pragma weak z_abs
-#else /* defined(BUILD_OS_DARWIN) */
 defalias(z_abs__, z_abs_);
 #ifdef KEY /* Bug 15104 */
 weakalias(z_abs__, z_abs);
 #else /* KEY Bug 15104 */
 defalias(z_abs__, z_abs);
 #endif /* KEY Bug 15104 */
-#endif /* defined(BUILD_OS_DARWIN) */

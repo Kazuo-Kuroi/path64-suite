@@ -92,11 +92,11 @@ ffopen(const char *name, int flags, ...)
  */
 	va_start(ap, flags);
 	if (narg >= 3)
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 		mode	= (mode_t) va_arg(ap, int);
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 		mode	= va_arg(ap, mode_t);
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 	if (narg >= 4)
 		cbits	= va_arg(ap, long);
 	if (narg >= 5)

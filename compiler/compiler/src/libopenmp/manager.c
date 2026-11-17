@@ -32,12 +32,12 @@
 #include <assert.h>
 #include <dirent.h>	/* bizarre header trick to find PTHREAD_STACK_MIN */
 #include <errno.h>
-#if defined(BUILD_OS_DARWIN) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 #include <unistd.h>
 #include <limits.h>
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 #include <linux/unistd.h>
-#endif /* defined(BUILD_OS_DARWIN) */
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
@@ -160,15 +160,10 @@ void __pmp_manager_init (void)
   }
 
   /* Allocate and initialize team array */
-#if defined(BUILD_OS_DARWIN)
-  result = darwin_memalign(PMP_L2_ALIGNED,
-    sizeof(pmp_team_t) * PMP_MAX_THREADS, "cannot allocate teams array\n");
-#else /* defined(BUILD_OS_DARWIN) */
   if (posix_memalign(&result, PMP_L2_ALIGNED, 
                      sizeof(pmp_team_t) * PMP_MAX_THREADS) != 0) {
     __pmp_fatal("cannot allocate teams array\n");
   }
-#endif /* defined(BUILD_OS_DARWIN) */
   memset(result, 0, sizeof(pmp_team_t) * PMP_MAX_THREADS);
   __pmp_manager.teams = (pmp_team_t *) result;
 
@@ -177,15 +172,10 @@ void __pmp_manager_init (void)
   }
 
   /* Allocate and initialize thread array */
-#if defined(BUILD_OS_DARWIN)
-  result = darwin_memalign(PMP_L2_ALIGNED,
-    sizeof(pmp_thread_t) * PMP_MAX_THREADS, "cannot allocate threads array\n");
-#else /* defined(BUILD_OS_DARWIN) */
   if (posix_memalign(&result, PMP_L2_ALIGNED,
                      sizeof(pmp_thread_t) * PMP_MAX_THREADS) != 0) {
     __pmp_fatal("cannot allocate threads array\n");
   }
-#endif /* defined(BUILD_OS_DARWIN) */
   memset(result, 0, sizeof(pmp_thread_t) * PMP_MAX_THREADS);
   __pmp_manager.threads = (pmp_thread_t *) result;
 

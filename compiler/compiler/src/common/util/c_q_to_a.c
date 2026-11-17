@@ -129,15 +129,8 @@ extern void	c_qtenscale( _ldblval *, INT32, INT32 *);
 static INT32	c_qtoa(char *buffer, INT32 ndigit, QUAD x, INT32 fflag);
 extern INT	c_q_to_a(char *str, QUAD x, INT *p_err );
 
-#if defined(BUILD_OS_DARWIN)
-/* Can't use "pragma weak" to create aliases in Mach-O */
-INT c_q_to_a(char *str, QUAD x, INT *p_err );
-INT __c_q_to_a(char *str, QUAD x, INT *p_err )
-  { return c_q_to_a(str, x, p_err); }
-#else /* defined(BUILD_OS_DARWIN) */
 #pragma weak c_q_to_a = __c_q_to_a
 #define	c_q_to_a __c_q_to_a
-#endif /* defined(BUILD_OS_DARWIN) */
 
 
 /* ====================================================================

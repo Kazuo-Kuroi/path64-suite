@@ -58,13 +58,7 @@ extern	complex	__rcis(float);
 #pragma weak __rcis = __libm_rcis
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern complex __libm_rcis(float);
-#pragma weak __rcis
-complex __rcis(float x) {
-  return __libm_rcis(x);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  complex  __libm_rcis(float);
 complex    __rcis() __attribute__ ((weak, alias ("__libm_rcis")));
 #endif

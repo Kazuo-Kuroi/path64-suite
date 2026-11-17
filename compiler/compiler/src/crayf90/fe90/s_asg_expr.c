@@ -124,7 +124,7 @@ static boolean expr_semantics_d (opnd_type *result_opnd,
 #endif /* KEY Bug 934 */
 
 
-# if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#if (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 # pragma inline uplus_opr_handler
 # pragma inline power_opr_handler
 # pragma inline mult_opr_handler
@@ -1878,7 +1878,7 @@ static boolean expr_sem_d(opnd_type      *result_opnd,
                attr_idx = ATD_SF_ARG_IDX(attr_idx);
                OPND_IDX((*result_opnd)) = attr_idx;
             }
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 # if 0
             else if (ATD_CLASS(attr_idx) == Dummy_Argument &&
                      ATD_ARRAY_IDX(attr_idx) &&

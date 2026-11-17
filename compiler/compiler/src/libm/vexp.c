@@ -59,14 +59,7 @@ extern	void	vexp(double *, double *, long, long, long);
 #pragma weak vexp = __vexp
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vexp( double *x, double *y, long count, long stridex,
-  long stridey );
-#pragma weak vexp
-void vexp( double *x, double *y, long count, long stridex, long stridey ) {
-  __vexp(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vexp(double *, double *, long, long, long);
 void    vexp() __attribute__ ((weak, alias ("__vexp")));
 #endif

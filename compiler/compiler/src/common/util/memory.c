@@ -882,7 +882,7 @@ void
 MEM_Trace(void)
 {
 #ifdef Is_True_On
-/* need linux malloc or -lmalloc on irix to use mallinfo; none on Darwin */
+/* Uses Linux malloc or -lmalloc on IRIX for mallinfo. */
 #if defined(linux) || defined(MEM_STATS)
   MEM_POOL *pool;
   struct    mallinfo mi = mallinfo();

@@ -53,14 +53,7 @@ extern	void	vsinf(float *, float *, long, long, long);
 #pragma weak vsinf = __vsinf
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern void __vsinf( float *x, float *y, long count, long stridex,
-  long stridey );
-#pragma weak vsinf
-void vsinf( float *x, float *y, long count, long stridex, long stridey ) {
-  __vsinf(x, y, count, stridex, stridey);
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  void  __vsinf(float *, float *, long, long, long);
 void    vsinf() __attribute__ ((weak, alias ("__vsinf")));
 #endif

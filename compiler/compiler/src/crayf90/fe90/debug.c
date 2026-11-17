@@ -2931,9 +2931,6 @@ void	print_defines(void)
    fprintf(debug_file, "\t\t\t_HOST_OS_LINUX\n");
 # endif
 
-# if defined(_HOST_OS_DARWIN)
-   fprintf(debug_file, "\t\t\t_HOST_OS_DARWIN\n");
-# endif
 
 # ifdef _HOST_OS_MAX
    fprintf(debug_file, "\t\t\t_HOST_OS_MAX\n");
@@ -2956,9 +2953,6 @@ void	print_defines(void)
    fprintf(debug_file, "\t\t\t_TARGET_OS_LINUX\n");
 # endif
 
-# if defined(_TARGET_OS_DARWIN)
-   fprintf(debug_file, "\t\t\t_TARGET_OS_DARWIN\n");
-# endif
 
 # ifdef _TARGET_OS_MAX
    fprintf(debug_file, "\t\t\t_TARGET_OS_MAX\n");
@@ -7310,7 +7304,7 @@ static void dump_ir_ntry(FILE 	*out_file,
        IR_OPR(idx) <= Dv_Set_Stride_Mult) {
       fprintf(out_file, " dim = %d", IR_DV_DIM(idx));
    }
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
    else if (IR_OPR(idx) == Call_Opr) {
       if (IR_INLINE_STATE(idx) == Inline_Sgi) {
          fprintf(out_file, " INLINE ");

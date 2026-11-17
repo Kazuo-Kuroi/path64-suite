@@ -67,12 +67,7 @@
   not clash with other signals used by
   pthreads
 */
-#if defined(BUILD_OS_DARWIN)
-/* Darwin doesn't provide Posix Real Time signal extension */
-#define SIGPMP SIGUSR1
-#else /* defined(BUILD_OS_DARWIN) */
 #define SIGPMP (SIGRTMIN+4)
-#endif /* defined(BUILD_OS_DARWIN) */
 
 extern void __pmp_thread_init (pmp_thread_t *thread,
                                pmp_global_id_t global_id);

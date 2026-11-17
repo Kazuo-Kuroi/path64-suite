@@ -1,9 +1,7 @@
 /* Provide a real file - not a symlink - as it would cause multiarch conflicts
    when multiple different arch releases are installed simultaneously.  */
 
-#if defined __arm__
-# include "tdep-arm/jmpbuf.h"
-#elif defined __hppa__
+#if defined __hppa__
 # include "tdep-hppa/jmpbuf.h"
 #elif defined __ia64__
 # include "tdep-ia64/jmpbuf.h"

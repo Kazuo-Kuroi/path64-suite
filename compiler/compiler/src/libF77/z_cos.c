@@ -50,14 +50,8 @@ dcomplex z_cos_(dcomplex *z)
   return __zcos(z->dreal, z->dimag);
 }
 
-#if defined(BUILD_OS_DARWIN)
-/* Mach-O doesn't support aliases */
-dcomplex z_cos(dcomplex *z) { return z_cos_(z); }
-#pragma weak z_cos
-#else /* defined(BUILD_OS_DARWIN) */
 #ifdef KEY /* Bug 15104 */
 weakalias(z_cos_, z_cos);
 #else /* KEY Bug 15104 */
 defalias(z_cos_, z_cos);
 #endif /* KEY Bug 15104 */
-#endif /* defined(BUILD_OS_DARWIN) */

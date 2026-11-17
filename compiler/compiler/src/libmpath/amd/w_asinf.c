@@ -138,13 +138,8 @@ float FN_PROTOTYPE(asinf)(float x)
   if (transform)
     { /* Transform y into the range [0,0.5) */
       r = 0.5F*(1.0F - y);
-#ifdef WINDOWS
-      /* VC++ intrinsic call */
-      _mm_store_ss(&s, _mm_sqrt_ss(_mm_load_ss(&r)));
-#else
       /* Hammer sqrt instruction */
       asm volatile ("sqrtss %1, %0" : "=x" (s) : "x" (r));
-#endif
       y = s;
     }
   else

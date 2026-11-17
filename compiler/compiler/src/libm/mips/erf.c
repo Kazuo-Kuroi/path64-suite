@@ -87,18 +87,7 @@ extern	double	erfc(double);
 #pragma weak erfc = __erfc
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __erf(double);
-extern double __erfc(double);
-#pragma weak erf
-#pragma weak erfc
-double erf( double arg ) {
-  return __erf( arg );
-}
-double erfc( double arg ) {
-  return __erfc( arg );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __erf(double);
 
 double    erf() __attribute__ ((weak, alias ("__erf")));
@@ -543,17 +532,7 @@ double	result;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __erfl(long double);
-extern long double __erfcl(long double);
-long double erfl( long double x ) {	
-  return ( (long double)__erf((double)x) );
-}
-
-long double erfcl( long double x ) {	
-  return ( (long double)__erfc((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __erfl(long double);
 
 long double    erfl() __attribute__ ((weak, alias ("__erfl")));

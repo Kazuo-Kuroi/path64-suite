@@ -247,24 +247,10 @@ alpha*-*-*)
 am33_2.0-*-linux*)
         cpu_type=mn10300
         ;;
-strongarm*-*-*)
-        cpu_type=arm
-        ;;
-arm*-*-*)
-        cpu_type=arm
-        extra_headers="mmintrin.h"
-        ;;
 bfin*-*)
         cpu_type=bfin
         ;;
-ep9312*-*-*)
-        cpu_type=arm
-        ;;
 frv*)        cpu_type=frv
-        ;;
-xscale-*-*)
-        cpu_type=arm
-        extra_headers="mmintrin.h"
         ;;
 i[34567]86-*-*)
         cpu_type=i386
@@ -676,105 +662,6 @@ arc-*-elf*)
         tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
         extra_parts="crtinit.o crtfini.o"
         use_fixproto=yes
-        ;;
-arm-*-coff* | armel-*-coff*)
-        tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h"
-        tmake_file="arm/t-arm arm/t-arm-coff"
-        ;;
-arm-semi-aof | armel-semi-aof)
-        tm_file="arm/semiaof.h arm/aof.h arm/arm.h"
-        tmake_file="arm/t-arm arm/t-semi"
-        ;;
-arm-wrs-vxworks)
-        tm_file="dbxelf.h elfos.h svr4.h vxworks.h arm/elf.h arm/aout.h arm/arm.h arm/vxworks.h"
-        tmake_file="${tmake_file} arm/t-arm arm/t-vxworks"
-        ;;
-arm*-*-freebsd*|strongarm*-*-freebsd*)
-        tm_file="dbxelf.h elfos.h ${fbsd_tm_file} arm/elf.h arm/aout.h arm/freebsd.h arm/arm.h"
-        tmake_file="${tmake_file} arm/t-arm arm/t-strongarm-elf"
-        ;;
-arm*-*-netbsdelf*)
-        tm_file="dbxelf.h elfos.h netbsd.h netbsd-elf.h arm/elf.h arm/aout.h arm/arm.h arm/netbsd-elf.h"
-        tmake_file="${tmake_file} arm/t-arm arm/t-netbsd"
-        ;;
-arm*-*-netbsd*)
-        tm_file="arm/aout.h arm/arm.h netbsd.h netbsd-aout.h arm/netbsd.h"
-        tmake_file="t-netbsd arm/t-arm arm/t-netbsd"
-        extra_parts=""
-        use_collect2=yes
-        ;;
-arm*-*-linux*)                        # ARM GNU/Linux with ELF
-        tm_file="dbxelf.h elfos.h linux.h arm/elf.h arm/linux-gas.h arm/linux-elf.h"
-        tmake_file="${tmake_file} t-linux arm/t-arm"
-        case ${target} in
-        arm*-*-linux-*eabi)
-            tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h"
-            tmake_file="$tmake_file arm/t-arm-elf arm/t-bpabi arm/t-linux-eabi"
-              # The BPABI long long divmod functions return a 128-bit value in
-            # registers r0-r3.  Correctly modeling that requires the use of
-            # TImode.
-            need_64bit_hwint=yes
-            # The EABI requires the use of __cxa_atexit.
-            default_use_cxa_atexit=yes
-            ;;
-        *)
-            tmake_file="$tmake_file arm/t-linux"
-            ;;
-        esac
-        tm_file="$tm_file arm/aout.h arm/arm.h"
-        ;;
-arm*-*-uclinux*)                # ARM ucLinux
-        tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h arm/uclinux-elf.h"
-        tmake_file="arm/t-arm arm/t-arm-elf"
-        ;;
-arm*-*-ecos-elf)
-        tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/ecos-elf.h"
-        tmake_file="arm/t-arm arm/t-arm-elf"
-        ;;
-arm*-*-eabi* | arm*-*-symbianelf* )
-        # The BPABI long long divmod functions return a 128-bit value in
-        # registers r0-r3.  Correctly modeling that requires the use of
-        # TImode.
-        need_64bit_hwint=yes
-        default_use_cxa_atexit=yes
-        tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/bpabi.h"
-        tmake_file="arm/t-arm arm/t-arm-elf"
-        case ${target} in
-        arm*-*-eabi*)
-          tmake_file="${tmake_file} arm/t-bpabi"
-          ;;
-        arm*-*-symbianelf*)
-          tm_file="${tm_file} arm/symbian.h"
-          # We do not include t-bpabi for Symbian OS because the system
-          # provides its own implementation of the BPABI functions.
-          tmake_file="${tmake_file} arm/t-symbian"
-          ;;
-        esac
-        tm_file="${tm_file} arm/aout.h arm/arm.h"
-        ;;
-arm*-*-rtems*)
-        tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/rtems-elf.h rtems.h"
-        tmake_file="arm/t-arm arm/t-arm-elf t-rtems arm/t-rtems"
-        ;;
-arm*-*-elf | ep9312-*-elf)
-        tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
-        tmake_file="arm/t-arm arm/t-arm-elf"
-        ;;
-arm*-wince-pe*)
-        tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h arm/pe.h arm/wince-pe.h"
-        tmake_file="arm/t-arm arm/t-wince-pe"
-        extra_options="${extra_options} arm/pe.opt"
-        extra_objs="pe.o"
-        ;;
-arm-*-pe*)
-        tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h arm/pe.h"
-        tmake_file="arm/t-arm arm/t-pe"
-        extra_options="${extra_options} arm/pe.opt"
-        extra_objs="pe.o"
-        ;;
-arm*-*-kaos*)
-        tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h kaos.h arm/kaos-arm.h"
-        tmake_file="arm/t-arm arm/t-arm-elf"
         ;;
 avr-*-rtems*)
         tm_file="avr/avr.h dbxelf.h avr/rtems.h rtems.h"
@@ -2304,31 +2191,6 @@ sparc64-*-netbsd*)
         extra_options="${extra_options} sparc/long-double-switch.opt"
         tmake_file="${tmake_file} sparc/t-netbsd64"
         ;;
-strongarm-*-elf*)
-        tm_file="arm/strongarm-elf.h dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
-        tmake_file="arm/t-arm arm/t-strongarm-elf"
-        out_file=arm/arm.c
-        md_file=arm/arm.md
-        extra_modes=arm/arm-modes.def
-        use_fixproto=yes
-        ;;
-strongarm-*-pe)
-        tm_file="arm/semi.h arm/aout.h arm/coff.h dbxcoff.h arm/strongarm-coff.h arm/arm.h arm/pe.h arm/strongarm-pe.h"
-        tmake_file="arm/t-arm arm/t-strongarm-pe"
-        out_file=arm/arm.c
-        md_file=arm/arm.md
-        extra_modes=arm/arm-modes.def
-        extra_options="${extra_options} arm/pe.opt"
-        extra_objs=pe.o
-        use_fixproto=yes
-        ;;
-strongarm-*-kaos*)
-        tm_file="arm/strongarm-elf.h dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h kaos.h arm/kaos-strongarm.h"
-        tmake_file="arm/t-arm arm/t-strongarm-elf"
-        out_file=arm/arm.c
-        md_file=arm/arm.md
-        extra_modes=arm/arm-modes.def
-        ;;
 v850e1-*-*)
         target_cpu_default="TARGET_CPU_v850e1"
         tm_file="dbxelf.h elfos.h svr4.h v850/v850.h"
@@ -2405,22 +2267,6 @@ vax-*-ultrix*)                        # VAXen running ultrix
         tmake_file=vax/t-memfuncs
         use_fixproto=yes
         ;;
-xscale-*-elf)
-        tm_file="arm/xscale-elf.h dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
-        tmake_file="arm/t-arm arm/t-xscale-elf"
-        out_file=arm/arm.c
-        md_file=arm/arm.md
-        extra_modes=arm/arm-modes.def
-        use_fixproto=yes
-        ;;
-xscale-*-coff)
-        tm_file="arm/semi.h arm/aout.h arm/coff.h dbxcoff.h arm/xscale-coff.h arm/arm.h"
-        tmake_file="arm/t-arm arm/t-xscale-coff"
-        out_file=arm/arm.c
-        md_file=arm/arm.md
-        extra_modes=arm/arm-modes.def
-        use_fixproto=yes
-        ;;
 xstormy16-*-elf)
         # For historical reasons, the target files omit the 'x'.
         tm_file="dbxelf.h elfos.h svr4.h stormy16/stormy16.h"
@@ -2484,10 +2330,6 @@ esac
 # This block sets nothing except for with_cpu.
 if test x$with_cpu = x ; then
   case ${target} in
-    ep9312-*-*)
-      # A Cirrus ARM variant.
-      with_cpu="ep9312"
-      ;;
     i386-*-*)
       with_cpu=i386
       ;;
@@ -2590,15 +2432,6 @@ if test x$with_cpu = x ; then
   esac
 fi
 
-# Similarly for --with-float
-if test x$with_float = x; then
-        case ${target} in
-        ep9312-*-*)
-                with_float=hard
-                ;;
-        esac
-fi
-
 # Similarly for --with-schedule.
 if test x$with_schedule = x; then
         case ${target} in
@@ -2633,91 +2466,6 @@ case "${target}" in
                                 ;;
                         esac
                 done
-                ;;
-
-        arm*-*-*)
-                supported_defaults="arch cpu float tune fpu abi mode"
-                for which in cpu tune; do
-                        # See if it matches any of the entries in arm-cores.def
-                        eval "val=\$with_$which"
-                        if [ x"$val" = x ] \
-                            || grep "^ARM_CORE(\"$val\"," \
-                                    "${srcdir}/config/arm/arm-cores.def" \
-                                    > /dev/null; then
-                          # Ok
-                          new_val=`grep "^ARM_CORE(\"$val\"," \
-                                "${srcdir}/config/arm/arm-cores.def" | \
-                                sed -e 's/^[^,]*,[         ]*//' | \
-                                sed -e 's/,.*$//'`
-                          eval "target_${which}_cname=$new_val"
-                        echo "For $val real value is $new_val"
-                          true
-                        else
-                          echo "Unknown CPU used in --with-$which=$val" 1>&2
-                          exit 1
-                        fi
-                done
-
-                case "$with_arch" in
-                "" \
-                | armv[23456] | armv2a | armv3m | armv4t | armv5t \
-                | armv5te | armv6j |armv6k | armv6z | armv6zk \
-                | iwmmxt | ep9312)
-                        # OK
-                        ;;
-                *)
-                        echo "Unknown arch used in --with-arch=$with_arch" 1>&2
-                        exit 1
-                        ;;
-                esac
-
-                case "$with_float" in
-                "" \
-                | soft | hard | softfp)
-                        # OK
-                        ;;
-                *)
-                        echo "Unknown floating point type used in --with-float=$with_float" 1>&2
-                        exit 1
-                        ;;
-                esac
-
-                case "$with_fpu" in
-                "" \
-                | fpa | fpe2 | fpe3 | maverick | vfp )
-                        # OK
-                        ;;
-                *)
-                        echo "Unknown fpu used in --with-fpu=$with_fpu" 2>&1
-                        exit 1
-                        ;;
-                esac
-
-                case "$with_abi" in
-                "" \
-                | apcs-gnu | atpcs | aapcs | iwmmxt )
-                        #OK
-                        ;;
-                *)
-                        echo "Unknown ABI used in --with-abi=$with_abi"
-                        exit 1
-                        ;;
-                esac
-
-                case "$with_mode" in
-                "" \
-                | arm | thumb )
-                        #OK
-                        ;;
-                *)
-                        echo "Unknown mode used in --with-mode=$with_mode"
-                        exit 1
-                        ;;
-                esac
-
-                if test "x$with_arch" != x && test "x$with_cpu" != x; then
-                        echo "Warning: --with-arch overrides --with-cpu=$with_cpu" 1>&2
-                fi
                 ;;
 
         fr*-*-*linux*)
@@ -2980,15 +2728,6 @@ case ${target} in
                 if test x$gas = xyes
                 then
                         target_cpu_default2="MASK_GAS"
-                fi
-                ;;
-
-        arm*-*-*)
-                if test x$target_cpu_cname = x
-                then
-                        target_cpu_default2=TARGET_CPU_generic
-                else
-                        target_cpu_default2=TARGET_CPU_$target_cpu_cname
                 fi
                 ;;
 

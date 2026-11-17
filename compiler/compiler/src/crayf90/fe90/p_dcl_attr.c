@@ -56,7 +56,7 @@ static char USMID[] = "\n@(#)5.0_pl/sources/p_dcl_attr.c	5.2	06/17/99 09:28:10\n
 \*****************************************************************/
 #ifdef KEY /* Bug 14150 */
 static int parse_attrs(boolean (*func) (boolean, int, int, int));
-#else /* defined(BUILD_OS_DARWIN) */
+#else
 static void parse_attrs(boolean (*func) (boolean, int, int, int));
 #endif /* KEY Bug 14150 */
 

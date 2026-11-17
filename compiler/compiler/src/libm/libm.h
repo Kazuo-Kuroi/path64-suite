@@ -48,7 +48,7 @@
 
 #include <errno.h>
 
-#if defined(mips) && !(defined(__linux__) || defined(BUILD_OS_DARWIN)) || defined(__FreeBSD__)
+#if defined(mips) && !(defined(__linux__)) || defined(__FreeBSD__)
 #include <sgidefs.h>
 #include <svr4_math.h>
 
@@ -221,7 +221,7 @@ int	round(double);
 
 #endif /* mips */
 
-#if defined(__linux__) || defined(BUILD_OS_DARWIN) || defined(__FreeBSD__) || defined(__sun)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__sun)
 
 extern	float	fabsf(float);
 

@@ -67,6 +67,15 @@ Not done yet:
     as .cfi_*), and running the compiler natively on IRIX.
 
 
+Removed platforms
+-----------------
+
+The Path64 backend's Windows and Darwin/macOS ports were removed because
+they are outside this fork's scope. The vestigial ARM and RSK6 target
+entries were also removed from CMake, along with their remaining compiler
+and runtime code. The IRIX 6.5 n32 cross target remains in scope.
+See doc/backend-platforms.md for the remaining target matrix.
+
 Requirements
 ------------
 

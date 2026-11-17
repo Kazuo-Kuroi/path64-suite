@@ -127,42 +127,6 @@ extern "C" {
 
 	/*}}}*/
 
-	/*----------------------------------------------------------------------------*
-	* {{{ <SECTION id="Windows (32 bits)">
-	*----------------------------------------------------------------------------*/
-
-	#ifdef WIN32
-
-		#include <windows.h>
-
-                #define PLATFORM_EXT ".dll"
-
-		static char error_dll_message[128];
-
-		#define DLL_GET_ERROR(_msg_) { \
-			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,NULL,GetLastError(), \
-				MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT), \
-				(LPTSTR)error_dll_message,128,NULL); \
-			_msg_=error_dll_message; \
-		}
-
-		#define DLL_OPEN(_dll_handle_,_name_) \
-			(_dll_handle_=LoadLibrary(_name_))
-
-		#define DLL_GET_SYMBOL(_dll_handle_,_fct_handle_,_name_) \
-			(_fct_handle_=GetProcAddress((HINSTANCE)_dll_handle_,_name_))
-
-		#define DLL_GET_TYPED_SYMBOL(_dll_handle_,_fct_handle_,_name_,_type_) \
-			(_fct_handle_=(_type_) GetProcAddress((HINSTANCE)_dll_handle_,_name_))
-
-		#define DLL_CLOSE(_dll_handle_) \
-			(!FreeLibrary((HINSTANCE)_dll_handle_))
-
-      #define DLL_DIR_SEPARATOR "\\"
-      
-	#endif /* __win32 */
-
-	/*}}}*/
 
 #ifdef __cplusplus
 }

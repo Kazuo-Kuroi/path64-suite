@@ -41,14 +41,9 @@ void __ompc_critical (int global_id, pmp_lock_t **lock)
     void *l_new;
     void *l_old;
     void *result;
-#if defined(BUILD_OS_DARWIN)
-    result = darwin_memalign(PMP_L2_ALIGNED, sizeof(pmp_lock_t),
-      "cannot allocate critical lock\n");
-#else /* defined(BUILD_OS_DARWIN) */
     if (posix_memalign(&result, PMP_L2_ALIGNED, sizeof(pmp_lock_t)) != 0) {
       __pmp_fatal("cannot allocate critical lock\n");
     }
-#endif /* defined(BUILD_OS_DARWIN) */
     l = (pmp_lock_t *) result;
     l_new = (void **) result;
     __pmp_lock_init(l);

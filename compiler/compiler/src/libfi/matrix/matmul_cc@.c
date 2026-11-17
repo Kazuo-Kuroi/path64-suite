@@ -51,9 +51,6 @@
 #elif defined(UNIX_NAMING_CONVENTION)
 #define SUBNAME1 _CGEMMX
 #define SUBNAME2 _CGEMVX
-#elif defined(BUILD_COMPILER_GNU) && defined(BUILD_OS_DARWIN)
-#define SUBNAME1 underscore_cgemmx_
-#define SUBNAME2 underscore_cgemvx_
 #else
 #define SUBNAME1 _cgemmx_
 #define SUBNAME2 _cgemvx_

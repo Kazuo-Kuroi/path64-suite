@@ -66,13 +66,7 @@ extern	double	log1p(double);
 #pragma weak log1p = __log1p
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __log1p(double);
-#pragma weak log1p
-double log1p( double x ) {
-  return __log1p( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __log1p(double);
 
 double    log1p() __attribute__ ((weak, alias ("__log1p")));
@@ -432,12 +426,7 @@ struct exception	exstruct;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __log1pl(long double);
-long double log1pl( long double x ) {	
-  return ( (long double)__log1p((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __log1pl(long double);
 
 long double    log1pl() __attribute__ ((weak, alias ("__log1pl")));

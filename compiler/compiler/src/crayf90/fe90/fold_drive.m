@@ -54,7 +54,7 @@
 #   define	INT_KIND_8_MAX	017777777777
 # endif
 
-# if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX) || defined(_TARGET_OS_DARWIN))
+#if (defined(_TARGET_OS_IRIX) || defined(_TARGET_OS_LINUX))
 # define        MASK_TEST(MASK)                                 \
                 ((MASK & AR_STAT_OVERFLOW)  != 0 ||             \
                  (MASK & AR_STAT_UNDEFINED) != 0)
@@ -287,7 +287,7 @@
 # define	SIGNI		SIGNI
 # define	SIGNR		SIGNR
 
-# elif (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX) || defined(_HOST_OS_DARWIN))
+#elif (defined(_HOST_OS_IRIX) || defined(_HOST_OS_LINUX))
 
 # define	_CONVRI		convri_
 # define	_CONVRDI	convrdi_

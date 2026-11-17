@@ -42,9 +42,7 @@
 #include "em_elf.h"
 #endif
 
-#if ! defined(BUILD_OS_DARWIN)
 #include "libelf/libelf.h"
-#endif /* ! defined(BUILD_OS_DARWIN) */
 #include "libdwarf.h"
 #include "dwarf_DST_mem.h"
 

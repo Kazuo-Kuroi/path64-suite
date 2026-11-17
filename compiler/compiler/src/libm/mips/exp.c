@@ -65,13 +65,7 @@ extern	double	exp(double);
 #pragma weak exp = __exp
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __exp(double);
-#pragma weak exp
-double exp( double x ) {
-  return __exp( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __exp(double);
 
 double    exp() __attribute__ ((weak, alias ("__exp")));
@@ -350,12 +344,7 @@ struct exception	exstruct;
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern  long double  __expl(long double);
-long double expl( long double x ) {	
-  return ( (long double)__exp((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __expl(long double);
 
 long double    expl() __attribute__ ((weak, alias ("__expl")));

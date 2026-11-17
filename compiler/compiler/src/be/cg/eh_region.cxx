@@ -50,9 +50,7 @@
 #include <algorithm>
 #include <vector>
 #include <map>
-#if ! defined(BUILD_OS_DARWIN)
 #include "libelf/libelf.h"
-#endif /* ! defined(BUILD_OS_DARWIN) */
 #include "dwarf_stuff.h"
 #include "defs.h"
 #include "be_errors.h"
@@ -73,9 +71,6 @@
 #include "bb.h"
 #include "whirl2ops.h"
 #include "label_util.h"
-#ifdef _WIN32
-#include <alloca.h>
-#endif
 
 
 #if HAVE_ALLOCA_H

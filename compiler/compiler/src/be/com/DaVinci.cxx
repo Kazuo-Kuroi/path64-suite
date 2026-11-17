@@ -665,9 +665,6 @@ DaVinci::Menu_Set_Active()
 void
 DaVinci::Kill_Davinci()
 {
-#ifdef _WIN32
-    fprintf(stderr, "DaVinci::Kill_Davinci() is unimplemented\n");
-#else
     INT stat;
     
     _display_ok = false;
@@ -675,7 +672,6 @@ DaVinci::Kill_Davinci()
     waitpid (_pid, &stat, WNOHANG);  // capture any SIGCHLD so not to
 				    // confuse master.
     _io.Close();
-#endif
 }
 
 // ------------------------------------------------------------------------
@@ -685,9 +681,6 @@ DaVinci::Kill_Davinci()
 DaVinci::DaVinci(MEM_POOL *m, FILE *_trace_fp, bool usage_check) :
   _menu_state(m)
 {
-#ifdef _WIN32
-  fprintf(stderr, "DaVinci::DaVinci() is unimplemented\n");
-#else
   _m                = m;
   _basic_menu_added = false;
   _in_event_loop    = false;
@@ -761,7 +754,6 @@ DaVinci::DaVinci(MEM_POOL *m, FILE *_trace_fp, bool usage_check) :
   Emit_Do( "set(font_size(6))" );  // more? provide external control.
   Emit_Do( "set(gap_height(40))" );
   Emit_Do( "set(gap_width(20))" );
-#endif
 }
 
 DaVinci::~DaVinci()

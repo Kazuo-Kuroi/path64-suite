@@ -52,7 +52,7 @@
  * ====================================================================
  */
 
-#if (defined(HOST_SGI) || defined(__GNUC__) || defined(_MSC_VER))
+#if (defined(HOST_SGI) || defined(__GNUC__))
 typedef signed int	INT;	/* The natural integer on the host */
 typedef signed int	INT8;	/* Use the natural integer FIXME: Not portable */
 typedef signed int 	INT16;	/* Use the natural integer - FIXME: This is not correct or portable */
@@ -115,15 +115,15 @@ typedef double	QUADFP;		/* 128-bit floating point */
 #endif
 
 
-#endif /* HOST_SGI || __GNUC__ || _MSC_VER */
+#endif
 
 /* We would like a generic memory pointer type, e.g. for use in the
  * memory allocation routines.  Ideally, it is (void *), but some
  * hosts, e.g. ca. 1988 MIPS, can't handle that...
  */
-#if(defined(HOST_SGI) || defined(__GNUC__) || defined(_MSC_VER))
+#if (defined(HOST_SGI) || defined(__GNUC__))
 typedef void	*MEM_PTR;
-#endif /* HOST_SGI || __GNUC__ || _MSC_VER */
+#endif
 
 /* Short hand for those who don't like "char *" */
 typedef char *STRING;

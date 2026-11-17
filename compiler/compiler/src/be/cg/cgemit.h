@@ -55,17 +55,7 @@ extern void EMT_End_File ( void );
 extern void EMT_Emit_PU ( FILE *asm_file, ST *pu, DST_IDX pu_dst, WN *rwn);
 
 /* put symbol in elf symbol table */ 
-#if defined(BUILD_OS_DARWIN)
-/* Generally, global-scope symbols require a preceding underscore
- * Calls to external functions require a jump to a stub
- * Other references to external functions require an indirect pointer
- */
-typedef enum { DO_UNDERSCORE, DO_STUB, DO_NON_LAZY_PTR } darwin_indirect_t;
-extern mINT32 EMT_Put_Elf_Symbol (ST *sym,
-  darwin_indirect_t indirect = DO_UNDERSCORE);
-#else /* defined(BUILD_OS_DARWIN) */
 extern mINT32 EMT_Put_Elf_Symbol (ST *sym);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 /* change existing elf symbol to undefined */
 extern void EMT_Change_Symbol_To_Undefined (ST *sym);
@@ -99,12 +89,6 @@ extern std::string EMT_Get_Qualified_Name (ST *st);
 /* Write a qualified name to a file. */
 extern void EMT_Write_Qualified_Name (FILE *f, ST *st);
 
-#if defined(BUILD_OS_DARWIN)
-/* Return log base two of an integer (used for .align) */
-extern int logtwo(int value);
-extern const char *map_section_name(const char *section_name);
-extern int is_debug_section(const char *section_name);
-#endif /* defined(BUILD_OS_DARWIN) */
 
 extern char *ST_name_decorated(ST *st);
 

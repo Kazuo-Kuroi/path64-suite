@@ -59,13 +59,7 @@ extern	double	tanh(double);
 #pragma weak tanh = __tanh
 #endif
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern double __tanh(double);
-#pragma weak tanh
-double tanh( double x ) {
-  return __tanh( x );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  double  __tanh(double);
 
 double    tanh() __attribute__ ((weak, alias ("__tanh")));
@@ -284,12 +278,7 @@ L:
 
 #ifdef NO_LONG_DOUBLE
 
-#if defined(BUILD_OS_DARWIN) /* Mach-O doesn't support aliases */
-extern long double __tanhl(long double);
-long double tanhl( long double x ) {	
-  return ( (long double)__tanh((double)x) );
-}
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
 extern  long double  __tanhl(long double);
 
 long double    tanhl() __attribute__ ((weak, alias ("__tanhl")));
