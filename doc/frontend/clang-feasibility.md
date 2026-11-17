@@ -600,6 +600,11 @@ stdcxx). Standard-library C++ failed for other reasons, now fixed.
 * *`dynamic_cast<T&>`* did not throw `std::bad_cast`.
 * *Range-based `for`* lost its declarations (loops ran forever or
   crashed).
+* *Global initializers.* `__cxx_global_var_init` had no `RETURN`. With
+  no exit that uses memory, WOPT's dead-store elimination dropped the
+  last dynamic initialization that nothing after it in the function
+  reads; such a global stayed 0 at `-O1` and above. Initializations are
+  also grouped in one IF per `init_priority`, as wgen does.
 * *Constructor/destructor attributes* (C and C++) are placed in
   `.ctors`/`.dtors`, as wgen does.
 * *`int` to `unsigned long`.* This is now an `I8I4CVT`, as wgen gives
@@ -653,11 +658,6 @@ psclang also gained:
   example LLVM's libc++ 4.0, which matches Clang 4) would be needed.
 * *`<stdatomic.h>`.* The `__c11_atomic_*` and `__atomic_*` builtins are
   not implemented; only `_Atomic` objects and their operators are.
-* *Global initializers at `-O2`.* WOPT can drop the last dynamic
-  initialization that follows a constructor call in an EH region in
-  `__cxx_global_var_init` (for example
-  `D gd(5); int a = *f(); int b = g();` with a `D` constructor that calls
-  a function). `-O0` is right; the cause is not yet found.
 * *Back end.* WOPT's handling of `U8I4CVT` (above) is worked around in
   psclang, not fixed.
 

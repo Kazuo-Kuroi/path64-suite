@@ -486,9 +486,6 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
 
   // One IF per priority holding its variables' initializations, as wgen
   // makes __static_initialization_and_destruction_0.
-  // FIXME: at -O2 WOPT can still drop the last initialization that
-  // follows a constructor call in an EH region (doc/frontend/
-  // clang-feasibility.md, known issues).
   std::map<int, std::pair<WN *, SRCPOS> > prio_blocks;
 
   for (std::set<const clang::VarDecl *>::iterator it = _deferred_global_var_decls.begin();
@@ -665,6 +662,11 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
     WN_INSERT_BlockLast(block, body_blk);
     WN_Set_Linenum(body_blk, pit->second.second);
   }
+
+  // The RETURN keeps the stores to globals live: without it WOPT has no
+  // exit using memory, and dead-store elimination dropped the last
+  // initialization that nothing after it in the function reads.
+  WN_INSERT_BlockLast(body, WGEN_CreateReturn(ST_Srcpos(st_idx)));
 
   DBG_VERIFY_WHIRL_IR(pu_tree);
 #if 0
