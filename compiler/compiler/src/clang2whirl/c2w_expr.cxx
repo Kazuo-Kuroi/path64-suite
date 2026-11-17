@@ -3207,9 +3207,9 @@ WhirlExprBuilder::ConvertCXXStdInitializerListExpr(const CXXStdInitializerListEx
     tmp_st = Create_tmp_sym(init_ty, ".init.list", spos);
   }
 
-  // get initializer address
+  // Materialize the backing array separately from the initializer_list object.
   const Expr *sub_expr = expr->getSubExpr();
-  Result sub_r = ConvertExpr(sub_expr, dest);
+  Result sub_r = ConvertExpr(sub_expr);
   WN *sub_wn = sub_r.GetLValue();
 
   // get initializer size
