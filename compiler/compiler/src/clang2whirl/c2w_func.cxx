@@ -893,16 +893,17 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     const CXXConstructorDecl *ctor_decl = cast<CXXConstructorDecl>(decl);
     WN *ctor_ret, *init_wn, *ld_wn;
     Expr *init;
-    bool need_zero_init = false;
-    //bool decl_has_base = false;
-    const CXXBaseSpecifier * base_spec = NULL;
     bool handle_vtable = false;
     for (const CXXCtorInitializer *I : ctor_decl->inits()) {
+      bool need_zero_init = false;
+      const CXXBaseSpecifier *base_spec = NULL;
+      bool empty_base = false;
       // get field id
       UINT32 field_id = 0;
       if (I->isBaseInitializer()) {
         const CXXRecordDecl *base_decl = I->getBaseClass()->getAsCXXRecordDecl();
         Is_True(base_decl, ("not find base decl"));
+        empty_base = base_decl->isEmpty();
         base_spec = Find_base(base_decl, record_decl);
         if (!base_spec)
           base_spec = Find_vbase(base_decl, record_decl);
@@ -988,7 +989,7 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
       TY_IDX ptr_ty = Make_Pointer_Type(fty_idx);
       TYPE_ID mtype = TY_mtype(fty_idx);
       // handle need_zero_init
-      if (need_zero_init) {
+      if (need_zero_init && !empty_base) {
         WN *ctor_ret = NULL;
         if (mtype == MTYPE_M) {
           UINT size = TY_size(fty_idx);
@@ -1007,8 +1008,10 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
           WN_Set_Linenum(ctor_ret, srcpos);
           WN_INSERT_BlockLast(body, ctor_ret);
         }
-        continue;
       }
+      if (need_zero_init && ctor_expr->getConstructor()->isTrivial()
+          && ctor_expr->getConstructor()->isDefaultConstructor())
+        continue;
 
       // push a block for code emitted in converting sub expr
       WN *blk = WhirlBlockUtil::nwBlock();

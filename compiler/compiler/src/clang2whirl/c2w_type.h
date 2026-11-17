@@ -56,6 +56,9 @@ public:
 };
 
 class WhirlTypeBuilder {
+public:
+  static bool IsIndirectArgument(clang::QualType type);
+
 private:
   static UINT32 nameIdx;
 

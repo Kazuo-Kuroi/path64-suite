@@ -1390,6 +1390,10 @@ WhirlDeclBuilder::IsStaticInitialized(const Expr *init_expr, bool &no_need_initi
     // ExprWithCleanups
     init_expr = cast<ExprWithCleanups>(init_expr)->getSubExpr();
 
+  // The initializer_list holds a pointer to separately materialized storage.
+  if (isa<CXXStdInitializerListExpr>(init_expr))
+    return FALSE;
+
   if (isa<InitListExpr>(init_expr)) {
     int num_element = 0;
     const CXXRecordDecl *record =

@@ -2896,21 +2896,26 @@ WN *WhirlStmtBuilder::ConvertReturnStmt(const ReturnStmt *stmt) {
     }
 
     WN *cur_blk = WhirlBlockUtil::getCurrentBlock();
-    // create a temp so that return stmt is EH-free
-    WN *call_wn = NULL;
-    if (_builder->Lang_CPP() && emit_exceptions && need_eh_region &&
-        WN_operator(retw) != OPR_INTCONST &&
-        WN_operator(retw) != OPR_LDID) {
+    // Emit cleanup after evaluating the return expression. Remember where
+    // cleanup starts so the value can be saved before any destructor runs.
+    WN *before_cleanup = WN_last(cur_blk);
+    pop_dtor_for_copy_ctor_stack(cur_blk, rtype);
+    pop_dtor_call_for_return(cur_blk);
+    bool has_cleanup = WN_last(cur_blk) != before_cleanup;
+
+    const bool save_for_eh =
+      _builder->Lang_CPP() && emit_exceptions && need_eh_region &&
+      WN_operator(retw) != OPR_LDID;
+    const bool save_before_cleanup = has_cleanup && TY_kind(ret_ty) != KIND_STRUCT;
+    if ((save_for_eh || save_before_cleanup) && WN_operator(retw) != OPR_INTCONST) {
       WN *tmp_wn = WGEN_StidTemp(ret_ty, retw, ".ret.val");
       WN_Set_Linenum(tmp_wn, GetSrcPos());
-      WN_INSERT_BlockLast(cur_blk, tmp_wn);
+      if (before_cleanup)
+        WN_INSERT_BlockAfter(cur_blk, before_cleanup, tmp_wn);
+      else
+        WN_INSERT_BlockFirst(cur_blk, tmp_wn);
       retw = WN_Ldid(TY_mtype(ret_ty), WN_offset(tmp_wn), WN_st(tmp_wn), ret_ty);
     }
-
-    // pop dtor for copy ctor stack
-    pop_dtor_for_copy_ctor_stack(cur_blk, rtype);
-    // pop dtor call before return
-    pop_dtor_call_for_return(cur_blk);
 
     Is_True(OPERATOR_is_expression(WN_operator(retw)), ("ret is not value"));
     ret = WN_CreateReturn_Val(OPR_RETURN_VAL, mtype, MTYPE_V, retw);

@@ -1374,6 +1374,11 @@ WhirlExprBuilder::SetCallParm(const clang::CallExpr *expr, WN *wn, int &start_of
       arg_wn = WN_Lda(Pointer_Mtype, 0, obj_st);
       arg_ty_idx = Make_Pointer_Type(arg_ty_idx);
     }
+    else if (WhirlTypeBuilder::IsIndirectArgument(args->getType()) && !args->isGLValue()) {
+      Result arg = ConvertExpr(args);
+      arg_wn = arg.GetLValue();
+      arg_ty_idx = Make_Pointer_Type(arg_ty_idx);
+    }
     else {
       arg_wn = ConvertToNode(args);
       if (args->isGLValue())
@@ -2175,14 +2180,13 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
   const Expr *init = expr->getInitializer();
   if (!expr->isArray()) {
     if (!isa<CXXConstructExpr>(init)) {
-      TY_IDX ty_idx = _builder->TB().ConvertType(init->getType());
-      //TY_IDX ptr_ty_idx = Make_Pointer_Type(ty_idx);
-      Result dest = Result::nwSym(ST_st_idx(tmp_st), ty_idx);
+      TY_IDX init_ty = _builder->TB().ConvertType(init->getType());
+      Result dest = Result::nwNode(
+        WN_Ldid(Pointer_Mtype, 0, tmp_st, ty_idx), ty_idx);
       Result tmp = ConvertExpr(init, dest);
-      if (!tmp.isNone() &&
-          (!tmp.isSym() || tmp.Sym() != ST_st_idx(tmp_st))) {
+      if (!tmp.isNone() && tmp != dest) {
         WN *value = tmp.GetRValue();
-        WN *ret_wn = WN_Istore(TY_mtype(ty_idx), 0, Make_Pointer_Type(ty_idx),
+        WN *ret_wn = WN_Istore(TY_mtype(init_ty), 0, Make_Pointer_Type(init_ty),
                                WN_Ldid(Pointer_Mtype, 0, tmp_st, ty_idx), value);
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ret_wn);
         WN_Set_Linenum(ret_wn, spos);
@@ -2370,10 +2374,11 @@ WhirlExprBuilder::ConvertCXXConstructExpr(const CXXConstructExpr *expr,
   WN_VECTOR args;
   for (UINT i = 0; i < expr->getNumArgs(); ++i) {
     const Expr *arg = expr->getArg(i);
-    WN *arg_wn = ConvertToNode(arg);
     QualType arg_type = arg->getType();
     TY_IDX arg_ty = _builder->TB().ConvertType(arg_type);
-    if (arg->isGLValue())
+    const bool indirect = WhirlTypeBuilder::IsIndirectArgument(arg_type) && !arg->isGLValue();
+    WN *arg_wn = indirect ? ConvertExpr(arg).GetLValue() : ConvertToNode(arg);
+    if (arg->isGLValue() || indirect)
       arg_ty = Make_Pointer_Type(arg_ty);
     args.push_back(pair<WN *, TY_IDX>(arg_wn, arg_ty));
   }
@@ -3667,6 +3672,11 @@ WhirlExprBuilder::ConvertDeclRefExpr(const DeclRefExpr *expr) {
   }
 
   TY_IDX ty_idx = _builder->TB().ConvertType(value->getType());
+  if (isa<ParmVarDecl>(value) && WhirlTypeBuilder::IsIndirectArgument(value->getType())) {
+    Result r = Result::nwSym(st_idx, ST_type(st_idx));
+    r.SetRef();
+    return r;
+  }
   Result r = Result::nwSym(st_idx, ty_idx);
   if (value->getType()->isReferenceType())
     r.SetRef();

@@ -316,6 +316,8 @@ WhirlSymBuilder::ConvertParmVar(const ParmVarDecl *decl) {
   ST *st = New_ST(symtab);
   STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, getDeclName(decl));
   TY_IDX ty_idx = _builder->TB().ConvertType(decl->getType());
+  if (WhirlTypeBuilder::IsIndirectArgument(decl->getType()))
+    ty_idx = Make_Pointer_Type(ty_idx);
   ST_Init(st, str_idx, CLASS_VAR, SCLASS_FORMAL, EXPORT_LOCAL, ty_idx);
   Set_ST_is_value_parm(st);
   return ST_st_idx(st);

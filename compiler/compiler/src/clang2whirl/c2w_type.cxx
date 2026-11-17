@@ -42,6 +42,15 @@ using namespace clang;
 
 namespace wgen {
 
+bool WhirlTypeBuilder::IsIndirectArgument(QualType type) {
+  const CXXRecordDecl *record = type->getAsCXXRecordDecl();
+  return record && record->hasDefinition() &&
+         (record->hasNonTrivialCopyConstructor() ||
+          record->hasNonTrivialMoveConstructor() ||
+          !record->hasTrivialDestructor());
+}
+
+
 TY_IDX VTableTypeConverter::Convert(const CXXRecordDecl *decl) {
   ASTContext *ast_c = B()->Context();
   ItaniumVTableContext *vtable_c = cast<ItaniumVTableContext>(ast_c->getVTableContext());
@@ -362,7 +371,10 @@ WhirlTypeBuilder::ConvertFunctionType(const FunctionType *type, const Type *reco
       Set_TY_is_varargs(ty_idx);
 
     for (int i = 0, e = FPT->getNumParams(); i < e; ++i) {
-      TY_IDX pty = ConvertType(FPT->getParamType(i));
+      QualType param_type = FPT->getParamType(i);
+      TY_IDX pty = ConvertType(param_type);
+      if (IsIndirectArgument(param_type))
+        pty = Make_Pointer_Type(pty);
       parm_types.push_back(pty);
     }
   } else {
@@ -684,6 +696,8 @@ WhirlTypeBuilder::ConvertRecordType(const RecordType *type, BOOL incomplete, TY_
   ASTContext *ast_c = _builder->Context();
   const ASTRecordLayout &layout = ast_c->getASTRecordLayout(decl);
   const CXXRecordDecl *cxx_decl = dyn_cast<CXXRecordDecl>(decl);
+  if (cxx_decl && IsIndirectArgument(QualType(type, 0)))
+    Set_TY_return_in_mem(ty_idx);
   BOOL is_cstyle = (cxx_decl == NULL ||
                     cxx_decl->isPOD() || cxx_decl->isCLike());
   BOOL has_vptr = FALSE;
