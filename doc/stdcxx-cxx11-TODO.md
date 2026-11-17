@@ -89,15 +89,16 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
 - [x] (Codex) **`get` on `const pair&&`.** Test:
   `pairs/pair.astuple/get_const_rv.pass.cpp`.
 
-### `<tuple>` — 50/55
+### `<tuple>` — 51/55
 - [x] (Codex) **`get` on `const tuple&&`.** Test: `tuple.elem/get_const_rv`.
 - [x] (Codex) **SFINAE-friendly `tuple_size` for cv-qualified types.**
   Tests:
   `tuple_size_incomplete`, `tuple_size_value_sfinae`.
 - [x] (Codex) **`tuple_cat` of `std::array` arguments.**
   Test: `tuple.creation/tuple_cat`.
-- [ ] **`std::allocator<void>`.** stdcxx has no specialization. Test:
-  `tuple.cnstr/alloc_UTypes`.
+- [x] (Codex) **`std::allocator<void>` from `<tuple>`.** The existing
+  specialization is visible to allocator-extended tuple constructors.
+  Test: `tuple.cnstr/alloc_UTypes`.
 - [ ] **Constructor constraints.** Tests: `tuple.cnstr/move.pass.cpp`
   (constructibility from `tuple_leaf`), `PR23256_constrain_UTypes_ctor`,
   `PR22806_constrain_tuple_like_ctor` (this one also asserts in psclang,

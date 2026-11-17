@@ -34,6 +34,7 @@
 
 #include <rw/_c11_pair.h>
 #include <rw/_c11_uses_alloc.h>
+#include <rw/_allocator.h>
 
 namespace std {
 
