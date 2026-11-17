@@ -178,6 +178,14 @@ test without the library before fixing it in clang2whirl.
 - [ ] **`<stdatomic.h>` and `std::atomic`:** the `__c11_atomic_*` and
   `__atomic_*` builtins (`c2w_builtin.cxx`). Implementing them makes
   `<atomic>` much simpler.
+- [ ] **Static-storage `initializer_list`.** A namespace-scope
+  `std::initializer_list<int> values = {9, 12};` reports size zero in
+  psclang. Local initializer lists are covered by
+  `iterators/iterator.range/begin-end.pass.cpp`.
+- [ ] **`vector<bool>` iterator operations.** A probe that inserts two
+  bits and exercises const iterators hits the field-access assertion in
+  `c2w_expr.cxx`. The same probe fails with the C++98 iterator members
+  on a const vector.
 
 ## Phase 2: containers
 
@@ -187,7 +195,8 @@ Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
 - `initializer_list` constructor, assignment and `insert`;
 - `emplace`, `emplace_back` and `emplace_front`, `emplace_hint`;
 - `insert` and `push_*` from rvalues;
-- `cbegin`/`cend`/`crbegin`/`crend`;
+- `cbegin`/`cend`/`crbegin`/`crend` (done for `vector`,
+  `vector<bool>`, and `list`);
 - `shrink_to_fit`, `data()` for `vector`;
 - `erase` and `insert` taking `const_iterator`;
 - `noexcept` where the standard says;
@@ -216,7 +225,8 @@ across a library boundary. Write the decision here before starting.
 ## Phase 3: the rest of the existing headers
 
 - [ ] **`<iterator>`:**
-  * `begin`, `end` (and C++14 `cbegin`, `rbegin`...);
+  * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
+    (`iterator.range/begin-end.pass.cpp`);
   * `next`, `prev`, `move_iterator`, `make_move_iterator`;
   * C++14 `make_reverse_iterator`;
   * `iterators` (161 tests).

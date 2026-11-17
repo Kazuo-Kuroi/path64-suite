@@ -477,6 +477,13 @@ public:
         return const_reverse_iterator (begin ());
     }
 
+#ifdef _RWSTD_CXX11
+    const_iterator cbegin () const noexcept { return begin (); }
+    const_iterator cend () const noexcept { return end (); }
+    const_reverse_iterator crbegin () const noexcept { return rbegin (); }
+    const_reverse_iterator crend () const noexcept { return rend (); }
+#endif   // _RWSTD_CXX11
+
     bool empty () const {
         return 0 == size ();
     }

@@ -50,6 +50,11 @@
 #endif   // _RWSTD_RW_ITERBASE_H_INCLUDED
 
 
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+#  include <initializer_list>
+#endif
+
+
 _RWSTD_NAMESPACE (std) { 
 
 
@@ -524,6 +529,89 @@ inline insert_iterator<_Container> inserter (_Container& __x, _Iterator __it)
 
     return insert_iterator<_Container> (__x, _Iter (__it));
 }
+
+
+#ifdef _RWSTD_CXX11
+
+// [iterator.range]
+template <class _Container>
+inline auto begin (_Container& __c) -> decltype (__c.begin ())
+{ return __c.begin (); }
+
+template <class _Container>
+inline auto begin (const _Container& __c) -> decltype (__c.begin ())
+{ return __c.begin (); }
+
+template <class _Container>
+inline auto end (_Container& __c) -> decltype (__c.end ())
+{ return __c.end (); }
+
+template <class _Container>
+inline auto end (const _Container& __c) -> decltype (__c.end ())
+{ return __c.end (); }
+
+template <class _Tp, _RWSTD_SIZE_T _Size>
+inline _RWSTD_CONSTEXPR14 _Tp* begin (_Tp (&__a)[_Size]) noexcept
+{ return __a; }
+
+template <class _Tp, _RWSTD_SIZE_T _Size>
+inline _RWSTD_CONSTEXPR14 _Tp* end (_Tp (&__a)[_Size]) noexcept
+{ return __a + _Size; }
+
+#if __cplusplus >= 201402L
+
+template <class _Container>
+inline constexpr auto cbegin (const _Container& __c)
+    noexcept (noexcept (std::begin (__c))) -> decltype (std::begin (__c))
+{ return std::begin (__c); }
+
+template <class _Container>
+inline constexpr auto cend (const _Container& __c)
+    noexcept (noexcept (std::end (__c))) -> decltype (std::end (__c))
+{ return std::end (__c); }
+
+template <class _Container>
+inline auto rbegin (_Container& __c) -> decltype (__c.rbegin ())
+{ return __c.rbegin (); }
+
+template <class _Container>
+inline auto rbegin (const _Container& __c) -> decltype (__c.rbegin ())
+{ return __c.rbegin (); }
+
+template <class _Container>
+inline auto rend (_Container& __c) -> decltype (__c.rend ())
+{ return __c.rend (); }
+
+template <class _Container>
+inline auto rend (const _Container& __c) -> decltype (__c.rend ())
+{ return __c.rend (); }
+
+template <class _Tp, _RWSTD_SIZE_T _Size>
+inline reverse_iterator<_Tp*> rbegin (_Tp (&__a)[_Size])
+{ return reverse_iterator<_Tp*>(__a + _Size); }
+
+template <class _Tp, _RWSTD_SIZE_T _Size>
+inline reverse_iterator<_Tp*> rend (_Tp (&__a)[_Size])
+{ return reverse_iterator<_Tp*>(__a); }
+
+template <class _Tp>
+inline reverse_iterator<const _Tp*> rbegin (initializer_list<_Tp> __list)
+{ return reverse_iterator<const _Tp*>(__list.end ()); }
+
+template <class _Tp>
+inline reverse_iterator<const _Tp*> rend (initializer_list<_Tp> __list)
+{ return reverse_iterator<const _Tp*>(__list.begin ()); }
+
+template <class _Container>
+inline auto crbegin (const _Container& __c) -> decltype (std::rbegin (__c))
+{ return std::rbegin (__c); }
+
+template <class _Container>
+inline auto crend (const _Container& __c) -> decltype (std::rend (__c))
+{ return std::rend (__c); }
+
+#endif   // C++14
+#endif   // _RWSTD_CXX11
 
 
 }   // namespace std
