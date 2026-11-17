@@ -105,30 +105,34 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
   `c2w_expr.cxx:4789`).
 - [ ] **`PR31384.pass.cpp`** fails at run time.
 
-### `<functional>` — 71/88 (host 75)
-- [ ] **`bit_and`, `bit_or`, `bit_xor`** are missing. They are C++98;
-  stdcxx never had them. Add them to `rw/_funcbase.h` (for all modes),
-  plus the C++14 `<void>` forms.
-- [ ] **Old typedefs.** `function` should have `argument_type` and
-  `first_argument_type`/`second_argument_type`. `reference_wrapper`
-  needs its weak result type (`result_type` and friends). Tests:
+### `<functional>` — 77/88
+- [x] (Codex) **Bitwise functors.** Added typed `bit_and`, `bit_or`, and
+  `bit_xor` in all modes, plus C++14 `bit_not` and the transparent forms.
+- [x] (Codex) **Legacy callable typedefs.** `function` exposes its
+  argument typedefs for unary and binary signatures. `reference_wrapper`
+  exposes the weak result and argument types of the wrapped callable. Tests:
   `func.wrap.func/types`, `refwrap/weak_result`.
 - [ ] **`hash` for library types.** For example `hash<string>`,
   `hash<wstring>` and `hash<bool>` checks. Test:
   `unord.hash/enabled_hashes`. `hash<string>` belongs in `<string>`
   (phase 3).
 - [ ] **`<functional>` should include `<memory>`,** as libc++'s does.
-  Tests use `std::allocator` after including only `<functional>`
-  (`derive_from`).
-- [ ] **`F_incomplete.pass.cpp`:** `function` with an incomplete return
-  type.
-- [ ] **`move_reentrant.pass.cpp`** fails at run time.
+  `std::allocator` is already available via the shared allocator header.
+  `derive_from.pass.cpp` compiles and has an intermittent psclang run-time
+  failure with both the original and updated headers.
+- [x] (Codex) **`F_incomplete.pass.cpp`.** Copy and move operations avoid
+  evaluating the callable constraint against the wrapper itself.
+- [x] (Codex) **Reentrant target destruction.** Move and swap clear the
+  wrapper's state before destroying the inline target. The host test
+  `move_reentrant.pass.cpp` passes with this change. See the psclang
+  failure below.
 - [ ] **Blocked:** `isnan` and friends unqualified (`bind/copy`,
   `bind/nested`, `unord.hash/floating`) need the C++11 `<cmath>`;
   `int8_t` in `std` (`unord.hash/integral`) needs `<cstdint>`. See
   "C library headers" below.
-- [ ] **C++14 transparent functors:** `less<void>`, `plus<void>` and so
-  on.
+- [x] (Codex) **C++14 transparent functors.** Arithmetic, comparison,
+  logical and bitwise functors support `<void>` and the default `<>`
+  forms. The typed operators also support constant evaluation in C++14.
 
 ### `<memory>` — util.smartptr 58/84 (host 64), smartptr 33/39 (host 34)
 - [ ] **Fancy pointers.** The control blocks have to work with
@@ -168,6 +172,9 @@ test without the library before fixing it in clang2whirl.
   says "field_id and descriptor type are inconsistent" (`wn_verifier.cxx`
   line 1187). Tests: `func.wrap.func.con/F.pass.cpp`, `F_assign`,
   `F_nullptr`, `func.wrap.func.inv/invoke`.
+- [ ] **`std::function` small-buffer assignment.**
+  `move_reentrant.pass.cpp` still segfaults in psclang during the initial
+  assignment, before the test enables reentry. It passes with host Clang.
 - [ ] **Throwing in a `shared_ptr` constructor.** The exception is not
   caught: `shared_ptr(p, d)` and `(p, d, a)`, when the control block's
   allocation throws. Tests: the `*_throw.pass.cpp` tests in

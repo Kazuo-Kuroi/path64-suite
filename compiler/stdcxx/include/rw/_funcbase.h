@@ -48,6 +48,10 @@
 #endif   // _RWSTD_RW_DEFS_H_INCLUDED
 
 
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+#  include <rw/_c11_utility.h>
+#endif
+
 _RWSTD_NAMESPACE (std) { 
 
 
@@ -83,17 +87,127 @@ struct binary_function
           result_type
 
 
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+template <class _TypeT = void> struct less;
+template <class _TypeT = void> struct bit_and;
+template <class _TypeT = void> struct bit_or;
+template <class _TypeT = void> struct bit_xor;
+#endif
+
 // 20.3.3, p5
 template <class _TypeT>
 struct less: binary_function<_TypeT, _TypeT, bool>
 {
     _RWSTD_BINARY_FUNCTION_TYPES (_TypeT, _TypeT, bool);
 
-    result_type operator() (const first_argument_type  &__x,
+    _RWSTD_CONSTEXPR14 result_type operator() (const first_argument_type  &__x,
                             const second_argument_type &__y) const {
         return __x < __y;
     }
 };
+
+
+template <class _TypeT>
+struct bit_and : binary_function<_TypeT, _TypeT, _TypeT>
+{
+    _RWSTD_BINARY_FUNCTION_TYPES (_TypeT, _TypeT, _TypeT);
+
+    _RWSTD_CONSTEXPR14 result_type
+    operator() (const _TypeT& __x, const _TypeT& __y) const
+    { return __x & __y; }
+};
+
+template <class _TypeT>
+struct bit_or : binary_function<_TypeT, _TypeT, _TypeT>
+{
+    _RWSTD_BINARY_FUNCTION_TYPES (_TypeT, _TypeT, _TypeT);
+
+    _RWSTD_CONSTEXPR14 result_type
+    operator() (const _TypeT& __x, const _TypeT& __y) const
+    { return __x | __y; }
+};
+
+template <class _TypeT>
+struct bit_xor : binary_function<_TypeT, _TypeT, _TypeT>
+{
+    _RWSTD_BINARY_FUNCTION_TYPES (_TypeT, _TypeT, _TypeT);
+
+    _RWSTD_CONSTEXPR14 result_type
+    operator() (const _TypeT& __x, const _TypeT& __y) const
+    { return __x ^ __y; }
+};
+
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+
+template <class _TypeT = void>
+struct bit_not : unary_function<_TypeT, _TypeT>
+{
+    _RWSTD_UNARY_FUNCTION_TYPES (_TypeT, _TypeT);
+
+    constexpr result_type operator() (const _TypeT& __x) const
+    { return ~__x; }
+};
+
+template <>
+struct less<void>
+{
+    typedef void is_transparent;
+
+    template <class _Tp, class _Up>
+    constexpr auto operator() (_Tp&& __x, _Up&& __y) const
+        noexcept (noexcept (std::forward<_Tp>(__x) < std::forward<_Up>(__y)))
+        -> decltype (std::forward<_Tp>(__x) < std::forward<_Up>(__y))
+    { return std::forward<_Tp>(__x) < std::forward<_Up>(__y); }
+};
+
+template <>
+struct bit_and<void>
+{
+    typedef void is_transparent;
+
+    template <class _Tp, class _Up>
+    constexpr auto operator() (_Tp&& __x, _Up&& __y) const
+        noexcept (noexcept (std::forward<_Tp>(__x) & std::forward<_Up>(__y)))
+        -> decltype (std::forward<_Tp>(__x) & std::forward<_Up>(__y))
+    { return std::forward<_Tp>(__x) & std::forward<_Up>(__y); }
+};
+
+template <>
+struct bit_or<void>
+{
+    typedef void is_transparent;
+
+    template <class _Tp, class _Up>
+    constexpr auto operator() (_Tp&& __x, _Up&& __y) const
+        noexcept (noexcept (std::forward<_Tp>(__x) | std::forward<_Up>(__y)))
+        -> decltype (std::forward<_Tp>(__x) | std::forward<_Up>(__y))
+    { return std::forward<_Tp>(__x) | std::forward<_Up>(__y); }
+};
+
+template <>
+struct bit_xor<void>
+{
+    typedef void is_transparent;
+
+    template <class _Tp, class _Up>
+    constexpr auto operator() (_Tp&& __x, _Up&& __y) const
+        noexcept (noexcept (std::forward<_Tp>(__x) ^ std::forward<_Up>(__y)))
+        -> decltype (std::forward<_Tp>(__x) ^ std::forward<_Up>(__y))
+    { return std::forward<_Tp>(__x) ^ std::forward<_Up>(__y); }
+};
+
+template <>
+struct bit_not<void>
+{
+    typedef void is_transparent;
+
+    template <class _Tp>
+    constexpr auto operator() (_Tp&& __x) const
+        noexcept (noexcept (~std::forward<_Tp>(__x)))
+        -> decltype (~std::forward<_Tp>(__x))
+    { return ~std::forward<_Tp>(__x); }
+};
+#endif   // C++14
 
 
 }   // namespace std

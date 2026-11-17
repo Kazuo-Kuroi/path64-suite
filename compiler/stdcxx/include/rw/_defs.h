@@ -43,16 +43,15 @@
 // Define _RWSTD_NO_CXX11 to get the C++98 library only.
 #if __cplusplus >= 201103L && !defined (_RWSTD_NO_CXX11)
 #  define _RWSTD_CXX11
-   // constexpr for what C++11 does not allow (C++11 makes constexpr
-   // member functions const)
-#  if __cplusplus >= 201402L
-#    define _RWSTD_CONSTEXPR14 constexpr
-#  else
-#    define _RWSTD_CONSTEXPR14
-#  endif
 #  ifndef _RWSTD_NO_EXT_CXX_0X
 #    define _RWSTD_NO_EXT_CXX_0X
 #  endif
+#endif
+
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+#  define _RWSTD_CONSTEXPR14 constexpr
+#else
+#  define _RWSTD_CONSTEXPR14
 #endif
 
 

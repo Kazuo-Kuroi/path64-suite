@@ -78,11 +78,117 @@ struct __invokable_r
     static const bool value = __conv<_Fp>::value;
 };
 
+// The C++11 callable wrappers expose the legacy adaptable-function typedefs.
+template <class... _Args> struct __function_arguments { };
+template <class _Tp> struct __function_arguments<_Tp>
+{ typedef _Tp argument_type; };
+template <class _Tp, class _Up> struct __function_arguments<_Tp, _Up>
+{
+    typedef _Tp first_argument_type;
+    typedef _Up second_argument_type;
+};
+
+template <class _Tp, class = void> struct __weak_result { };
+template <class _Tp>
+struct __weak_result<_Tp, typename __rw_tt::__void_t<typename _Tp::result_type>::type>
+{ typedef typename _Tp::result_type result_type; };
+
+template <class _Tp, class = void> struct __weak_unary_argument { };
+template <class _Tp>
+struct __weak_unary_argument<_Tp, typename __rw_tt::__void_t<typename _Tp::argument_type>::type>
+    : __function_arguments<typename _Tp::argument_type> { };
+
+template <class _Tp, class = void, class = void> struct __weak_binary_arguments { };
+template <class _Tp>
+struct __weak_binary_arguments<_Tp,
+    typename __rw_tt::__void_t<typename _Tp::first_argument_type>::type,
+    typename __rw_tt::__void_t<typename _Tp::second_argument_type>::type>
+    : __function_arguments<typename _Tp::first_argument_type,
+                           typename _Tp::second_argument_type> { };
+
+template <class _Tp> struct __weak_callable
+    : __weak_result<_Tp>, __weak_unary_argument<_Tp>, __weak_binary_arguments<_Tp> { };
+
+template <class _Rp, class... _Args>
+struct __weak_callable<_Rp (_Args...)> : __function_arguments<_Args...>
+{ typedef _Rp result_type; };
+template <class _Rp, class... _Args>
+struct __weak_callable<_Rp (*)(_Args...)> : __weak_callable<_Rp (_Args...)> { };
+
+template <class _Rp, class... _Args>
+struct __weak_callable<_Rp (_Args..., ...)>
+{ typedef _Rp result_type; };
+template <class _Rp, class... _Args>
+struct __weak_callable<_Rp (*)(_Args..., ...)> : __weak_callable<_Rp (_Args..., ...)> { };
+
+// The implicit object is the first argument for a member function pointer.
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...)>
+    : __weak_callable<_Rp (_Cp*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...)> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) &>
+    : __weak_callable<_Rp (_Cp*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) &> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) &&>
+    : __weak_callable<_Rp (_Cp*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) &&> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) const>
+    : __weak_callable<_Rp (_Cp const*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) const> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) const &>
+    : __weak_callable<_Rp (_Cp const*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) const &> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) const &&>
+    : __weak_callable<_Rp (_Cp const*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) const &&> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) volatile>
+    : __weak_callable<_Rp (_Cp volatile*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) volatile> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) volatile &>
+    : __weak_callable<_Rp (_Cp volatile*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) volatile &> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) volatile &&>
+    : __weak_callable<_Rp (_Cp volatile*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) volatile &&> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) const volatile>
+    : __weak_callable<_Rp (_Cp const volatile*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) const volatile> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) const volatile &>
+    : __weak_callable<_Rp (_Cp const volatile*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) const volatile &> : __weak_callable<_Rp (_Args..., ...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args...) const volatile &&>
+    : __weak_callable<_Rp (_Cp const volatile*, _Args...)> { };
+template <class _Rp, class _Cp, class... _Args>
+struct __weak_callable<_Rp (_Cp::*)(_Args..., ...) const volatile &&> : __weak_callable<_Rp (_Args..., ...)> { };
+
 }   // namespace __rw_c11
 
 // [refwrap]
 template <class _Tp>
 class reference_wrapper
+    : public __rw_c11::__weak_callable<typename remove_cv<_Tp>::type>
 {
     _Tp* __ptr;
 
@@ -276,17 +382,19 @@ const __func_vtable<_Rp, _Args...> __func_impl<_Fn, _Rp, _Args...>::__vtable = {
 
 template <class _Rp, class... _Args>
 class function<_Rp (_Args...)>
+    : public __rw_c11::__function_arguments<_Args...>
 {
     typedef __rw_c11::__func_vtable<_Rp, _Args...> _VTable;
 
     __rw_c11::__func_storage __s;
     const _VTable* __vt;
 
-    template <class _Fp>
+    template <class _Fp, bool = is_same<typename decay<_Fp>::type, function>::value>
     struct __callable
-        : integral_constant<bool, !is_same<typename decay<_Fp>::type, function>::value
-                                  && __rw_c11::__invokable_r<_Rp, typename decay<_Fp>::type&,
-                                                             _Args...>::value> { };
+        : __rw_c11::__invokable_r<_Rp, typename decay<_Fp>::type&, _Args...> { };
+
+    template <class _Fp>
+    struct __callable<_Fp, true> : false_type { };
 
     void* __storage () noexcept { return &__s; }
     const void* __storage () const noexcept { return &__s; }
@@ -308,10 +416,10 @@ public:
 
     function (function&& __f) noexcept : __vt (0)
     {
-        if (__f.__vt) {
-            __f.__vt->__move (__f.__storage (), __storage ());
-            __vt = __f.__vt;
+        if (const _VTable* __v = __f.__vt) {
             __f.__vt = 0;
+            __v->__move (__f.__storage (), __storage ());
+            __vt = __v;
         }
     }
 
@@ -381,15 +489,19 @@ public:
         if (&__f == this)
             return;
         __rw_c11::__func_storage __tmp;
-        const _VTable* __tvt = __vt;
-        if (__vt)
-            __vt->__move (__storage (), &__tmp);
-        if (__f.__vt)
-            __f.__vt->__move (__f.__storage (), __storage ());
-        if (__tvt)
-            __tvt->__move (&__tmp, __f.__storage ());
-        __vt = __f.__vt;
-        __f.__vt = __tvt;
+        const _VTable* __left = __vt;
+        const _VTable* __right = __f.__vt;
+        // An inline target's destructor can reenter the wrapper during a move.
+        __vt = 0;
+        __f.__vt = 0;
+        if (__left)
+            __left->__move (__storage (), &__tmp);
+        if (__right)
+            __right->__move (__f.__storage (), __storage ());
+        if (__left)
+            __left->__move (&__tmp, __f.__storage ());
+        __vt = __right;
+        __f.__vt = __left;
     }
 
     template <class _Fp, class _Alloc>
