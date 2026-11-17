@@ -1,0 +1,9 @@
+Tests for the C++11 library (doc/stdcxx-cxx11.md, doc/stdcxx-cxx11-TODO.md)
+
+  fetch-libcxx.sh DIR    downloads libc++ 8.0.1; its tests are the check
+  lcxx.py PATH...        runs libc++ tests with pathCC -fpsclang
+                         (--host: with the host clang++ instead)
+  hostcc.sh ...          host clang++ with the suite's stdcxx and runtime
+
+  export LIBCXX_SRC=DIR PATH64_STAGE=BUILD/Xcompiler
+  ./lcxx.py -v utilities/tuple
