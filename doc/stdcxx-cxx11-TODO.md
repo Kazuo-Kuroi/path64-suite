@@ -151,12 +151,13 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
 - [ ] **`allocator_traits::allocate` with a hint** on an incomplete
   `value_type` (`allocate_hint.pass.cpp`).
 
-### `<array>` — 20/27
-- [ ] **`array<T, 0>`.** Its size and alignment must be those of `T[1]`.
-  It must not be assignable when `T` is const (`implicit_copy`,
-  `size_and_alignment`). `swap` must be `noexcept` for size 0.
-- [ ] **`std::addressof` from `<array>`** (`contiguous.pass.cpp`), and
-  the `pint` error in `array.data/data*.pass.cpp` (to be found).
+### `<array>` — 27/27
+- [x] (Codex) **`array<T, 0>`.** Its storage matches the size and alignment of
+  `T[1]` without constructing an element. Const elements disable assignment
+  and zero-length swap is `noexcept`. Tests: `implicit_copy`,
+  `size_and_alignment`, `array.swap/swap`.
+- [x] (Codex) **`std::addressof` and `std::uintptr_t` from `<array>`.**
+  Tests: `contiguous.pass.cpp`, `array.data/data*.pass.cpp`.
 - [x] (Codex) **`get` on `const array&&`.**
 
 ## psclang bugs found by the tests (compiler)

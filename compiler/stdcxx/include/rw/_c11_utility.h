@@ -72,6 +72,13 @@ move_if_noexcept (_Tp& __x) noexcept
     return std::move (__x);
 }
 
+// [specialized.addressof]
+template <class _Tp>
+inline constexpr _Tp* addressof (_Tp& __x) noexcept
+{
+    return __builtin_addressof (__x);
+}
+
 // [utility.swap]
 template <class _Tp>
 inline typename enable_if<is_move_constructible<_Tp>::value

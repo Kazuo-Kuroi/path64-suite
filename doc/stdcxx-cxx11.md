@@ -32,7 +32,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 51/55 |
 | `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums) | function.objects: 71/88 |
 | `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter` | util.smartptr: 58/84; allocator.traits: 20/21; pointer.traits: 9/9 |
-| `<array>` | `array` | array: 20/27 |
+| `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 
 Most of the remaining failures need the container work of the next phase,

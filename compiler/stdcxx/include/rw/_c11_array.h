@@ -35,6 +35,7 @@
 #include <rw/_c11_utility.h>
 #include <rw/_iterator.h>      // reverse_iterator
 #include <rw/_algobase.h>      // equal, lexicographical_compare, fill_n, swap_ranges
+#include <cstdint>
 #include <stdexcept>
 
 namespace std {
@@ -57,13 +58,19 @@ template <class _Tp, size_t _Np> struct __array_traits
     { return const_cast<_Tp&>(__t [__n]); }
     static constexpr _Tp* __ptr (const _Type& __t) noexcept
     { return const_cast<_Tp*>(__t); }
+    static void __swap (_Type& __x, _Type& __y)
+        noexcept (__is_nothrow_swappable<_Tp>::value)
+    { std::swap (__x, __y); }
 };
 template <class _Tp> struct __array_traits<_Tp, 0>
 {
-    struct _Type { };
+    typedef typename conditional<is_const<_Tp>::value,
+                                 const unsigned char, unsigned char>::type _Byte;
+    struct alignas(_Tp) _Type { _Byte __bytes[sizeof (_Tp)]; };
     static constexpr _Tp& __ref (const _Type&, size_t) noexcept
     { return *static_cast<_Tp*>(0); }
     static constexpr _Tp* __ptr (const _Type&) noexcept { return 0; }
+    static void __swap (_Type&, _Type&) noexcept { }
 };
 }   // namespace __rw_c11
 
@@ -87,13 +94,8 @@ struct array
 
     // [array.fill], [array.swap]
     void fill (const value_type& __u) { std::fill_n (begin (), _Size, __u); }
-    void swap (array& __a) noexcept (__rw_c11::__is_nothrow_swappable<_Tp>::value)
-    {
-        for (size_t __i = 0; __i != _Size; ++__i) {
-            using std::swap;
-            swap ((*this)[__i], __a [__i]);
-        }
-    }
+    void swap (array& __a) noexcept (noexcept (_Traits::__swap (__elems, __a.__elems)))
+    { _Traits::__swap (__elems, __a.__elems); }
 
     // iterators
     _RWSTD_CONSTEXPR14 iterator begin () noexcept { return data (); }

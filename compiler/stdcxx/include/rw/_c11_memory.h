@@ -46,13 +46,6 @@ namespace std {
 template <class _Tp> class allocator;
 template <class _Tp> class auto_ptr;
 
-// [specialized.addressof]
-template <class _Tp>
-inline constexpr _Tp* addressof (_Tp& __x) noexcept
-{
-    return __builtin_addressof (__x);
-}
-
 // [pointer.traits]
 namespace __rw_c11 {
 template <class _Tp, class = void> struct __has_element_type : false_type { };
