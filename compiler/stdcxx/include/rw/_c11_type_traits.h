@@ -547,42 +547,87 @@ struct common_type<_Tp, _Up, _Vp, _Rest...>
 template <class _Tp> struct underlying_type
 { typedef __underlying_type (_Tp) type; };
 
-// result_of: INVOKE's type [func.require]
+// INVOKE [func.require], shared by result_of and <functional>.
+template <class _Tp> class reference_wrapper;
+
 namespace __rw_tt {
-struct __nat { };
 
 template <class _Tp> struct __member_class;
 template <class _Rp, class _Cp> struct __member_class<_Rp _Cp::*> { typedef _Cp type; };
 
-template <class _Fp, class... _Args>
-auto __invoke (_Fp&& __f, _Args&&... __args)
-    -> decltype (static_cast<_Fp&&>(__f)(static_cast<_Args&&>(__args)...));
+template <class _Tp> struct __is_refwrap : false_type { };
+template <class _Tp> struct __is_refwrap<reference_wrapper<_Tp> > : true_type { };
 
-// pointer to member function, object or pointer (or smart pointer)
+template <class _Cp, class _A0>
+struct __invoke_dereference
+    : integral_constant<bool,
+        !is_base_of<_Cp, typename remove_reference<_A0>::type>::value
+        && !__is_refwrap<typename decay<_A0>::type>::value> { };
+
+template <class _Fp, class... _Args>
+inline auto __invoke (_Fp&& __f, _Args&&... __args)
+    -> decltype (static_cast<_Fp&&>(__f)(static_cast<_Args&&>(__args)...))
+{
+    return static_cast<_Fp&&>(__f)(static_cast<_Args&&>(__args)...);
+}
+
 template <class _Mp, class _A0, class... _Args,
           class _Cp = typename __member_class<typename decay<_Mp>::type>::type,
           class = typename enable_if<is_member_function_pointer<typename decay<_Mp>::type>::value
                                      && is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
-    -> decltype ((static_cast<_A0&&>(__a0).*__f)(static_cast<_Args&&>(__args)...));
+inline auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
+    -> decltype ((static_cast<_A0&&>(__a0).*__f)(static_cast<_Args&&>(__args)...))
+{
+    return (static_cast<_A0&&>(__a0).*__f)(static_cast<_Args&&>(__args)...);
+}
+
+template <class _Mp, class _A0, class... _Args,
+          class = typename enable_if<is_member_function_pointer<typename decay<_Mp>::type>::value
+                                     && __is_refwrap<typename decay<_A0>::type>::value>::type>
+inline auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
+    -> decltype ((static_cast<_A0&&>(__a0).get().*__f)(static_cast<_Args&&>(__args)...))
+{
+    return (static_cast<_A0&&>(__a0).get().*__f)(static_cast<_Args&&>(__args)...);
+}
+
 template <class _Mp, class _A0, class... _Args,
           class _Cp = typename __member_class<typename decay<_Mp>::type>::type,
           class = typename enable_if<is_member_function_pointer<typename decay<_Mp>::type>::value
-                                     && !is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
-    -> decltype (((*static_cast<_A0&&>(__a0)).*__f)(static_cast<_Args&&>(__args)...));
+                                     && __invoke_dereference<_Cp, _A0>::value>::type>
+inline auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
+    -> decltype (((*static_cast<_A0&&>(__a0)).*__f)(static_cast<_Args&&>(__args)...))
+{
+    return ((*static_cast<_A0&&>(__a0)).*__f)(static_cast<_Args&&>(__args)...);
+}
+
 template <class _Mp, class _A0,
           class _Cp = typename __member_class<typename decay<_Mp>::type>::type,
           class = typename enable_if<is_member_object_pointer<typename decay<_Mp>::type>::value
                                      && is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-auto __invoke (_Mp&& __f, _A0&& __a0)
-    -> decltype (static_cast<_A0&&>(__a0).*__f);
+inline auto __invoke (_Mp&& __f, _A0&& __a0)
+    -> decltype (static_cast<_A0&&>(__a0).*__f)
+{
+    return static_cast<_A0&&>(__a0).*__f;
+}
+
+template <class _Mp, class _A0,
+          class = typename enable_if<is_member_object_pointer<typename decay<_Mp>::type>::value
+                                     && __is_refwrap<typename decay<_A0>::type>::value>::type>
+inline auto __invoke (_Mp&& __f, _A0&& __a0)
+    -> decltype (static_cast<_A0&&>(__a0).get().*__f)
+{
+    return static_cast<_A0&&>(__a0).get().*__f;
+}
+
 template <class _Mp, class _A0,
           class _Cp = typename __member_class<typename decay<_Mp>::type>::type,
           class = typename enable_if<is_member_object_pointer<typename decay<_Mp>::type>::value
-                                     && !is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-auto __invoke (_Mp&& __f, _A0&& __a0)
-    -> decltype ((*static_cast<_A0&&>(__a0)).*__f);
+                                     && __invoke_dereference<_Cp, _A0>::value>::type>
+inline auto __invoke (_Mp&& __f, _A0&& __a0)
+    -> decltype ((*static_cast<_A0&&>(__a0)).*__f)
+{
+    return (*static_cast<_A0&&>(__a0)).*__f;
+}
 
 template <class _Void, class _Fp, class... _Args> struct __invoke_result { };
 template <class _Fp, class... _Args>

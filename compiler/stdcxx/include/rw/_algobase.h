@@ -248,8 +248,7 @@ inline void iter_swap (_FwdIter1 __a, _FwdIter2 __b)
     _RW::__rw_iter_swap (__a, __b, _STD::integral_constant<bool,
         _STD::is_lvalue_reference<_Ref1>::value
         && _STD::is_same<_Ref1, _Ref2>::value>());
-    return;
-#endif
+#else
 
     // std::iterator_traits<_FwdIter[12]>::value_type must satisfy
     // both Assignable and CopyConstructible
@@ -271,6 +270,7 @@ inline void iter_swap (_FwdIter1 __a, _FwdIter2 __b)
     _RW::__rw_swap (*__a, *__b);
 
 #endif   // _RWSTD_NO_CLASS_PARTIAL_SPEC
+#endif   // _RWSTD_CXX11
 }
 
 

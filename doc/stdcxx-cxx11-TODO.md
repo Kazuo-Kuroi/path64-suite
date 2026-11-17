@@ -77,14 +77,13 @@ with the same stdcxx headers and runtime libraries.
 
 Measured with C++11 at `-O0`; "host" means with `--host`.
 
-### `<type_traits>` — 120/123
-- [ ] **`result_of` with a `reference_wrapper` object.** For example,
+### `<type_traits>` — 123/123 (+1 XFAIL)
+- [x] (Codex) **`result_of` with a `reference_wrapper` object.** For example,
   `result_of<int (S::*(reference_wrapper<S>))()>`: INVOKE on a
   `reference_wrapper` (LWG 2219; libc++ does this in every mode).
   Tests: `meta.trans.other/result_of.pass.cpp`, `result_of11.pass.cpp`.
-- [ ] **`is_swappable_include_order.pass.cpp`.** C++98's
-  `_RW::__rw_swap` in `rw/_algobase.h` gets used for arrays when
-  `<algorithm>` comes first.
+- [x] (Codex) **`is_swappable_include_order.pass.cpp`.** Swap detection
+  and algorithms handle nested arrays when `<algorithm>` comes first.
 
 ### `<utility>` — 41/41
 - [x] (Codex) **`get` on `const pair&&`.** Test:

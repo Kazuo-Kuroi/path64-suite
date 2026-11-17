@@ -41,53 +41,10 @@
 
 namespace std {
 
-// INVOKE [func.require]
 namespace __rw_c11 {
 
-template <class _Fp, class... _Args>
-inline auto __invoke (_Fp&& __f, _Args&&... __args)
-    -> decltype (std::forward<_Fp>(__f)(std::forward<_Args>(__args)...))
-{
-    return std::forward<_Fp>(__f)(std::forward<_Args>(__args)...);
-}
-
-template <class _Mp, class _A0, class... _Args,
-          class _Cp = typename __rw_tt::__member_class<typename decay<_Mp>::type>::type,
-          class = typename enable_if<is_member_function_pointer<typename decay<_Mp>::type>::value
-                                     && is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-inline auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
-    -> decltype ((std::forward<_A0>(__a0).*__f)(std::forward<_Args>(__args)...))
-{
-    return (std::forward<_A0>(__a0).*__f)(std::forward<_Args>(__args)...);
-}
-
-template <class _Mp, class _A0, class... _Args,
-          class _Cp = typename __rw_tt::__member_class<typename decay<_Mp>::type>::type,
-          class = typename enable_if<is_member_function_pointer<typename decay<_Mp>::type>::value
-                                     && !is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-inline auto __invoke (_Mp&& __f, _A0&& __a0, _Args&&... __args)
-    -> decltype (((*std::forward<_A0>(__a0)).*__f)(std::forward<_Args>(__args)...))
-{
-    return ((*std::forward<_A0>(__a0)).*__f)(std::forward<_Args>(__args)...);
-}
-
-template <class _Mp, class _A0,
-          class _Cp = typename __rw_tt::__member_class<typename decay<_Mp>::type>::type,
-          class = typename enable_if<is_member_object_pointer<typename decay<_Mp>::type>::value
-                                     && is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-inline auto __invoke (_Mp&& __f, _A0&& __a0) -> decltype (std::forward<_A0>(__a0).*__f)
-{
-    return std::forward<_A0>(__a0).*__f;
-}
-
-template <class _Mp, class _A0,
-          class _Cp = typename __rw_tt::__member_class<typename decay<_Mp>::type>::type,
-          class = typename enable_if<is_member_object_pointer<typename decay<_Mp>::type>::value
-                                     && !is_base_of<_Cp, typename remove_reference<_A0>::type>::value>::type>
-inline auto __invoke (_Mp&& __f, _A0&& __a0) -> decltype ((*std::forward<_A0>(__a0)).*__f)
-{
-    return (*std::forward<_A0>(__a0)).*__f;
-}
+using __rw_tt::__invoke;
+using __rw_tt::__is_refwrap;
 
 // INVOKE(f, args..., R): the result converted to R (or discarded, void)
 template <class _Rp, bool = is_void<_Rp>::value>
@@ -536,9 +493,6 @@ template <class _Rp, class _Fp, class... _BoundArgs>
 struct is_bind_expression<__rw_bind_r<_Rp, _Fp, _BoundArgs...> > : true_type { };
 
 namespace __rw_c11 {
-
-template <class _Tp> struct __is_refwrap : false_type { };
-template <class _Tp> struct __is_refwrap<reference_wrapper<_Tp> > : true_type { };
 
 // [func.bind.bind] 10: the value given for a bound argument _Ti when the
 // call's arguments are the tuple _Uj (of rvalue or lvalue references)

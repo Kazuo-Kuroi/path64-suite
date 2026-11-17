@@ -27,7 +27,7 @@ the reference for the design. Its test suite is the conformance test.
 | Header | C++11/14 content | libc++ 8 tests (C++11, -O0) |
 |---|---|---|
 | `<initializer_list>` | new | (used throughout) |
-| `<type_traits>` | all of C++11 and the C++14 `_t` aliases, on Clang's builtins | meta: 120/123 (+1 XFAIL for clang-4) |
+| `<type_traits>` | all of C++11 and the C++14 `_t` aliases, on Clang's builtins | meta: 123/123 (+1 XFAIL for clang-4) |
 | `<utility>` | `move`, `forward`, `move_if_noexcept`, `swap` (move, arrays), `declval`, C++11 `pair` (N4387 constructors, piecewise, `get`), `exchange`, `integer_sequence` | utility: 41/41 |
 | `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 50/55 |
 | `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums) | function.objects: 71/88 |

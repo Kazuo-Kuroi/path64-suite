@@ -86,6 +86,18 @@ swap (_Tp& __a, _Tp& __b)
 }
 
 namespace __rw_c11 {
+template <class _Tp> struct __is_swappable;
+template <class _Tp, bool = __is_swappable<_Tp>::value>
+struct __is_nothrow_swappable;
+}
+
+// Make the array overload visible to swap detection for nested arrays.
+template <class _Tp, size_t _Np>
+inline typename enable_if<__rw_c11::__is_swappable<_Tp>::value>::type
+swap (_Tp (&__a)[_Np], _Tp (&__b)[_Np])
+    noexcept (__rw_c11::__is_nothrow_swappable<_Tp>::value);
+
+namespace __rw_c11 {
 // is swap(T&, T&) (std::swap or one found by ADL) valid and noexcept
 using std::swap;
 template <class _Tp, class = decltype (swap (declval<_Tp&>(), declval<_Tp&>()))>
@@ -93,7 +105,7 @@ true_type __swappable_test (int);
 template <class _Tp> false_type __swappable_test (...);
 template <class _Tp> struct __is_swappable : decltype (__swappable_test<_Tp>(0)) { };
 
-template <class _Tp, bool = __is_swappable<_Tp>::value>
+template <class _Tp, bool>
 struct __is_nothrow_swappable
     : integral_constant<bool, noexcept (swap (declval<_Tp&>(), declval<_Tp&>()))> { };
 template <class _Tp> struct __is_nothrow_swappable<_Tp, false> : false_type { };
