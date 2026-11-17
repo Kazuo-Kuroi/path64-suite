@@ -32,6 +32,10 @@
 
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_array.h>
+#else   // !_RWSTD_CXX11: the 2008 C++0x draft extension
+
 #ifdef _RWSTD_NO_EXT_CXX_0X
 #  error _RWSTD_NO_EXT_CXX_0X defined and C++0x header included
 #endif   // _RWSTD_NO_EXT_CXX_0X
@@ -365,6 +369,8 @@ template <int I, class _TypeT, _RWSTD_SIZE_T _Size>
 const _TypeT& get (const array<_TypeT, _Size>&);
 
 }   // namespace std
+
+#endif   // _RWSTD_CXX11
 
 #endif   // _RWSTD_ARRAY_INCLUDED
 

@@ -1,0 +1,82 @@
+// -*- C++ -*-
+/***************************************************************************
+ *
+ * initializer_list - C++11 [support.initlist]
+ *
+ * $Id$
+ *
+ ***************************************************************************
+ *
+ * Licensed to the Apache Software  Foundation (ASF) under one or more
+ * contributor  license agreements.  See  the NOTICE  file distributed
+ * with  this  work  for  additional information  regarding  copyright
+ * ownership.   The ASF  licenses this  file to  you under  the Apache
+ * License, Version  2.0 (the  "License"); you may  not use  this file
+ * except in  compliance with the License.   You may obtain  a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the  License is distributed on an  "AS IS" BASIS,
+ * WITHOUT  WARRANTIES OR CONDITIONS  OF ANY  KIND, either  express or
+ * implied.   See  the License  for  the  specific language  governing
+ * permissions and limitations under the License.
+ *
+ **************************************************************************/
+
+#ifndef _RWSTD_INITIALIZER_LIST_INCLUDED
+#define _RWSTD_INITIALIZER_LIST_INCLUDED
+
+#include <rw/_defs.h>
+
+#ifdef _RWSTD_CXX11
+
+#include <cstddef>
+
+namespace std {
+
+// The compiler builds these for braced lists: the layout (a pointer to
+// the first element and the element count) and the private constructor
+// are what Clang expects.
+template <class _E>
+class initializer_list
+{
+    const _E* _C_begin;
+    size_t    _C_size;
+
+    constexpr initializer_list (const _E* __b, size_t __n) noexcept
+        : _C_begin (__b), _C_size (__n) { }
+
+public:
+    typedef _E        value_type;
+    typedef const _E& reference;
+    typedef const _E& const_reference;
+    typedef size_t    size_type;
+    typedef const _E* iterator;
+    typedef const _E* const_iterator;
+
+    constexpr initializer_list () noexcept : _C_begin (0), _C_size (0) { }
+
+    constexpr size_t size () const noexcept { return _C_size; }
+    constexpr const _E* begin () const noexcept { return _C_begin; }
+    constexpr const _E* end () const noexcept { return _C_begin + _C_size; }
+};
+
+template <class _E>
+inline constexpr const _E* begin (initializer_list<_E> __il) noexcept
+{
+    return __il.begin ();
+}
+
+template <class _E>
+inline constexpr const _E* end (initializer_list<_E> __il) noexcept
+{
+    return __il.end ();
+}
+
+}   // namespace std
+
+#endif   // _RWSTD_CXX11
+
+#endif   // _RWSTD_INITIALIZER_LIST_INCLUDED

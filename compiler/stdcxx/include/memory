@@ -44,4 +44,8 @@
 #include <rw/_specialized.h>
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_memory.h>
+#endif
+
 #endif   // _RWSTD_MEMORY_INCLUDED

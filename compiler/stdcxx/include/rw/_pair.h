@@ -47,6 +47,10 @@
 #  include <rw/_funcbase.h>   // for less
 #endif   // _RWSTD_RW_FUNCBASE_H_INCLUDED
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_pair.h>
+#else   // !_RWSTD_CXX11
+
 
 _RWSTD_NAMESPACE (std) { 
 
@@ -154,5 +158,6 @@ make_pair (_TypeT __x, _TypeU __y)
 
 }   // namespace std
 
+#endif   // _RWSTD_CXX11
 
 #endif   // _RWSTD_RW_PAIR_H_INCLUDED

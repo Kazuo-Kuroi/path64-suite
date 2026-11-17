@@ -76,3 +76,17 @@ namespace std {
 #endif   // _RWSTD_NO_DEPRECATED_C_HEADERS
 
 #endif   // _RWSTD_NO_PURE_C_HEADERS
+
+
+#if defined (_RWSTD_CXX11) && !defined (_RWSTD_CSTDDEF_CXX11_INCLUDED)
+#define _RWSTD_CSTDDEF_CXX11_INCLUDED
+
+namespace std {
+
+// C++11 [support.types]
+typedef decltype (nullptr) nullptr_t;
+using ::max_align_t;
+
+}   // namespace std
+
+#endif   // _RWSTD_CXX11

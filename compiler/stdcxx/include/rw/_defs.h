@@ -37,6 +37,25 @@
 #endif   //_RWSTD_RW_CONFIG_H_INCLUDED
 
 
+// C++11: compiled as C++11 or later (the Clang front end with
+// -std=c++11 and up), the headers add the C++11 library. The 2008
+// C++0x draft extensions (_RWSTD_NO_EXT_CXX_0X) are replaced by it.
+// Define _RWSTD_NO_CXX11 to get the C++98 library only.
+#if __cplusplus >= 201103L && !defined (_RWSTD_NO_CXX11)
+#  define _RWSTD_CXX11
+   // constexpr for what C++11 does not allow (C++11 makes constexpr
+   // member functions const)
+#  if __cplusplus >= 201402L
+#    define _RWSTD_CONSTEXPR14 constexpr
+#  else
+#    define _RWSTD_CONSTEXPR14
+#  endif
+#  ifndef _RWSTD_NO_EXT_CXX_0X
+#    define _RWSTD_NO_EXT_CXX_0X
+#  endif
+#endif
+
+
 // provide definitions for C++ versions of standard C headers
 // if a header is not available its name is #defined to the name of
 // this file (it's harmless and avoids polluting code with

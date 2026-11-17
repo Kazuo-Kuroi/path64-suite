@@ -1352,10 +1352,33 @@ WhirlExprBuilder::SetCallParm(const clang::CallExpr *expr, WN *wn, int &start_of
   const FunctionDecl *callee = expr->getDirectCallee();
   for (const Expr *args : expr->arguments()) {
     int i = parm_idx - start_offset;
-    WN *arg_wn = ConvertToNode(args);
+    WN *arg_wn;
     TY_IDX arg_ty_idx = _builder->TB().ConvertType(args->getType());
-    if (args->isGLValue())
+    if (i == 0 && isa<CXXOperatorCallExpr>(expr) && callee &&
+        isa<CXXMethodDecl>(callee) && !cast<CXXMethodDecl>(callee)->isStatic() &&
+        !args->isGLValue()) {
+      // the object of a member operator call (C()(x)) is a prvalue: it
+      // is passed as 'this', the address of a temporary holding it
+      Result r = ConvertExpr(args);
+      ST *obj_st;
+      if (r.isSym() && !r.IsRef() && !r.IsDeref() && !r.FieldId())
+        obj_st = ST_ptr(r.Sym());
+      else {
+        obj_st = Create_tmp_sym(arg_ty_idx, ".opobj", GetSrcPos());
+        WN *val = r.GetRValue();
+        WN *stid = WN_Stid(TY_mtype(arg_ty_idx), 0, obj_st, arg_ty_idx, val);
+        WN_Set_Linenum(stid, GetSrcPos());
+        WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
+      }
+      Set_ST_addr_saved(obj_st);
+      arg_wn = WN_Lda(Pointer_Mtype, 0, obj_st);
       arg_ty_idx = Make_Pointer_Type(arg_ty_idx);
+    }
+    else {
+      arg_wn = ConvertToNode(args);
+      if (args->isGLValue())
+        arg_ty_idx = Make_Pointer_Type(arg_ty_idx);
+    }
 
     // if parm is a function call, insert call wn into current block
     // and then generate ldid wn from WN_kid0 of call wn.
@@ -2169,7 +2192,8 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
 
     const CXXConstructExpr *ctor_expr = cast<CXXConstructExpr>(init);
     const CXXConstructorDecl *ctor_decl = ctor_expr->getConstructor();
-    if (!ctor_decl->isTrivial()) {
+    // (a trivial copy or move constructor copies: EmitCXXConstructCall)
+    if (!ctor_decl->isTrivial() || ctor_decl->isCopyOrMoveConstructor()) {
       WN *ldid = WN_Ldid(TY_mtype(ty_idx), 0, tmp_st, ty_idx);
       Result dest = Result::nwNode(ldid, ty_idx);
       Result ret = ConvertExpr(init, dest);
@@ -3305,6 +3329,13 @@ WhirlExprBuilder::EmitCXXConstructCall(const CXXConstructorDecl *decl, Result de
 
   // if constructor is trivial, constructor fun will not be called
   if (decl->isTrivial()) {
+    // the object is of the constructor's class (dest may be the enclosing
+    // object with the field id of a member: targ_wn is the member's address)
+    if (dest.FieldId() || TY_kind(ty_idx) != KIND_ARRAY) {
+      ty_idx = _builder->TB().ConvertType(
+                 _builder->Context()->getRecordType(decl->getParent()));
+      ty_ptr_idx = Make_Pointer_Type(ty_idx);
+    }
     WN *ret;
     if (decl->isDefaultConstructor()) {
       // default constructor
@@ -4518,6 +4549,17 @@ WhirlExprBuilder::EmitRecordInitialization(const clang::InitListExpr *expr, Resu
        emitted_bytes += TY_size(fld_ty);
        fld = FLD_next(fld);
        continue; 
+     } else if (init->getType()->isMemberPointerType()) {
+       // a member pointer's value (for a member function, the {ptr, adj}
+       // pair) comes from ConvertToNode
+       WN *val = ConvertToNode(init);
+       WN *st_wn = WN_Istore(TY_mtype(fld_ty), FLD_ofst(fld), pty,
+                             WN_COPY_Tree(targ_wn), val, field_id);
+       WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), st_wn);
+       WN_Set_Linenum(st_wn, spos);
+       emitted_bytes += TY_size(fld_ty);
+       fld = FLD_next(fld);
+       continue;
      } else {
        Result ret = ConvertExpr(init, dest);
        INT size = TY_size(fld_ty);
@@ -4795,13 +4837,30 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
     }
   }
 
+  if (expr->getType()->isMemberPointerType() && tmp_dest.isSym()) {
+    // a member pointer temporary: its value from ConvertToNode
+    WN *val = ConvertToNode(getSubExpr(expr));
+    WN *stid = WN_Stid(TY_mtype(ty), 0, ST_ptr(tmp_dest.Sym()), ty, val);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
+    WN_Set_Linenum(stid, spos);
+    if (is_ref) {
+      ST *dest_st = ST_ptr(dest.Sym());
+      WN *ref = WN_Stid(Pointer_Mtype, 0, dest_st, ST_type(dest_st),
+                        tmp_dest.GetLValue());
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ref);
+      WN_Set_Linenum(ref, spos);
+      return dest;
+    }
+    return tmp_dest;
+  }
+
   Result ret = ConvertExpr(getSubExpr(expr), tmp_dest);
 
   if (is_dest_none) {
     if (!ret.isNone() && ret != tmp_dest) {
       WN *rhs = ret.GetRValue();
       WN *stid = WN_Stid(TY_mtype(ty), 0,
-                         ST_ptr(tmp_dest.Sym()), pty, rhs);
+                         ST_ptr(tmp_dest.Sym()), ty, rhs);
       WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
       WN_Set_Linenum(stid, spos);
     }
@@ -5501,13 +5560,15 @@ WhirlExprBuilder::ConvertUnaryOperator(const UnaryOperator *expr, BOOL retv) {
       return r;
     }
     if (r.IsRef()) {
+      // a reference: its node (a call returning a reference, a reference
+      // member or capture) already is the object's address, with the field
+      // id of a member; a symbol holds the address
       Is_True(TY_kind(r.Ty()) == KIND_POINTER, ("not ptr type"));
-      WN *ret = NULL;
-      if (r.isNode())
-        ret = WN_Iload(Pointer_Mtype, 0, r.Ty(), r.Node());
-      else
-        ret = r.GetLValue();
-      return Result::nwNode(ret, r.Ty());
+      WN *ret = r.GetLValue();
+      TY_IDX pty = r.Ty();
+      if (r.isNode() && r.FieldId())
+        pty = Make_Pointer_Type(_builder->TB().ConvertType(expr->getSubExpr()->getType()));
+      return Result::nwNode(ret, pty);
     }
     if (r.FieldId()) {
       Is_True(TY_kind(r.Ty()) == KIND_STRUCT ||

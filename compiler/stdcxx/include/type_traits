@@ -32,6 +32,10 @@
 
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_type_traits.h>
+#else   // !_RWSTD_CXX11: the 2008 C++0x draft extension
+
 #ifdef _RWSTD_NO_EXT_CXX_0X
 #  error _RWSTD_NO_EXT_CXX_0X defined and C++0x header included
 #endif
@@ -492,5 +496,7 @@ struct conditional
 };
 
 }   // namespace std
+
+#endif   // _RWSTD_CXX11
 
 #endif   // _RWSTD_TYPE_TRAITS_INCLUDED

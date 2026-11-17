@@ -942,7 +942,11 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
         ctor_expr = cast<CXXConstructExpr>(init);
         if (ctor_expr->requiresZeroInitialization())
           need_zero_init = true;
-        if (ctor_expr->getConstructor()->isTrivial() && !need_zero_init && !base_spec)
+        // a trivial default constructor does nothing; a trivial copy or
+        // move constructor still copies (EmitCXXConstructCall)
+        if (ctor_expr->getConstructor()->isTrivial() &&
+            ctor_expr->getConstructor()->isDefaultConstructor() &&
+            !need_zero_init && !base_spec)
           continue;
         if (base_spec && base_spec->isVirtual() &&
             gd.getCtorType() == CXXCtorType::Ctor_Base)
@@ -1162,12 +1166,21 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     if (dtor_blk) WN_INSERT_BlockLast(body, dtor_blk);
     WhirlBlockUtil::popCurrentBlock();
   }
-  // Insert a RETURN if it does not exist
+  // Insert a RETURN if it does not exist; reaching the end of main
+  // returns 0 (C++ [basic.start.main], C99 5.1.2.2.3)
   WN *wn = WN_last(body);
   if (wn == NULL || WN_operator(wn) != OPR_RETURN &&
       WN_operator(wn) != OPR_RETURN_VAL) {
-    WN_INSERT_BlockLast(body,
-                        WGEN_CreateReturn(SetSrcPos(getEndLocation(decl))));
+    const FunctionDecl *fd = dyn_cast<FunctionDecl>(decl);
+    if (fd && fd->isMain() && fd->getReturnType()->isIntegerType()) {
+      WN *ret0 = WN_CreateReturn_Val(OPR_RETURN_VAL, MTYPE_I4, MTYPE_V,
+                                     WN_Intconst(MTYPE_I4, 0));
+      WN_Set_Linenum(ret0, SetSrcPos(getEndLocation(decl)));
+      WN_INSERT_BlockLast(body, ret0);
+    }
+    else
+      WN_INSERT_BlockLast(body,
+                          WGEN_CreateReturn(SetSrcPos(getEndLocation(decl))));
   }
 
   if (_builder->Lang_CPP()) {

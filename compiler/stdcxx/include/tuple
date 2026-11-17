@@ -32,6 +32,10 @@
 
 #  include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_tuple.h>
+#else   // !_RWSTD_CXX11: the 2008 C++0x draft extension
+
 #  if defined _RWSTD_NO_EXT_CXX_0X
 #    error _RWSTD_NO_EXT_CXX_0X defined and C++0x header included
 #  endif   // defined _RWSTD_NO_EXT_CXX_0X
@@ -468,5 +472,7 @@ operator>= (const tuple<_TypesT...>& __x,
 
 
 #  endif   // !defined _RWSTD_NO_VARIADIC_TEMPLATES
+
+#endif   // _RWSTD_CXX11
 
 #endif   // _RWSTD_TUPLE_INCLUDED

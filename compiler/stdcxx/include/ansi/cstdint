@@ -29,7 +29,7 @@
 
 #include <rw/_defs.h>
 
-#ifdef _RWSTD_NO_EXT_CXX_0X
+#if defined (_RWSTD_NO_EXT_CXX_0X) && !defined (_RWSTD_CXX11)
 #  error _RWSTD_NO_EXT_CXX_0X defined and C++0x header included
 #endif
 

@@ -1096,9 +1096,20 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
   case Builtin::BI__builtin_addressof:
     Is_True(expr->getNumArgs() == 1, ("invalid arg num"));
     {
-      Result ret = ConvertExpr(expr->getArg(0));
-      Is_True(ret.isSym(), ("not symbol"));
-      return Result::nwNode(ret.GetLValue(), ret.Ty());
+      // the address of any lvalue, as the built-in & (never an
+      // overloaded operator&)
+      const Expr *arg = expr->getArg(0);
+      Result r = ConvertExpr(arg);
+      TY_IDX pty = _builder->TB().ConvertType(expr->getType());
+      if (r.IsDeref()) {
+        r.ResetDeref();
+        return Result::nwNode(r.GetRValue(), pty);
+      }
+      if (r.isSym() && !r.IsRef() && !r.FieldId()) {
+        r.SetAddrOf();
+        return Result::nwNode(r.GetRValue(), pty);
+      }
+      return Result::nwNode(r.GetLValue(), pty);
     }
 
   case Builtin::BI__builtin_operator_new:

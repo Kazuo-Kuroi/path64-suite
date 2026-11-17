@@ -188,11 +188,35 @@ struct __rw_lt
 template <class _TypeT, class _TypeU>
 inline void __rw_swap (_TypeT& __a, _TypeU& __b)
 {
+#ifndef _RWSTD_CXX11
     // _TypeT must satisfy Assignable and CopyConstructible
     _TypeT __tmp = __a;
     __a = __b;
     __b = __tmp;
+#else
+    _TypeT __tmp = _STD::move (__a);
+    __a = _STD::move (__b);
+    __b = _STD::move (__tmp);
+#endif
 }
+
+#ifdef _RWSTD_CXX11
+// iter_swap: swap (*a, *b), user swaps found by ADL; *a that is not a
+// reference (vector<bool>::reference) swaps as before
+template <class _FwdIter1, class _FwdIter2>
+inline void __rw_iter_swap (_FwdIter1 __a, _FwdIter2 __b, _STD::true_type)
+{
+    using _STD::swap;
+    swap (*__a, *__b);
+}
+template <class _FwdIter1, class _FwdIter2>
+inline void __rw_iter_swap (_FwdIter1 __a, _FwdIter2 __b, _STD::false_type)
+{
+    typename _STD::iterator_traits<_FwdIter1>::reference __ref1 (*__a);
+    typename _STD::iterator_traits<_FwdIter2>::reference __ref2 (*__b);
+    __rw_swap (__ref1, __ref2);
+}
+#endif   // _RWSTD_CXX11
 
 
 }   // namespace __rw
@@ -201,6 +225,7 @@ inline void __rw_swap (_TypeT& __a, _TypeU& __b)
 _RWSTD_NAMESPACE (std) { 
 
 
+#ifndef _RWSTD_CXX11
 // 25.2.2, p1
 template <class _TypeT>
 inline void swap (_TypeT& __a, _TypeT& __b)
@@ -210,12 +235,22 @@ inline void swap (_TypeT& __a, _TypeT& __b)
     __a = __b;
     __b = __tmp;
 }
+#endif   // !_RWSTD_CXX11 (C++11: move-based, in <rw/_c11_utility.h>)
 
 
 // 25.2.2, p7
 template <class _FwdIter1, class _FwdIter2>
 inline void iter_swap (_FwdIter1 __a, _FwdIter2 __b)
 {
+#ifdef _RWSTD_CXX11
+    typedef decltype (*__a) _Ref1;
+    typedef decltype (*__b) _Ref2;
+    _RW::__rw_iter_swap (__a, __b, _STD::integral_constant<bool,
+        _STD::is_lvalue_reference<_Ref1>::value
+        && _STD::is_same<_Ref1, _Ref2>::value>());
+    return;
+#endif
+
     // std::iterator_traits<_FwdIter[12]>::value_type must satisfy
     // both Assignable and CopyConstructible
 
