@@ -175,11 +175,25 @@ constexpr piecewise_construct_t piecewise_construct = piecewise_construct_t ();
 
 // [tuple.helper], also for pair and array
 template <class _Tp> struct tuple_size;
-template <class _Tp> struct tuple_size<const _Tp>
+
+namespace __rw_c11 {
+// Constrain the cv specializations while keeping tuple_size's single parameter.
+template <class _Tp, class...> using __enable_tuple_size = _Tp;
+}
+
+template <class _Tp>
+struct tuple_size<__rw_c11::__enable_tuple_size<const _Tp,
+    typename enable_if<!is_volatile<_Tp>::value>::type,
+    integral_constant<size_t, tuple_size<_Tp>::value> > >
     : integral_constant<size_t, tuple_size<_Tp>::value> { };
-template <class _Tp> struct tuple_size<volatile _Tp>
+template <class _Tp>
+struct tuple_size<__rw_c11::__enable_tuple_size<volatile _Tp,
+    typename enable_if<!is_const<_Tp>::value>::type,
+    integral_constant<size_t, tuple_size<_Tp>::value> > >
     : integral_constant<size_t, tuple_size<_Tp>::value> { };
-template <class _Tp> struct tuple_size<const volatile _Tp>
+template <class _Tp>
+struct tuple_size<__rw_c11::__enable_tuple_size<const volatile _Tp,
+    integral_constant<size_t, tuple_size<_Tp>::value> > >
     : integral_constant<size_t, tuple_size<_Tp>::value> { };
 
 template <size_t _Ip, class _Tp> struct tuple_element;

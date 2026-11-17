@@ -591,6 +591,14 @@ get (tuple<_Tp...>&& __t) noexcept
         static_cast<__rw_c11::__tuple_leaf<_Ip, _Type>&>(__t.__impl).__get ());
 }
 
+template <size_t _Ip, class... _Tp>
+inline constexpr const typename tuple_element<_Ip, tuple<_Tp...> >::type&&
+get (const tuple<_Tp...>&& __t) noexcept
+{
+    return static_cast<const typename tuple_element<_Ip, tuple<_Tp...> >::type&&>(
+        std::get<_Ip>(__t));
+}
+
 #if __cplusplus >= 201402L
 namespace __rw_c11 {
 template <class _Tp, class... _Types> struct __find_exactly_one;
@@ -622,6 +630,9 @@ inline constexpr const _T1& get (const tuple<_Types...>& __t) noexcept
 { return std::get<__rw_c11::__index_of<_T1, _Types...>::value>(__t); }
 template <class _T1, class... _Types>
 inline constexpr _T1&& get (tuple<_Types...>&& __t) noexcept
+{ return std::get<__rw_c11::__index_of<_T1, _Types...>::value>(std::move (__t)); }
+template <class _T1, class... _Types>
+inline constexpr const _T1&& get (const tuple<_Types...>&& __t) noexcept
 { return std::get<__rw_c11::__index_of<_T1, _Types...>::value>(std::move (__t)); }
 #endif   // C++14
 
@@ -672,6 +683,18 @@ template <class _Tp, size_t... _Ip> struct __array_types<_Tp, __tuple_indices<_I
 
 }   // namespace __rw_c11
 template <class _Tp, size_t _Np> struct array;
+
+// Make these overloads visible to the qualified get calls in tuple_cat,
+// even when <array> is included after <tuple>.
+template <size_t _Ip, class _Tp, size_t _Np>
+constexpr _Tp& get (array<_Tp, _Np>&) noexcept;
+template <size_t _Ip, class _Tp, size_t _Np>
+constexpr const _Tp& get (const array<_Tp, _Np>&) noexcept;
+template <size_t _Ip, class _Tp, size_t _Np>
+constexpr _Tp&& get (array<_Tp, _Np>&&) noexcept;
+template <size_t _Ip, class _Tp, size_t _Np>
+constexpr const _Tp&& get (const array<_Tp, _Np>&&) noexcept;
+
 namespace __rw_c11 {
 template <class _Tp, size_t _Np> struct __as_types<array<_Tp, _Np> >
     : __array_types<_Tp, typename __make_tuple_indices<_Np>::type> { };
@@ -696,7 +719,7 @@ template <class _T0, class... _Tuples> struct __tuple_cat_types<_T0, _Tuples...>
 template <class _Acc, class... _Tuples> struct __tuple_cat_impl;
 template <class _Acc> struct __tuple_cat_impl<_Acc>
 {
-    static _Acc __cat (_Acc&& __acc) { return std::move (__acc); }
+    static _RWSTD_CONSTEXPR14 _Acc __cat (_Acc&& __acc) { return std::move (__acc); }
 };
 
 template <class... _Ap, class _T0, class... _Tuples>
@@ -709,14 +732,14 @@ struct __tuple_cat_impl<tuple<_Ap...>, _T0, _Tuples...>
         typename __tuple_cat_types<_T0, _Tuples...>::type>::type>::type _Result;
 
     template <size_t... _Ip, size_t... _Jp>
-    static _Next __step (tuple<_Ap...>&& __acc, _T0&& __t0,
+    static _RWSTD_CONSTEXPR14 _Next __step (tuple<_Ap...>&& __acc, _T0&& __t0,
                          __tuple_indices<_Ip...>, __tuple_indices<_Jp...>)
     {
         return _Next (std::get<_Ip>(std::move (__acc))...,
                       std::get<_Jp>(std::forward<_T0>(__t0))...);
     }
 
-    static _Result __cat (tuple<_Ap...>&& __acc, _T0&& __t0, _Tuples&&... __rest)
+    static _RWSTD_CONSTEXPR14 _Result __cat (tuple<_Ap...>&& __acc, _T0&& __t0, _Tuples&&... __rest)
     {
         return __tuple_cat_impl<_Next, _Tuples...>::__cat (
             __step (std::move (__acc), std::forward<_T0>(__t0),
@@ -728,7 +751,7 @@ struct __tuple_cat_impl<tuple<_Ap...>, _T0, _Tuples...>
 }   // namespace __rw_c11
 
 template <class... _Tuples>
-inline typename __rw_c11::__to_tuple<
+inline _RWSTD_CONSTEXPR14 typename __rw_c11::__to_tuple<
     typename __rw_c11::__tuple_cat_types<_Tuples...>::type>::type
 tuple_cat (_Tuples&&... __tpls)
 {

@@ -323,6 +323,14 @@ get (pair<_T1, _T2>&& __p) noexcept
     return __rw_c11::__get_pair<_Ip>::__move (std::move (__p));
 }
 
+template <size_t _Ip, class _T1, class _T2>
+inline constexpr const typename tuple_element<_Ip, pair<_T1, _T2> >::type&&
+get (const pair<_T1, _T2>&& __p) noexcept
+{
+    return static_cast<const typename tuple_element<_Ip, pair<_T1, _T2> >::type&&>(
+        std::get<_Ip>(__p));
+}
+
 #if __cplusplus >= 201402L
 template <class _T1, class _T2>
 inline constexpr _T1& get (pair<_T1, _T2>& __p) noexcept { return __p.first; }
@@ -333,6 +341,9 @@ template <class _T1, class _T2>
 inline constexpr _T1&& get (pair<_T1, _T2>&& __p) noexcept
 { return std::forward<_T1>(__p.first); }
 template <class _T1, class _T2>
+inline constexpr const _T1&& get (const pair<_T1, _T2>&& __p) noexcept
+{ return std::get<0>(std::move (__p)); }
+template <class _T1, class _T2>
 inline constexpr _T1& get (pair<_T2, _T1>& __p) noexcept { return __p.second; }
 template <class _T1, class _T2>
 inline constexpr const _T1& get (const pair<_T2, _T1>& __p) noexcept
@@ -340,6 +351,9 @@ inline constexpr const _T1& get (const pair<_T2, _T1>& __p) noexcept
 template <class _T1, class _T2>
 inline constexpr _T1&& get (pair<_T2, _T1>&& __p) noexcept
 { return std::forward<_T1>(__p.second); }
+template <class _T1, class _T2>
+inline constexpr const _T1&& get (const pair<_T2, _T1>&& __p) noexcept
+{ return std::get<1>(std::move (__p)); }
 #endif   // C++14
 
 }   // namespace std

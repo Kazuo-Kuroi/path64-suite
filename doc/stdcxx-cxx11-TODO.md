@@ -86,17 +86,17 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
   `_RW::__rw_swap` in `rw/_algobase.h` gets used for arrays when
   `<algorithm>` comes first.
 
-### `<utility>` — 40/41
-- [ ] **`get` on `const pair&&`.** Test:
+### `<utility>` — 41/41
+- [x] (Codex) **`get` on `const pair&&`.** Test:
   `pairs/pair.astuple/get_const_rv.pass.cpp`.
 
-### `<tuple>` — 46/55 (host the same)
-- [ ] **`get` on `const tuple&&`.** Test: `tuple.elem/get_const_rv`.
-- [ ] **SFINAE-friendly `tuple_size<const T>`.** It should have no
-  `value` when `tuple_size<T>` is incomplete. Tests:
+### `<tuple>` — 50/55
+- [x] (Codex) **`get` on `const tuple&&`.** Test: `tuple.elem/get_const_rv`.
+- [x] (Codex) **SFINAE-friendly `tuple_size` for cv-qualified types.**
+  Tests:
   `tuple_size_incomplete`, `tuple_size_value_sfinae`.
-- [ ] **`tuple_cat` of `std::array` arguments.** `get` isn't found for
-  `array` there. Test: `tuple.creation/tuple_cat`.
+- [x] (Codex) **`tuple_cat` of `std::array` arguments.**
+  Test: `tuple.creation/tuple_cat`.
 - [ ] **`std::allocator<void>`.** stdcxx has no specialization. Test:
   `tuple.cnstr/alloc_UTypes`.
 - [ ] **Constructor constraints.** Tests: `tuple.cnstr/move.pass.cpp`
@@ -151,13 +151,13 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
 - [ ] **`allocator_traits::allocate` with a hint** on an incomplete
   `value_type` (`allocate_hint.pass.cpp`).
 
-### `<array>` — 19/27 (host the same)
+### `<array>` — 20/27
 - [ ] **`array<T, 0>`.** Its size and alignment must be those of `T[1]`.
   It must not be assignable when `T` is const (`implicit_copy`,
   `size_and_alignment`). `swap` must be `noexcept` for size 0.
 - [ ] **`std::addressof` from `<array>`** (`contiguous.pass.cpp`), and
   the `pint` error in `array.data/data*.pass.cpp` (to be found).
-- [ ] **`get` on `const array&&`.**
+- [x] (Codex) **`get` on `const array&&`.**
 
 ## psclang bugs found by the tests (compiler)
 

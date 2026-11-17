@@ -196,6 +196,12 @@ inline constexpr _Tp&& get (array<_Tp, _Size>&& __a) noexcept
     return std::move (array<_Tp, _Size>::_Traits::__ref (__a.__elems, _Ip));
 }
 
+template <size_t _Ip, class _Tp, size_t _Size>
+inline constexpr const _Tp&& get (const array<_Tp, _Size>&& __a) noexcept
+{
+    return std::move (std::get<_Ip>(__a));
+}
+
 }   // namespace std
 
 #endif   // _RWSTD_RW_C11_ARRAY_H_INCLUDED
