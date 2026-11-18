@@ -35,8 +35,8 @@ the reference for the design. Its test suite is the conformance test.
 | `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 84/84; allocator.traits: 21/21; pointer.traits: 9/9 |
 | `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
-| `<iterator>` | Range access, `next`, `prev`, move and reverse adapters/factories, SFINAE-safe traits | next/prev: 2/2; move.iterators: 29/29; reverse.iterators: 28/28 (C++11), 29/29 (C++14); iterator.primitives: 17/17 |
-| `<algorithm>` | Predicate/move algorithms, counted/conditional copy, partition/sorted/heap queries, min/max additions, permutation queries, C++14 bounded equal/mismatch | Phase 3 partial coverage; see TODO and validation below |
+| `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
+| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction and rotation | 113/145; 28 missing-random dependencies, 2 C++17 clamp tests, move-only sort and stable partition remain |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
@@ -144,19 +144,31 @@ The original `phase3-algorithms.pass.cpp` checks min/max tie selection and
 comparison complexity exhaustively on small sequences through forward
 iterators, as well as counted copy, bounded comparisons and C++14 constant
 evaluation. `shuffle` and reference tests that include `<random>` remain
-pending Phase 4. Iterator coverage still lacks move insertion support and
-has stream-iterator failures; legacy algorithms still need move-only value
-support and protection against overloaded comma operators. These are not
-marked complete in the TODO.
+pending Phase 4. Insertion adapters accept moved values, input iterators
+have constexpr default constructors, and stream-buffer iterator traits are
+corrected. The remaining insertion test depends on unfinished C++11 `list`
+support. `remove`, `remove_if`, `unique` and `rotate` accept move-only values;
+`rotate` returns the required iterator. Transform, replacement, swap, lexical
+comparison and permutation loops avoid user-defined comma operators.
+Sorting and stable partition still need move-only value support.
+
+psclang keeps materialization statements inside each short-circuit operand.
+Conditional class temporaries have guards for operand selection and successful
+construction; normal and unwind cleanup respect those guards. The original
+`compiler-short-circuit.pass.cpp` checks skipped and nested operands, null
+pointers, full-expression lifetime and throwing constructors/consumers.
+The eight previously failing stream-buffer iterator runtime tests now pass.
+`phase3-move-iterators.pass.cpp` checks all insertion adapters with move-only
+deque elements and the C++11 rotate return iterator. `<cstdio>` stops importing
+`gets` in C++14, where the C library declaration is removed.
 
 Phase 3 validation runs the full iterator, algorithm and numeric-operation
-reference directories plus the original regression at both `-O0` and `-O2`.
-C++11 passes 249/312
-with psclang and 257/312 with host Clang; C++14 passes 250/313 and 258/313,
-respectively. The eight psclang-only runtime failures are stream-buffer
-iterator tests. Both compilers have 55 compile failures in each standard,
-including missing `<random>` dependencies and unmarked C++17 tests;
-25 C++11 and 24 C++14 tests are excluded by reference markers. The C++14
-optimized foundations run remains 601/605 with its four previously recorded
-reference incompatibilities. Shared and static C++98 library objects rebuild,
-and all 11 legacy C++98/C++03 compiler probes pass at both optimization levels.
+reference directories, the two original Phase 3 regressions, and three compiler
+lifetime/cleanup regressions. Both psclang and host Clang pass 283/316 in
+C++11 and 284/317 in C++14 at `-O0` and `-O2`, with no runtime failures.
+The 33 compile failures are the list-dependent insertion test and the 32
+algorithm cases classified in the TODO. Reference markers exclude 25 C++11
+and 24 C++14 tests. The C++14 optimized foundations run remains 601/605 with its four
+previously recorded reference incompatibilities. Shared and static C++98 library
+objects rebuild, and all 11 legacy C++98/C++03 probes pass at both optimization
+levels.

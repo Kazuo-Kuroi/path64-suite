@@ -437,6 +437,13 @@ public:
         return container->push_back (__x), *this;
     }
 
+#ifdef _RWSTD_CXX11
+    back_insert_iterator& operator= (typename container_type::value_type&& __x) {
+        container->push_back (std::move (__x));
+        return *this;
+    }
+#endif
+
     back_insert_iterator& operator*  () {
         return *this;
     }
@@ -481,6 +488,13 @@ public:
     operator= (typename container_type::const_reference __x) { 
         return container->push_front (__x), *this;
     }
+
+#ifdef _RWSTD_CXX11
+    front_insert_iterator& operator= (typename container_type::value_type&& __x) {
+        container->push_front (std::move (__x));
+        return *this;
+    }
+#endif
 
     front_insert_iterator& operator* () {
         return *this;
@@ -528,6 +542,14 @@ public:
         iter = container->insert (iter, __x);
         return ++iter, *this;
     }
+
+#ifdef _RWSTD_CXX11
+    insert_iterator& operator= (typename container_type::value_type&& __x) {
+        iter = container->insert (iter, std::move (__x));
+        ++iter;
+        return *this;
+    }
+#endif
 
     insert_iterator& operator* () {
         return *this;

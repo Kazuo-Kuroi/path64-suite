@@ -15,6 +15,7 @@ Original regression tests can be passed by absolute path:
   ./lcxx.py "$PWD/compiler-unwind.pass.cpp"
   ./lcxx.py -std c++14 "$PWD/sized-delete.pass.cpp"
   ./lcxx.py "$PWD/phase3-algorithms.pass.cpp"
+  ./lcxx.py "$PWD/phase3-move-iterators.pass.cpp" "$PWD/compiler-short-circuit.pass.cpp"
 
 Use --timeout 180 for the deque range-insertion stress test at -O0. The
 runner's default per-test runtime limit remains 30 seconds.
@@ -29,3 +30,9 @@ phase3-algorithms.pass.cpp checks min/max tie selection, the minmax_element
 comparison bound on exhaustive small sequences through forward iterators,
 negative copy counts, numeric generation, bounded comparisons, and C++14
 constant evaluation. It needs no <random> implementation.
+
+phase3-move-iterators.pass.cpp checks all insertion adapters with move-only
+deque elements and the rotated sequence/return iterator. The reference front
+insertion test uses list, whose move insertion is a separate container TODO.
+compiler-short-circuit.pass.cpp checks conditional reference materialization,
+null pointers, nested operands, exceptions and class temporary destruction.

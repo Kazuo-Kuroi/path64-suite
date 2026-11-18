@@ -170,7 +170,7 @@ namespace std {
     using ::getchar;
 #endif   // _RWSTD_NO_GETCHAR
 
-#ifndef _RWSTD_NO_GETS
+#if !defined (_RWSTD_NO_GETS) && __cplusplus < 201402L
     using ::gets;
 #endif   // _RWSTD_NO_GETS
 

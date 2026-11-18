@@ -61,6 +61,9 @@ struct istreambuf_iterator
     : iterator<input_iterator_tag, _CharT, 
                typename _Traits::off_type, _CharT*, _CharT&>
 {
+#ifdef _RWSTD_CXX11
+    typedef _CharT reference;
+#endif
     typedef _CharT                                  char_type;
     typedef _Traits                                 traits_type;
     typedef typename traits_type::int_type         int_type;
@@ -96,6 +99,9 @@ public:
 #endif   // _RWSTD_STRICT_ANSI
 
     // 24.5.3.2, p1
+#ifdef _RWSTD_CXX11
+    constexpr
+#endif
     istreambuf_iterator (streambuf_type *__sb = 0) _THROWS (())
     : _C_sb (__sb) { }
 

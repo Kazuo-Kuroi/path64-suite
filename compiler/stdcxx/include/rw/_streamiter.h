@@ -82,7 +82,11 @@ public:
     typedef typename _C_base::value_type         value_type;
 
     // 24.5.1.1, p1
+#ifdef _RWSTD_CXX11
+    constexpr istream_iterator () : _C_strm (0), _C_val () { }
+#else
     istream_iterator (): _C_strm (0) { }
+#endif
 
     // 24.5.1.1, p2
     istream_iterator (istream_type& __s)

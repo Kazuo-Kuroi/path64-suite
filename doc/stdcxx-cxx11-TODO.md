@@ -316,6 +316,12 @@ across a library boundary. Write the decision here before starting.
 
 ## Phase 3: the rest of the existing headers
 
+Current iterator/algorithm/numeric validation (including five original library
+and compiler regressions) passes 283/316 in C++11 and 284/317 in C++14 with both
+psclang and host Clang at `-O0` and `-O2`. There are no runtime failures in this
+batch; the 33 remaining compile failures are classified below. Reference markers
+exclude 25 C++11 and 24 C++14 tests.
+
 - [ ] **`<iterator>`:**
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
     (`iterator.range/begin-end.pass.cpp`);
@@ -324,11 +330,16 @@ across a library boundary. Write the decision here before starting.
   * [x] (Codex) C++14 `make_reverse_iterator`, mixed reverse-iterator
     comparisons, value initialization, SFINAE-safe iterator traits and
     cv-correct pointer traits;
-  * `iterators` (161 tests). Remaining failures: move-only insertion
-    through the three output adapters; constexpr input-stream iterator
-    constructors; stream-buffer iterator typedefs. Eight stream-buffer
-    iterator runtime tests pass with host Clang and fail with psclang
-    (constructors, equality, and pre/post increment).
+  * [x] (Codex) Move insertion through all three output adapters, constexpr
+    input-stream iterator default constructors, stream-buffer iterator
+    reference typedefs. Front insertion is checked independently with deque;
+    its reference test still requires C++11 move insertion in `list`.
+  * [x] (Codex) psclang short-circuit operand materialization and conditional
+    temporary cleanup: stream-buffer iterator runtime tests now pass.
+    `compiler-short-circuit.pass.cpp` covers skipped calls, nested operands,
+    full-expression lifetime, constructor failures and unwind cleanup.
+  * `iterators` (161 tests): 156/157 applicable in C++11 and 157/158 in
+    C++14; the list-dependent front-insertion test remains.
 - [ ] **`<algorithm>`:**
   * [x] (Codex) `all_of`, `any_of`, `none_of`, `find_if_not`;
   * [x] (Codex) `move`, `move_backward` (including the deque-specific cases);
@@ -337,12 +348,15 @@ across a library boundary. Write the decision here before starting.
     `is_sorted`, `is_sorted_until`, `is_heap`, `is_heap_until`;
   * [x] (Codex) `minmax`, `minmax_element`, the `initializer_list` forms of
     `min`/`max`, `is_permutation` (including the C++14 bounded overloads);
+  * [x] (Codex) Move-only `remove`, `remove_if`, `unique`, and `rotate`;
+    C++11 `rotate` return value; overloaded-comma protection in transforms,
+    replacement copies, range swaps, lexical comparisons and permutations.
   * `shuffle` (pending `<random>`);
   * [x] (Codex) C++14 `equal`/`mismatch` with four iterators;
-  * `algorithms` (150 tests). Remaining failures include missing `<random>`,
-    legacy copy operations on move-only values, overloaded-comma handling,
-    and C++17 `clamp` tests without exclusion markers. The overall item
-    remains open until these cases are resolved or classified.
+  * `algorithms` (150 tests): 113/145 applicable tests pass. The remaining
+    32 compile failures are 28 missing `<random>` dependencies, move-only
+    sorting and stable partition, and two unmarked C++17 `clamp` tests.
+    Five tests are excluded by reference markers. The overall item remains open.
 - [x] (Codex) **`<numeric>`:** `iota`; move assignment in
   `adjacent_difference` and safe iterator increments in `inner_product`.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests

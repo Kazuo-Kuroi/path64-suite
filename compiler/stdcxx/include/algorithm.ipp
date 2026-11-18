@@ -342,7 +342,7 @@ _OutputIter replace_copy_if (_Iter __first, _Iter __last,
 {
     _RWSTD_ASSERT_RANGE (__first, __last);
 
-    for (; !(__first == __last); ++__res, ++__first)
+    for (; !(__first == __last); static_cast<void>(++__res), ++__first)
         *__res = __pred (*__first) == false ? *__first : __new_value;
 
     return __res;
@@ -386,6 +386,16 @@ template <class _FwdIter>
 _FwdIter
 unique (_FwdIter __first, _FwdIter __last)
 {
+#ifdef _RWSTD_CXX11
+    if (__first == __last) return __last;
+    _FwdIter __result = __first;
+    while (++__first != __last)
+        if (!(*__result == *__first)) {
+            ++__result;
+            if (__result != __first) *__result = std::move (*__first);
+        }
+    return ++__result;
+#else
     // find the first of two equal elements
     __first = _STD::adjacent_find (__first, __last);
 
@@ -404,6 +414,7 @@ unique (_FwdIter __first, _FwdIter __last)
     // starting at one past the first element
     return __unique_copy (__next, __last, __first,
                           _RWSTD_ITERATOR_CATEGORY (_FwdIter, __first));
+#endif
 }
 
 
@@ -412,6 +423,16 @@ template <class _FwdIter, class _BinaryPredicate>
 _FwdIter
 unique (_FwdIter __first, _FwdIter __last, _BinaryPredicate __pred)
 {
+#ifdef _RWSTD_CXX11
+    if (__first == __last) return __last;
+    _FwdIter __result = __first;
+    while (++__first != __last)
+        if (!__pred (*__result, *__first)) {
+            ++__result;
+            if (__result != __first) *__result = std::move (*__first);
+        }
+    return ++__result;
+#else
     __first = _STD::adjacent_find (__first, __last, __pred);
 
     if (__first == __last)
@@ -425,6 +446,7 @@ unique (_FwdIter __first, _FwdIter __last, _BinaryPredicate __pred)
 
     return __unique_copy (__next, __last, __first, __pred,
                           _RWSTD_ITERATOR_CATEGORY (_FwdIter, __first));
+#endif
 }
 
 
@@ -1086,7 +1108,7 @@ _RandomAccessIter __partial_sort_copy (_InputIter __first,
 
     _RandomAccessIter __res = __first2;
 
-    for (; !(__first == __last) && !(__res == __last2); ++__first, ++__res)
+    for (; !(__first == __last) && !(__res == __last2); static_cast<void>(++__first), ++__res)
         *__res = *__first;
 
     _STD::make_heap (__first2, __res, __comp);
@@ -1470,7 +1492,7 @@ _BidirIter3 __merge_backward (_BidirIter1 __first1,
     if (__first2 == __last2)
         return _STD::copy_backward (__first1, __last1, __res);
 
-    for (--__last1, --__last2; ; ) {
+    for (static_cast<void>(--__last1), --__last2; ; ) {
         if (*__last2 < *__last1) {
             *--__res = *__last1;
             if (__first1 == __last1)
@@ -1505,7 +1527,7 @@ _BidirIter3 __merge_backward (_BidirIter1 __first1,
     if (__first2 == __last2)
         return _STD::copy_backward (__first1, __last1, __res);
 
-    for (--__last1, --__last2; ; ) {
+    for (static_cast<void>(--__last1), --__last2; ; ) {
         if (__comp (*__last2, *__last1)) {
             *--__res = *__last1;
             if (__first1 == __last1)
@@ -1819,7 +1841,7 @@ bool next_permutation (_BidirIter __first, _BidirIter __last, _Compare __comp)
 
     bool __res;
 
-    for (__i = __last, --__i; ; ) {
+    for (static_cast<void>(__i = __last), --__i; ; ) {
         const _BidirIter __ii = __i;
 
         if (__comp (*--__i, *__ii)) {
@@ -1863,7 +1885,7 @@ bool prev_permutation (_BidirIter __first, _BidirIter __last, _Compare __comp)
 
     bool __res;
 
-    for (__i = __last, --__i; ; ) {
+    for (static_cast<void>(__i = __last), --__i; ; ) {
         const _BidirIter __ii = __i;
 
         if (__comp (*__ii, *--__i)) {

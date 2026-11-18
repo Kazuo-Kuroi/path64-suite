@@ -326,7 +326,7 @@ swap_ranges (_FwdIter1 __first1, _FwdIter1 __last1, _FwdIter2 __first2)
 {
     _RWSTD_ASSERT_RANGE (__first1, __last1);
 
-    for (; !(__first1 == __last1); ++__first1, ++__first2)
+    for (; !(__first1 == __last1); static_cast<void>(++__first1), ++__first2)
         _STD::iter_swap (__first1, __first2);
     return __first2;
 }
@@ -341,7 +341,7 @@ transform (_InputIter __first, _InputIter __last, _OutputIter __res,
 {
     _RWSTD_ASSERT_RANGE (__first, __last);
 
-    for (; !(__first == __last); ++__res, ++__first)
+    for (; !(__first == __last); static_cast<void>(++__res), ++__first)
         *__res = __unary_op (*__first);
     return __res;
 }
@@ -356,7 +356,7 @@ transform (_InputIter1 __first1, _InputIter1 __last1,
 {
     _RWSTD_ASSERT_RANGE (__first1, __last1);
 
-    for (; !(__first1 == __last1); ++__res, ++__first1, ++__first2)
+    for (; !(__first1 == __last1); static_cast<void>(++__res), static_cast<void>(++__first1), ++__first2)
         *__res = __binary_op (*__first1, *__first2);
     return __res;
 }
@@ -395,7 +395,7 @@ replace_copy (_InputIter __first, _InputIter __last, _OutputIter __res,
 {
     _RWSTD_ASSERT_RANGE (__first, __last);
 
-    for (; !(__first == __last); ++__first, ++__res)
+    for (; !(__first == __last); static_cast<void>(++__first), ++__res)
         *__res = *__first == __old_value ? __new_value : *__first;
     return __res;
 }
@@ -456,20 +456,38 @@ template <class _FwdIter, class _TypeT>
 inline _FwdIter
 remove (_FwdIter __first, _FwdIter __last, const _TypeT &__val)
 {
+#ifdef _RWSTD_CXX11
+    __first = _STD::find (__first, __last, __val);
+    if (__first == __last) return __first;
+    _FwdIter __next = __first;
+    while (++__next != __last)
+        if (!(*__next == __val)) { *__first = std::move (*__next); ++__first; }
+    return __first;
+#else
     __first = _STD::find (__first, __last, __val);
     _FwdIter __next = __first;
     return __first == __last ?
         __first : _STD::remove_copy (++__next, __last, __first, __val);
+#endif
 }
 
 
 template <class _FwdIter, class _Predicate>
 inline _FwdIter remove_if (_FwdIter __first, _FwdIter __last, _Predicate __pred)
 {
+#ifdef _RWSTD_CXX11
+    __first = _STD::find_if (__first, __last, __pred);
+    if (__first == __last) return __first;
+    _FwdIter __next = __first;
+    while (++__next != __last)
+        if (!__pred (*__next)) { *__first = std::move (*__next); ++__first; }
+    return __first;
+#else
     __first = _STD::find_if (__first, __last, __pred);
     _FwdIter __next = __first;
     return __first == __last ?
         __first : _STD::remove_copy_if (++__next, __last, __first, __pred);
+#endif
 }
 
 
@@ -666,6 +684,30 @@ void __rotate (_RandomAccessIter, _RandomAccessIter, _RandomAccessIter,
 
 
 template <class _FwdIter>
+#ifdef _RWSTD_CXX11
+inline _FwdIter rotate (_FwdIter __first, _FwdIter __middle, _FwdIter __last)
+{
+    if (__first == __middle) return __last;
+    if (__middle == __last) return __first;
+    // Exchange blocks until the original left block has been placed.
+    // Updating middle handles a shorter right block without extra storage.
+    _FwdIter __right = __middle;
+    do {
+        _STD::iter_swap (__first, __right);
+        ++__first; ++__right;
+        if (__first == __middle) __middle = __right;
+    } while (__right != __last);
+    _FwdIter __result = __first;
+    __right = __middle;
+    while (__right != __last) {
+        _STD::iter_swap (__first, __right);
+        ++__first; ++__right;
+        if (__first == __middle) __middle = __right;
+        else if (__right == __last) __right = __middle;
+    }
+    return __result;
+}
+#else
 inline void rotate (_FwdIter __first, _FwdIter __middle, _FwdIter __last)
 {
     if (!(__first == __middle || __middle == __last))
@@ -673,6 +715,7 @@ inline void rotate (_FwdIter __first, _FwdIter __middle, _FwdIter __last)
                   _RWSTD_DIFFERENCE_TYPE (_FwdIter),
                   _RWSTD_ITERATOR_CATEGORY (_FwdIter, __first));
 }
+#endif
 
 
 template <class _FwdIter, class _OutputIter>

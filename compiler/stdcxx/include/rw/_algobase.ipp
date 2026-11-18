@@ -51,7 +51,7 @@ bool lexicographical_compare (_InputIter1 __first1, _InputIter1 __last1,
     _RWSTD_ASSERT_RANGE (__first1, __last1);
     _RWSTD_ASSERT_RANGE (__first2, __last2);
 
-    for ( ; ; ++__first2, ++__first1) {
+    for ( ; ; static_cast<void>(++__first2), ++__first1) {
 
         if (__first1 == __last1)
             return !(__first2 == __last2);
@@ -75,7 +75,7 @@ bool lexicographical_compare (_InputIter1 __first1, _InputIter1 __last1,
     _RWSTD_ASSERT_RANGE (__first1, __last1);
     _RWSTD_ASSERT_RANGE (__first2, __last2);
 
-    for ( ; ; ++__first2, ++__first1) {
+    for ( ; ; static_cast<void>(++__first2), ++__first1) {
 
         if (__first1 == __last1)
             return !(__first2 == __last2);
