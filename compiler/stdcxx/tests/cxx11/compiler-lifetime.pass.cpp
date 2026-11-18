@@ -17,6 +17,18 @@ struct HeapObject {
 };
 
 struct Empty { };
+struct alignas(16) AlignedEmpty { };
+
+struct BranchException {
+    BranchException() noexcept { }
+    ~BranchException() noexcept { }
+};
+
+void throw_from_unbraced_branch(bool fail) {
+    if (fail)
+        throw BranchException();
+}
+
 
 struct EmptyBase : Empty {
     int* pointer;
@@ -127,6 +139,35 @@ int main() {
     if (take_branch)
         consume(Owner(&owners));
     assert(owners == 0);
+    for (int i = 0; i != 5; ++i)
+        consume(Owner(&owners));
+    assert(owners == 0);
+    int iterations = 0;
+    while (iterations++ != 5)
+        consume(Owner(&owners));
+    assert(owners == 0);
+    iterations = 0;
+    do
+        consume(Owner(&owners));
+    while (++iterations != 5);
+    assert(owners == 0);
+    bool caught_branch_exception = false;
+    try { throw_from_unbraced_branch(true); }
+    catch (...) { caught_branch_exception = true; }
+    assert(caught_branch_exception);
+    Empty empty_objects[4];
+    Empty* empty_pointer = empty_objects;
+    assert(++empty_pointer == empty_objects + 1);
+    empty_pointer += 2;
+    assert(empty_pointer - empty_objects == 3);
+    assert(--empty_pointer == empty_objects + 2);
+    AlignedEmpty aligned_objects[4];
+    AlignedEmpty* aligned_pointer = aligned_objects;
+    assert(++aligned_pointer == &aligned_objects[1]);
+    aligned_pointer += 2;
+    assert(aligned_pointer - aligned_objects == 3);
+    assert(reinterpret_cast<char*>(aligned_pointer)
+           - reinterpret_cast<char*>(aligned_objects) == 3 * sizeof(AlignedEmpty));
     assert(global_values.size() == 2);
     assert(global_values.begin()[0] == 9);
     assert(global_values.begin()[1] == 12);

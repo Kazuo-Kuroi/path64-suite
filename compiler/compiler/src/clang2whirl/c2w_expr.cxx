@@ -407,10 +407,13 @@ WhirlExprBuilder::ConvertArraySubscriptExpr(const ArraySubscriptExpr *expr) {
     // generate wn0 + wn2 * scale
     WN *ofst;
     TYPE_ID rtyp = WN_rtype(wn2);
+    UINT64 element_size = TY_size(obj_ty);
+    if (_builder->Lang_CPP() && expr->getType()->isRecordType())
+      element_size = _builder->Context()->getTypeSizeInChars(expr->getType()).getQuantity();
     if (WN_operator(wn2) == OPR_INTCONST)
-      ofst = WN_Intconst(rtyp, WN_const_val(wn2) * TY_size(obj_ty));
+      ofst = WN_Intconst(rtyp, WN_const_val(wn2) * element_size);
     else
-      ofst = WN_Mpy(rtyp, wn2, WN_Intconst(rtyp, TY_size(obj_ty)));
+      ofst = WN_Mpy(rtyp, wn2, WN_Intconst(rtyp, element_size));
     WN* ret = WN_Add(Pointer_Mtype, wn0, ofst);
     Result r = Result::nwNode(ret, ret_ty);
     r.SetArray();
@@ -473,6 +476,8 @@ WhirlExprBuilder::ConvertArraySubscriptExpr(const ArraySubscriptExpr *expr) {
 
   TY_IDX ety = TY_etype(obj_ty);
   WN_element_size(array_wn) = TY_size(ety);
+  if (_builder->Lang_CPP() && expr->getType()->isRecordType())
+    WN_element_size(array_wn) = _builder->Context()->getTypeSizeInChars(expr->getType()).getQuantity();
   if (TY_align(obj_ty) < TY_align(ety))
     Set_TY_align(ety, TY_align(obj_ty));
 
@@ -738,9 +743,24 @@ Vla_pointee_size(WhirlBuilder *builder, QualType t1, QualType t2) {
 
 // generate wn for BO_Add/BO_Sub/BO_AddAssign/BO_SubAssign
 // (vla_size: see Vla_pointee_size)
+// WHIRL may give an empty class size zero for base layout. Pointer
+// arithmetic needs Clang's complete-object size, including explicit alignment.
+static UINT64
+Cxx_pointee_size(WhirlBuilder *builder, QualType lhs, QualType rhs) {
+  if (!builder->Lang_CPP())
+    return 0;
+  QualType pointer = lhs->isPointerType() ? lhs : rhs;
+  if (!pointer->isPointerType())
+    return 0;
+  QualType object = pointer->getPointeeType();
+  if (!object->isRecordType() || object->isIncompleteType())
+    return 0;
+  return builder->Context()->getTypeSizeInChars(object).getQuantity();
+}
+
 static WN *
 Gen_wn_for_add_and_sub(BinaryOperatorKind opcode, TY_IDX ty_idx, TY_IDX lhs_ty, TY_IDX rhs_ty,
-                       WN *lhs, WN *rhs, WN *vla_size = NULL) {
+                       WN *lhs, WN *rhs, WN *vla_size, UINT64 object_size) {
   Is_True((lhs != NULL && rhs != NULL),
           ("WN for Gen_wn_for_add_and_sub can not be NULL"));
   Is_True(ty_idx != (TY_IDX)0 && lhs_ty != (TY_IDX)0 && rhs_ty != (TY_IDX)0,
@@ -767,11 +787,14 @@ Gen_wn_for_add_and_sub(BinaryOperatorKind opcode, TY_IDX ty_idx, TY_IDX lhs_ty, 
       return WN_Div(mtyp, diff, vla_size);
     Is_True(TY_IDX_index(ty) == TY_IDX_index(TY_pointed(rhs_ty)),
             ("should point to the same type"));
-    // don't generate DIV for void ty
-    if (TY_size(ty) == 0)
+    UINT64 element_size = TY_size(ty);
+    if (object_size)
+      element_size = object_size;
+    // GNU void-pointer arithmetic uses a byte stride.
+    if (element_size <= 1)
       return diff;
 
-    WN *size = WN_Intconst(mtyp, TY_size(ty));
+    WN *size = WN_Intconst(mtyp, element_size);
     return WN_Div(mtyp, diff, size);
   }
 
@@ -794,7 +817,11 @@ Gen_wn_for_add_and_sub(BinaryOperatorKind opcode, TY_IDX ty_idx, TY_IDX lhs_ty, 
 
     TY_IDX pointed_ty = TY_pointed(ty_idx);
     // a fix for void pointed type: such as: (void *)c + 4
+    // Empty C++ objects occupy at least their alignment even when the
+    // layout TY has size zero for empty-base optimization.
     UINT64 ty_size = TY_mtype(pointed_ty) == MTYPE_V ? 1 : TY_size(pointed_ty);
+    if (object_size)
+      ty_size = object_size;
     if (vla_size) {
       if (MTYPE_byte_size(WN_rtype(adjust)) < MTYPE_byte_size(WN_rtype(base)))
         adjust = WN_Cvt(WN_rtype(adjust),
@@ -1218,7 +1245,8 @@ WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
       Update_pointee_ty(rhs_type, rhs_ty);
       ret = Gen_wn_for_add_and_sub(opcode, ty_idx, lhs_ty,
                                    rhs_ty, lhs, rhs,
-                                   Vla_pointee_size(_builder, lhs_type, rhs_type));
+                                   Vla_pointee_size(_builder, lhs_type, rhs_type),
+                                   Cxx_pointee_size(_builder, lhs_type, rhs_type));
       break;
     }
     case clang::BO_Mul:
@@ -1762,6 +1790,8 @@ WhirlExprBuilder::ConvertCompoundAssignOperator(const CompoundAssignOperator *ex
                                 rhs_ty, cvt_lhs, rhs,
                                 Vla_pointee_size(_builder,
                                                  expr->getLHS()->getType(),
+                                                 expr->getRHS()->getType()),
+                                Cxx_pointee_size(_builder, expr->getLHS()->getType(),
                                                  expr->getRHS()->getType()));
     break;
   }
@@ -5533,7 +5563,10 @@ WhirlExprBuilder::ConvertPrePostIncDec(
       else {
         Is_True(!type->isFunctionType(), ("func ptr ++?"));
         TY_IDX ptr_ty = _builder->TB().ConvertType(ptree);
-        one = WN_Intconst(rtype, TY_size(ptr_ty));
+        UINT64 element_size = TY_size(ptr_ty);
+        if (_builder->Lang_CPP() && ptree->isRecordType())
+          element_size = _builder->Context()->getTypeSizeInChars(ptree).getQuantity();
+        one = WN_Intconst(rtype, element_size);
       }
     }
     else {

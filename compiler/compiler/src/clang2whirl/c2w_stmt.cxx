@@ -1341,14 +1341,9 @@ void WhirlStmtBuilder::SetEHRegionForCall(WN *blk, WN *wn) {
     while (node != NULL)
     {
       WN *next = WN_next(node);
-      WN *call_wn = NULL;
-      if ((call_wn = FindCallWn(node)) &&
-           Check_wn_from_call_region(call_wn)) {
-        call_wn = Setup_eh_region(WN_COPY_Tree(node), GetSrcPos(),
-                                  false/* for_unwinding */);
-        WN_INSERT_BlockLast(blk, call_wn);
-      } else
-        WN_INSERT_BlockLast(blk, node);
+      // Inspect every statement: an earlier nonthrowing constructor must
+      // not hide a later throwing call in the same branch.
+      SetEHRegionForCall(blk, node);
       node = next;
     }
   } else {
@@ -1356,6 +1351,12 @@ void WhirlStmtBuilder::SetEHRegionForCall(WN *blk, WN *wn) {
     INT i;
     for (i = 0; i < WN_kid_count(wn); i++) {
       WN *kid = WN_kid(wn, i);
+      if (WN_operator(kid) == OPR_BLOCK) {
+        WN *new_block = WN_CreateBlock();
+        SetEHRegionForCall(new_block, kid);
+        WN_kid(wn, i) = new_block;
+        continue;
+      }
       WN *call_wn = NULL;
       // avoid double set eh region
       if ((call_wn = FindCallWn(kid)) &&
@@ -2614,6 +2615,7 @@ WN *WhirlStmtBuilder::ConvertLoopStmt(const _T *stmt) {
 
   // handle body
   const Stmt *body_stmt = stmt->getBody();
+  const size_t body_cleanup_depth = dtor_for_copy_ctor_stack.size();
   WN *body_block = WhirlBlockUtil::nwBlock();
   if (body_stmt) {
     WN *body_wn = ConvertStmt(body_stmt);
@@ -2623,12 +2625,16 @@ WN *WhirlStmtBuilder::ConvertLoopStmt(const _T *stmt) {
     }
   }
 
+  // An unbraced body is still a full expression on each iteration.
+  pop_dtor_for_copy_ctor_stack(body_block, QualType(), body_cleanup_depth);
+
   // handle inc for for-loop
   WN *inc_block = NULL;
   if (stmt->getStmtClass() == Stmt::ForStmtClass) {
     const ForStmt *for_stmt = cast<ForStmt>(stmt);
     if (for_stmt->getInc()) {
       inc_block = WhirlBlockUtil::nwBlock();
+      const size_t inc_cleanup_depth = dtor_for_copy_ctor_stack.size();
       WN *inc_wn = ConvertStmt(for_stmt->getInc());
       WhirlBlockUtil::popCurrentBlock();
       if (inc_wn) {
@@ -2638,6 +2644,7 @@ WN *WhirlStmtBuilder::ConvertLoopStmt(const _T *stmt) {
         WN_Set_Linenum(inc_block, spos);
         WN_INSERT_BlockLast(inc_block, inc_wn);
       }
+      pop_dtor_for_copy_ctor_stack(inc_block, QualType(), inc_cleanup_depth);
     }
   }
 
