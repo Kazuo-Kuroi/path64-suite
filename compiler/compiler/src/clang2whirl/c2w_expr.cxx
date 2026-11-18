@@ -1394,6 +1394,10 @@ WhirlExprBuilder::SetCallParm(const clang::CallExpr *expr, WN *wn, int &start_of
       else {
         obj_st = Create_tmp_sym(arg_ty_idx, ".opobj", GetSrcPos());
         WN *val = r.GetRValue();
+        // A derived-to-base cast of a prvalue already denotes the base
+        // subobject's address; copy its value into the operator temporary.
+        if (TY_kind(r.Ty()) == KIND_POINTER && !args->getType()->isPointerType())
+          val = WN_Iload(TY_mtype(arg_ty_idx), 0, arg_ty_idx, val);
         WN *stid = WN_Stid(TY_mtype(arg_ty_idx), 0, obj_st, arg_ty_idx, val);
         WN_Set_Linenum(stid, GetSrcPos());
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
@@ -1580,6 +1584,14 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
     WN *impl_node = impl_obj->getType()->isPointerType()
                         ? r.GetRValue() : r.GetLValue();
     TY_IDX ty_idx = _builder->TB().ConvertType(impl_obj->getType());
+    if (WN_rtype(impl_node) == MTYPE_M) {
+      // A member call can use a record returned in registers as its object.
+      // Materialize that value so the implicit this argument is an address.
+      WN *store = WGEN_StidTemp(ty_idx, impl_node, ".member_object");
+      WN_Set_Linenum(store, GetSrcPos());
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), store);
+      impl_node = WN_Lda(Pointer_Mtype, 0, WN_st(store));
+    }
     if (TY_kind(ty_idx) != KIND_POINTER) {
       Is_True(TY_kind(ty_idx) == KIND_STRUCT, ("ty is not struct"));
       ty_idx = Make_Pointer_Type(ty_idx);

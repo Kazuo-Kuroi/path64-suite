@@ -16,6 +16,21 @@ struct HeapObject {
     }
 };
 
+struct ReturnedObject {
+    int* pointer;
+    unsigned index;
+    explicit operator bool() const { return pointer && *pointer == int(index); }
+    bool operator==(const ReturnedObject& rhs) const {
+        return pointer == rhs.pointer && index == rhs.index;
+    }
+};
+ReturnedObject return_object(int* p) { return ReturnedObject{p, 7}; }
+struct ObjectPrefix { long prefix; };
+struct ReturnedDerived : ObjectPrefix, ReturnedObject {
+    explicit ReturnedDerived(int* p) : ObjectPrefix{12}, ReturnedObject{p, 7} { }
+};
+ReturnedDerived return_derived(int* p) { return ReturnedDerived(p); }
+
 struct Empty { };
 struct alignas(16) AlignedEmpty { };
 
@@ -155,6 +170,9 @@ int main() {
     try { throw_from_unbraced_branch(true); }
     catch (...) { caught_branch_exception = true; }
     assert(caught_branch_exception);
+    int returned_value = 7;
+    assert(bool(return_object(&returned_value)));
+    assert(return_derived(&returned_value) == return_derived(&returned_value));
     Empty empty_objects[4];
     Empty* empty_pointer = empty_objects;
     assert(++empty_pointer == empty_objects + 1);
