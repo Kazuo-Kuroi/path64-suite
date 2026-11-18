@@ -163,7 +163,16 @@ public:
 #endif
 
     // 21.3.1, p2
+#ifdef _RWSTD_CXX11
+    // A member template remains available with the C++98 extern instantiation.
+    template <class _Dummy = void>
+    basic_string ()
+        : allocator_type (), _C_data (_C_nullref ()->data ()) { }
+
+    explicit basic_string (const allocator_type &__alloc)
+#else
     explicit basic_string (const allocator_type &__alloc = allocator_type ())
+#endif
         : allocator_type (__alloc), _C_data (_C_nullref ()->data ()) { }
 
     // lwg issue #42

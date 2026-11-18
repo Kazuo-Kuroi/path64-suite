@@ -169,6 +169,11 @@ template <class _Tp, size_t _Np> struct is_array<_Tp[_Np]> : true_type { };
 template <class _Tp> struct is_pointer
     : __rw_tt::__is_pointer<typename remove_cv<_Tp>::type> { };
 
+#if __cplusplus >= 201402L
+template <class _Tp> struct is_null_pointer
+    : is_same<typename remove_cv<_Tp>::type, decltype (nullptr)> { };
+#endif
+
 template <class _Tp> struct is_lvalue_reference : false_type { };
 template <class _Tp> struct is_lvalue_reference<_Tp&> : true_type { };
 template <class _Tp> struct is_rvalue_reference : false_type { };
@@ -503,7 +508,7 @@ private:
 public:
     typedef typename conditional<
         is_array<_Up>::value,
-        typename remove_extent<_Up>::type*,
+        typename add_pointer<typename remove_extent<_Up>::type>::type,
         typename conditional<is_function<_Up>::value,
                              typename add_pointer<_Up>::type,
                              typename remove_cv<_Up>::type>::type>::type type;

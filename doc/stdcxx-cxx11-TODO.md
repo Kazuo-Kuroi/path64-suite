@@ -73,16 +73,21 @@ with the same stdcxx headers and runtime libraries.
   end's C++ probes and rebuild `libstl`. Update the numbers here and in
   `doc/stdcxx-cxx11.md`.
 
-## Phase 1 leftovers (library)
+## Phase 1 status (library)
 
 Measured with C++11 at `-O0`; "host" means with `--host`.
 The affected tuple, functional, smart-pointer and allocator directories pass
-285/287 tests in C++11 and 296/298 in C++14 at both `-O0` and `-O2`.
-The additional compiler lifetime regression passes at both levels.
-The two remaining failures are the stream construction ABI issue and
-`PR31384` below. Host Clang passes 286/287 C++11 tests.
+286/287 tests in C++11 and 297/298 in C++14 at both `-O0` and `-O2`.
+The compiler lifetime and virtual-inheritance regressions pass at both levels.
+The remaining failure is the libc++ tuple extension `PR31384` below.
+Host Clang passes 286/287 C++11 tests.
 The shared and static C++98 library rebuilds pass, as do all 11 C++98/C++03
 language probes at both optimization levels.
+
+Expanded validation includes traits, utility, pointer traits, array and both
+compiler regressions. On x86-64 it passes 488/489 tests in C++11 and 503/504
+in C++14 at each optimization level, with one expected Clang-4 failure
+excluded from each denominator. `PR31384` is the sole remaining run failure.
 
 ### `<type_traits>` — 123/123 (+1 XFAIL)
 - [x] (Codex) **`result_of` with a `reference_wrapper` object.** For example,
@@ -92,9 +97,18 @@ language probes at both optimization levels.
 - [x] (Codex) **`is_swappable_include_order.pass.cpp`.** Swap detection
   and algorithms handle nested arrays when `<algorithm>` comes first.
 
+- [x] (Codex) **C++14 category traits and qualified function decay.**
+  `is_null_pointer` handles cv qualification, and `decay` avoids forming
+  pointers to cv-qualified function types. Traits pass 125/125 in C++14,
+  alongside the expected Clang-4 failure.
+
 ### `<utility>` — 41/41
 - [x] (Codex) **`get` on `const pair&&`.** Test:
   `pairs/pair.astuple/get_const_rv.pass.cpp`.
+- [x] (Codex) **C++14 `exchange` with an empty braced value.** String default
+  construction accepts copy-list initialization through a header definition
+  available alongside the C++98 extern instantiation. Utility passes 43/43
+  in C++14.
 
 ### `<tuple>` — 54/55
 - [x] (Codex) **`get` on `const tuple&&`.** Test: `tuple.elem/get_const_rv`.
@@ -112,9 +126,11 @@ language probes at both optimization levels.
   `PR22806_constrain_tuple_like_ctor` pass.
 - [x] (Codex) **Constant-expression assignment to `ignore`.** The C++14
   `tuple.general/ignore` test passes.
-- [ ] **`PR31384.pass.cpp`** exercises a libc++ tuple-like constructor
-  extension. Its derived-tuple conversion-operator preference differs here
-  with both psclang and host Clang.
+- [x] (Codex) **`PR31384.pass.cpp` reviewed.** This test exercises a libc++
+  tuple-like constructor extension. Its derived-tuple conversion-operator
+  preference differs here with both psclang and host Clang. The system C++
+  library also fails at the same assertion. Its result remains visible in
+  the test counts.
 
 ### `<functional>` — 88/88
 - [x] (Codex) **Bitwise functors.** Added typed `bit_and`, `bit_or`, and
@@ -142,7 +158,7 @@ language probes at both optimization levels.
   logical and bitwise functors support `<void>` and the default `<>`
   forms. The typed operators also support constant evaluation in C++14.
 
-### `<memory>` — util.smartptr 83/84 (host 84), smartptr 39/39 (host 39)
+### `<memory>` — util.smartptr 84/84 (host 84), smartptr 39/39 (host 39)
 - [x] (Codex) **Fancy pointers.** The control blocks have to work with
   allocators whose `pointer` is a class (`min_pointer`): convert with
   `pointer_traits`, keep raw pointers. Tests: `shared_ptr` constructors
@@ -155,7 +171,8 @@ language probes at both optimization levels.
   * Non-copyable deleters must work.
   * The constructor constraints need fixing (`pointer_deleter`).
   * `noexcept` and the converting assignment in `move_convert*`.
-- [x] (Codex) **`shared_ptr(unique_ptr&&)`** fails at run time.
+- [x] (Codex) **`shared_ptr(unique_ptr&&)`.** Failed control-block allocation
+  preserves the unique owner and its deleter.
 - [x] (Codex) **`enabled_hash` checks.** The missing specializations were
   signed and unsigned `__int128`. `hash<bool>` already existed.
 - [x] (Codex) **`shared_ptr` atomics** (`atomic_load`, `atomic_store`,
@@ -188,22 +205,25 @@ test without the library before fixing it in clang2whirl.
 - [x] (Codex) **`dynamic_pointer_cast.pass.cpp`.** Class-valued conditional
   expressions construct into one shared destination. Inactive alternatives
   no longer leave uninitialized objects on the destructor stack.
-- [ ] **`util.smartptr.shared.io/io.pass.cpp`.** `ostringstream` construction
-  calls an imported base constructor with virtual bases without its ABI VTT
-  parameter. The failure also occurs without `shared_ptr`.
+- [x] (Codex) **`util.smartptr.shared.io/io.pass.cpp`.** Base constructors and
+  destructors receive ABI VTT arguments. Construction vtables, virtual-base
+  casts and hidden nontrivial return values interoperate with the runtime.
+  Exact stream output and mixed GCC/psclang object files are also checked.
 - [x] (Codex) **`unique.ptr.ctor/move.pass.cpp`.** Guarded local statics
   register their object address with `__cxa_atexit`, and register destruction
   before publishing completed initialization.
-- [ ] **`<stdatomic.h>` and `std::atomic`:** the `__c11_atomic_*` and
-  `__atomic_*` builtins (`c2w_builtin.cxx`). Implementing them makes
-  `<atomic>` much simpler.
 - [x] (Codex) **Static-storage `initializer_list`.** Namespace-scope lists
   receive runtime initialization for their backing array and extent.
   `compiler-lifetime.pass.cpp` covers this alongside object lifetime fixes.
-- [ ] **`vector<bool>` iterator operations.** A probe that inserts two
-  bits and exercises const iterators hits the field-access assertion in
-  `c2w_expr.cxx`. The same probe fails with the C++98 iterator members
-  on a const vector.
+- [x] (Codex) **`vector<bool>` iterator operations.** Base casts now return
+  an address with the target type. Const forward and reverse iterator
+  operations pass in C++11, and the C++98 iterator probe also passes.
+- [x] (Codex) **Template statics across translation units.** Static member
+  definitions instantiate through Sema. Inline-function local statics and
+  their guards coalesce across object files, including the shared-pointer
+  atomic lock pool. Inline function definitions use weak external linkage.
+  A four-thread probe also covers cross-file stores and reentrant deleters.
+
 
 ## Phase 2: containers
 
@@ -292,7 +312,7 @@ across a library boundary. Write the decision here before starting.
 | `<ratio>` | `utilities/ratio` (13) | header-only, easy start |
 | `<chrono>` | `utilities/time` (269) | clocks via `clock_gettime` (inline) |
 | `<system_error>` | `diagnostics/syserr` (57) | categories as inline function-local statics |
-| `<atomic>` | `atomics` (52) | `__sync` for now (psclang) |
+| `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
 | `<random>` | `numerics/rand` (493) | engines and distributions, header-only |

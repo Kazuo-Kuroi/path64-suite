@@ -27,16 +27,18 @@ the reference for the design. Its test suite is the conformance test.
 | Header | C++11/14 content | libc++ 8 tests (C++11, -O0) |
 |---|---|---|
 | `<initializer_list>` | new | (used throughout) |
-| `<type_traits>` | all of C++11 and the C++14 `_t` aliases, on Clang's builtins | meta: 123/123 (+1 XFAIL for clang-4) |
+| `<type_traits>` | all of C++11, C++14 `is_null_pointer` and `_t` aliases, on Clang's builtins | meta: 123/123 (+1 XFAIL for clang-4) |
 | `<utility>` | `move`, `forward`, `move_if_noexcept`, `swap` (move, arrays), `declval`, C++11 `pair` (N4387 constructors, piecewise, `get`), `exchange`, `integer_sequence` | utility: 41/41 |
 | `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 54/55 |
 | `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums), typed bitwise and C++14 transparent functors | function.objects: 88/88 |
-| `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 83/84; allocator.traits: 21/21; pointer.traits: 9/9 |
+| `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 84/84; allocator.traits: 21/21; pointer.traits: 9/9 |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 
-Most of the remaining failures need the container work of the next phase,
-because libc++'s test support headers use C++11 containers.
+The libc++ tuple-extension test `PR31384` differs from stdcxx and the
+system C++ library. The remaining C++11 library work includes
+container extensions, algorithms, numeric utilities and the new headers
+listed in the TODO.
 
 **What's left:** `doc/stdcxx-cxx11-TODO.md`, item by item, with the
 test tools in `compiler/stdcxx/tests/cxx11`.
@@ -87,10 +89,27 @@ C++98 code as well:
 * **Namespace-scope initializer lists** receive runtime initialization.
 * **Constructor exception cleanup** preserves argument temporary ownership.
 * **Static-local destruction** registers the object address with `__cxa_atexit`.
+* **Virtual-base construction** passes VTT arguments and initializes vptrs
+  from construction vtables. Base casts use the active virtual-base offsets.
+* **Nontrivial return values** use the hidden return pointer convention.
+* **Out-of-line methods, vtables and thunks** export their ABI entry points.
+* **Template static members** instantiate definitions through Sema.
+* **Inline-function local statics and guards** coalesce across object files,
+  so shared-pointer atomic operations share one lock pool. Inline function
+  definitions also use weak external linkage.
 
 `compiler/stdcxx/tests/cxx11/compiler-lifetime.pass.cpp` covers the reduced
 lifetime, conditional construction, pointer call and enum regressions.
+`compiler-virtual-base.pass.cpp` covers diamond inheritance, construction
+dispatch, null and reference base casts, bit iterators and exact stream output.
 
+
+Expanded x86-64 validation passes 488/489 tests in C++11 and 503/504 in
+C++14 at both `-O0` and `-O2`. The remaining run failure is the libc++
+tuple extension described above. Mixed GCC/psclang object files verify
+nontrivial return values, value parameters, virtual-base construction and
+thunks. Cross-file static initialization and threaded shared-pointer atomic
+operations also pass.
 
 Checking method: the same test is built with psclang and with the host
 Clang over the same stdcxx headers and runtime. When the host build is
