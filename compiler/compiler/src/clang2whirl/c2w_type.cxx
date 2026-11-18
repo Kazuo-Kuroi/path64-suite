@@ -29,6 +29,7 @@
 */
 
 #include <clang/AST/VTableBuilder.h>
+#include <clang/AST/VTTBuilder.h>
 #include "c2w_type.h"
 #include "c2w_builder.h"
 #include "c2w_tracer.h"
@@ -82,9 +83,8 @@ TY_IDX VTableTypeConverter::Convert(const CXXRecordDecl *decl) {
 
 TY_IDX VTTTypeConverter::Convert(const CXXRecordDecl *decl) {
   ASTContext *ast_c = B()->Context();
-  ItaniumVTableContext *vtable_c = cast<ItaniumVTableContext>(ast_c->getVTableContext());
-  const VTableLayout &layout = vtable_c->getVTableLayout(decl);
-  size_t size = layout.getNumVTables();
+  VTTBuilder builder(*ast_c, decl, true);
+  size_t size = builder.getVTTComponents().size();
   TY_IDX pointer_type = Make_Pointer_Type(MTYPE_To_TY(MTYPE_I8));
 
   TY_IDX ty_idx;
@@ -102,7 +102,7 @@ TY_IDX VTTTypeConverter::Convert(const CXXRecordDecl *decl) {
   Set_ARB_const_lbnd (arb);
   Set_ARB_lbnd_val (arb, 0);
   Set_ARB_const_ubnd (arb);
-  Set_ARB_ubnd_val (arb, size);
+  Set_ARB_ubnd_val (arb, size - 1);
   Set_TY_arb (ty, arb);
   return ty_idx;
 }
@@ -696,8 +696,10 @@ WhirlTypeBuilder::ConvertRecordType(const RecordType *type, BOOL incomplete, TY_
   ASTContext *ast_c = _builder->Context();
   const ASTRecordLayout &layout = ast_c->getASTRecordLayout(decl);
   const CXXRecordDecl *cxx_decl = dyn_cast<CXXRecordDecl>(decl);
-  if (cxx_decl && IsIndirectArgument(QualType(type, 0)))
+  if (cxx_decl && IsIndirectArgument(QualType(type, 0))) {
     Set_TY_return_in_mem(ty_idx);
+    Set_TY_is_non_pod(ty_idx);
+  }
   BOOL is_cstyle = (cxx_decl == NULL ||
                     cxx_decl->isPOD() || cxx_decl->isCLike());
   BOOL has_vptr = FALSE;

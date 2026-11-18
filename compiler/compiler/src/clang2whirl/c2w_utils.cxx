@@ -360,6 +360,13 @@ Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
   TY_IDX guard_ty = MTYPE_To_TY(MTYPE_I8);
   ST_Init(guard_var_st, guard_str_idx, CLASS_VAR,
           SCLASS_PSTATIC, EXPORT_LOCAL, guard_ty);
+  if (object_st && ST_is_weak_symbol(ST_ptr(object_st)) &&
+      ST_export(ST_ptr(object_st)) != EXPORT_LOCAL) {
+    Set_ST_sclass(guard_var_st, SCLASS_UGLOBAL);
+    Set_ST_export(guard_var_st, ST_export(ST_ptr(object_st)));
+    Set_ST_is_weak_symbol(guard_var_st);
+    Set_ST_is_odr(guard_var_st);
+  }
   Set_ST_is_initialized(guard_var_st);
   Set_ST_Srcpos(*guard_var_st, spos);
   Set_ST_init_value_zero(guard_var_st);

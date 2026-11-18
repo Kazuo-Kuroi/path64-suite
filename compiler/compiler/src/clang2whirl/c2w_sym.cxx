@@ -139,6 +139,17 @@ WhirlSymBuilder::VisibilityExport(const NamedDecl *decl, bool definition) {
   }
 }
 
+void
+WhirlSymBuilder::SetFunctionDefinitionLinkage(ST_IDX symbol, const FunctionDecl *decl) {
+  if (!_builder->Lang_CPP())
+    return;
+  GVALinkage linkage = _builder->Context()->GetGVALinkageForFunction(decl);
+  if (linkage == GVA_DiscardableODR || linkage == GVA_StrongODR) {
+    Set_ST_is_weak_symbol(ST_ptr(symbol));
+    Set_ST_export(ST_ptr(symbol), VisibilityExport(decl, true));
+  }
+}
+
 bool
 WhirlSymBuilder::IsCommonVar(const VarDecl *decl) {
   // Clang's isVarDeclStrongDefinition, for C (C++ has no tentative
@@ -160,7 +171,7 @@ WhirlSymBuilder::IsCommonVar(const VarDecl *decl) {
 
 ST_EXPORT
 WhirlSymBuilder::ExportClass(const FunctionDecl *decl) {
-  if (decl->isGlobal()) {
+  if (decl->isExternallyVisible()) {
     // C++: inline functions, functions defined in class and implicit
     // instantiations are INTERNAL. (In C an inline function with
     // external linkage is an ordinary external definition, or not
@@ -325,11 +336,15 @@ WhirlSymBuilder::ConvertParmVar(const ParmVarDecl *decl) {
 
 ST_IDX
 WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
+  GVALinkage linkage = _builder->Context()->GetGVALinkageForVariable(decl);
+  const bool odr = linkage == GVA_DiscardableODR || linkage == GVA_StrongODR;
   ST_SCLASS sclass;
   ST_EXPORT eclass = EXPORT_PREEMPTIBLE;
   SYMTAB_IDX symtab = _builder->Scope().CurrentSymtab();
   STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, getDeclName(decl));
-  if (decl->hasExternalStorage()) {
+  if (decl->hasExternalStorage() ||
+      (decl->isStaticDataMember() && !decl->isThisDeclarationADefinition() &&
+       !decl->getDefinition())) {
     sclass = SCLASS_EXTERN;
     symtab = GLOBAL_SYMTAB;
   } else {
@@ -337,8 +352,10 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
       eclass = EXPORT_LOCAL;
       symtab = CURRENT_SYMTAB;
       if (decl->isStaticLocal()) {
-        sclass = SCLASS_PSTATIC;
-        eclass = EXPORT_LOCAL;
+        sclass = odr ? SCLASS_UGLOBAL : SCLASS_PSTATIC;
+        eclass = odr ? VisibilityExport(decl, true) : EXPORT_LOCAL;
+        if (odr)
+          symtab = GLOBAL_SYMTAB;
       } else
         sclass = SCLASS_AUTO;
     } else {
@@ -367,13 +384,37 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
   ST_Init(st, str_idx, CLASS_VAR, sclass, eclass, ty_idx);
   if (decl->hasAttr<WeakAttr>() || decl->isWeakImported())
     Set_ST_is_weak_symbol(st);
-  GVALinkage linkage = _builder->Context()->GetGVALinkageForVariable(decl);
-  if (eclass != EXPORT_LOCAL &&
-      (linkage == GVA_DiscardableODR || linkage == GVA_StrongODR)) {
+  if (odr && eclass != EXPORT_LOCAL) {
+    Set_ST_is_weak_symbol(st);
     Set_ST_is_odr(st);
   }
   _builder->DstBuilder().CreateDstForVar(decl, ST_st_idx(st));
   return ST_st_idx(st);
+}
+
+static void AddVTTParameter(ST_IDX symbol) {
+  TY_IDX original = ST_pu_type(symbol);
+  std::vector<TY_IDX> parameters;
+  for (TYLIST_IDX index = TY_tylist(original); TYLIST_type(Tylist_Table[index]); ++index)
+    parameters.push_back(TYLIST_type(Tylist_Table[index]));
+  TY_IDX type;
+  TY &copy = New_TY(type);
+  copy = Ty_Table[original];
+  TYLIST_IDX first = 0;
+  for (unsigned i = 0; i < parameters.size(); ++i) {
+    TYLIST_IDX index;
+    Set_TYLIST_type(New_TYLIST(index), parameters[i]);
+    if (!i)
+      first = index;
+    if (i == 1) {
+      TY_IDX pointer = Make_Pointer_Type(MTYPE_To_TY(MTYPE_V));
+      Set_TYLIST_type(New_TYLIST(index), Make_Pointer_Type(pointer));
+    }
+  }
+  TYLIST_IDX end;
+  Set_TYLIST_type(New_TYLIST(end), TY_IDX_ZERO);
+  Set_TY_tylist(copy, first);
+  Set_PU_prototype(Pu_Table[ST_pu(ST_ptr(symbol))], type);
 }
 
 ST_IDX
@@ -382,14 +423,20 @@ WhirlSymBuilder::ConvertCXXConstructor(const CXXConstructorDecl *decl, CXXCtorTy
   STR_IDX name = _builder->DeclBuilder().ConvertName(decl, ctor);
   FUNC_KIND kind = (ctor == CXXCtorType::Ctor_Complete)
                      ? FUNC_CTOR : FUNC_NORMAL;
-  return ConvertFunction(cast<FunctionDecl>(decl), name, kind);
+  ST_IDX symbol = ConvertFunction(cast<FunctionDecl>(decl), name, kind);
+  if (ctor == CXXCtorType::Ctor_Base && decl->getParent()->getNumVBases())
+    AddVTTParameter(symbol);
+  return symbol;
 }
 
 ST_IDX
 WhirlSymBuilder::ConvertCXXDestructor(const CXXDestructorDecl *decl, CXXDtorType dtor) {
   TRACE_FUNC();
   STR_IDX name = _builder->DeclBuilder().ConvertName(decl, dtor);
-  return ConvertFunction(cast<FunctionDecl>(decl), name);
+  ST_IDX symbol = ConvertFunction(cast<FunctionDecl>(decl), name);
+  if (dtor == CXXDtorType::Dtor_Base && decl->getParent()->getNumVBases())
+    AddVTTParameter(symbol);
+  return symbol;
 }
 
 ST_IDX

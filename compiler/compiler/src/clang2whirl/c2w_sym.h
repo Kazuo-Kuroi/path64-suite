@@ -89,6 +89,8 @@ public:
   // only for definitions, explicit visibility for declarations too.
   ST_EXPORT VisibilityExport(const clang::NamedDecl *decl, bool definition);
 
+  void SetFunctionDefinitionLinkage(ST_IDX symbol, const clang::FunctionDecl *decl);
+
   // A C tentative definition that becomes a common symbol.
   bool IsCommonVar(const clang::VarDecl *decl);
 

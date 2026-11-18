@@ -29,6 +29,7 @@
 */
 
 #include <clang/AST/VTableBuilder.h>
+#include <clang/AST/VTTBuilder.h>
 #include "c2w_decl.h"
 #include "c2w_builder.h"
 #include "c2w_func.h"
@@ -812,6 +813,9 @@ void
 WhirlDeclBuilder::ConvertCXXConstructor(const CXXConstructorDecl *decl, CXXCtorType ctor) {
   TRACE_FUNC();
   ConvertFunction(GlobalDecl(decl, ctor));
+  if (ctor == CXXCtorType::Ctor_Complete && decl->doesThisDeclarationHaveABody() &&
+      decl->isExternallyVisible() && !decl->isInlined())
+    _builder->AddDeferredFunc(GlobalDecl(decl, CXXCtorType::Ctor_Base), true);
 }
 
 void
@@ -824,6 +828,12 @@ void
 WhirlDeclBuilder::ConvertCXXDestructor(const CXXDestructorDecl *decl, CXXDtorType dtor) {
   TRACE_FUNC();
   ConvertFunction(GlobalDecl(decl, dtor));
+  if (dtor == CXXDtorType::Dtor_Complete && decl->doesThisDeclarationHaveABody() &&
+      decl->isExternallyVisible() && !decl->isInlined()) {
+    _builder->AddDeferredFunc(GlobalDecl(decl, CXXDtorType::Dtor_Base), true);
+    if (decl->isVirtual())
+      _builder->AddDeferredFunc(GlobalDecl(decl, CXXDtorType::Dtor_Deleting), true);
+  }
 }
 
 void
@@ -863,7 +873,7 @@ WhirlDeclBuilder::ShouldEmitVTable(const clang::CXXRecordDecl *decl) {
     return TRUE;
 
   // vtable should be defined where the key function is defined
-  return kfunc->hasBody();
+  return _builder->GetFunctionDefinition(kfunc) != NULL;
 }
 
 INITV_IDX
@@ -948,6 +958,103 @@ WhirlDeclBuilder::GetVTableST(const clang::CXXRecordDecl *decl) {
     _builder->AddDeferredVTable(decl);
   }
   return sym_idx;
+}
+
+WN *
+WhirlDeclBuilder::GetVTTArgument(const CXXRecordDecl *base, INT64 offset) {
+  const CXXMethodDecl *method = cast<CXXMethodDecl>(_builder->Scope().CurrentDecl());
+  const CXXRecordDecl *record = method->getParent();
+  VTTBuilder layout(*_builder->Context(), record, true);
+  UINT64 index = 0;
+  if (base != record) {
+    auto position = layout.getSubVTTIndicies().find(
+        BaseSubobject(base, CharUnits::fromQuantity(offset)));
+    Is_True(position != layout.getSubVTTIndicies().end(), ("missing sub-VTT"));
+    index = position->second;
+  }
+  WN *pointer;
+  ST_IDX incoming = _builder->Scope().Get_vtt();
+  if (incoming)
+    pointer = WN_Ldid(Pointer_Mtype, 0, incoming, ST_type(incoming));
+  else {
+    ST *symbol = ST_ptr(GetVTTST(record));
+    Set_ST_addr_saved(symbol);
+    Set_ST_addr_passed(symbol);
+    pointer = WN_Lda(Pointer_Mtype, 0, symbol);
+  }
+  return WN_Add(Pointer_Mtype, pointer,
+                WN_Intconst(Pointer_Mtype, index * MTYPE_byte_size(Pointer_Mtype)));
+}
+
+ST_IDX
+WhirlDeclBuilder::GetVTTST(const CXXRecordDecl *decl) {
+  ST_IDX result = _builder->SB().VTTSC().Get(decl);
+  if (ST_is_initialized(ST_ptr(result)))
+    return result;
+  Set_ST_is_initialized(ST_ptr(result));
+
+  ASTContext &context = *_builder->Context();
+  VTTBuilder builder(context, decl, true);
+  ItaniumVTableContext *vtables =
+    cast<ItaniumVTableContext>(context.getVTableContext());
+  ItaniumMangleContext *mangler =
+    cast<ItaniumMangleContext>(_builder->MangleContext());
+  std::vector<ST_IDX> symbols;
+  std::vector<const VTableLayout *> layouts;
+  std::vector<std::unique_ptr<VTableLayout> > construction_layouts;
+  for (const VTTVTable &table : builder.getVTTVTables()) {
+    if (table.getBase() == decl && table.getBaseOffset().isZero()) {
+      symbols.push_back(GetVTableST(decl));
+      layouts.push_back(&vtables->getVTableLayout(decl));
+      continue;
+    }
+    construction_layouts.push_back(vtables->createConstructionVTableLayout(
+        table.getBase(), table.getBaseOffset(), table.isVirtual(), decl));
+    const VTableLayout &layout = *construction_layouts.back();
+    SmallString<256> name;
+    llvm::raw_svector_ostream output(name);
+    mangler->mangleCXXCtorVTable(decl, table.getBaseOffset().getQuantity(),
+                               table.getBase(), output);
+    TY_IDX type = Make_Array_Type(Pointer_Mtype, 1,
+                                  layout.vtable_components().size());
+    ST *symbol = New_ST(GLOBAL_SYMTAB);
+    ST_Init(symbol, Save_Str(output.str().str().c_str()), CLASS_VAR,
+            SCLASS_DGLOBAL, EXPORT_PREEMPTIBLE, type);
+    Set_ST_is_weak_symbol(symbol);
+    Set_ST_is_const_var(symbol);
+    Set_ST_is_initialized(symbol);
+    INITV_IDX block = New_INITV();
+    INITV_Init_Block(block, INITV_Next_Idx());
+    INITV_IDX last = 0;
+    unsigned thunk = 0;
+    for (unsigned i = 0; i < layout.vtable_components().size(); ++i) {
+      INITV_IDX component = ConvertVTableComponent(layout, i, thunk);
+      if (last)
+        Set_INITV_next(last, component);
+      last = component;
+    }
+    New_INITO(ST_st_idx(symbol), block);
+    symbols.push_back(ST_st_idx(symbol));
+    layouts.push_back(&layout);
+  }
+
+  INITV_IDX block = New_INITV();
+  INITV_Init_Block(block, INITV_Next_Idx());
+  INITV_IDX last = 0;
+  for (const VTTComponent &component : builder.getVTTComponents()) {
+    const VTableLayout &layout = *layouts[component.VTableIndex];
+    VTableLayout::AddressPointLocation address =
+      layout.getAddressPoint(component.VTableBase);
+    UINT64 index = layout.getVTableOffset(address.VTableIndex) + address.AddressPointIndex;
+    INITV_IDX value = New_INITV();
+    INITV_Init_Symoff(value, ST_ptr(symbols[component.VTableIndex]),
+                      index * MTYPE_byte_size(Pointer_Mtype));
+    if (last)
+      Set_INITV_next(last, value);
+    last = value;
+  }
+  New_INITO(result, block);
+  return result;
 }
 
 void
@@ -1578,7 +1685,8 @@ WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
 
   ST *st = ST_ptr(st_idx);
   // reset st_idx's sclass & eclass after redecllaration
-  if (ST_sclass(st) == SCLASS_EXTERN && !decl->hasExternalStorage()) {
+  if (ST_sclass(st) == SCLASS_EXTERN && !decl->hasExternalStorage() &&
+      (decl->isThisDeclarationADefinition() || decl->getDefinition())) {
     Set_ST_sclass(st, _builder->SB().IsCommonVar(decl) ? SCLASS_COMMON
                                                          : SCLASS_UGLOBAL);
     if (ST_export(st) != EXPORT_LOCAL)

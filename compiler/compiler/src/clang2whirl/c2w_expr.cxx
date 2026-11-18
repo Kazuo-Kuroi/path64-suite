@@ -3408,7 +3408,9 @@ WhirlExprBuilder::EmitCXXConstructCall(const CXXConstructorDecl *decl, Result de
 
   UINT num_args = decl->getNumParams();
   Is_True(args.size() >= num_args, ("args less than params"));
-  WN *call_wn = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, num_args + 1);
+  const bool has_vtt = ctor == CXXCtorType::Ctor_Base && decl->getParent()->getNumVBases();
+  const unsigned extra = has_vtt ? 2 : 1;
+  WN *call_wn = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, num_args + extra);
   WN_Set_Linenum(call_wn, GetSrcPos());
   WN_st_idx(call_wn) = st_idx;
   if (!_builder->DeclBuilder().Call_nothrow(gd.getDecl()))
@@ -3417,14 +3419,24 @@ WhirlExprBuilder::EmitCXXConstructCall(const CXXConstructorDecl *decl, Result de
   // set `this' param
   WN_kid0(call_wn) = WGEN_CreateParm(Pointer_Mtype, targ_wn, ty_ptr_idx);
 
+  if (has_vtt) {
+    UINT32 field = 0;
+    UINT64 offset = 0;
+    if (dest.FieldId())
+      get_fld_and_offset(ty_idx, dest.FieldId(), field, offset);
+    WN *vtt = _builder->DeclBuilder().GetVTTArgument(decl->getParent(), offset);
+    TY_IDX pointer = Make_Pointer_Type(MTYPE_To_TY(MTYPE_V));
+    WN_kid(call_wn, 1) = WGEN_CreateParm(Pointer_Mtype, vtt, Make_Pointer_Type(pointer));
+  }
+
   // set rest params
   for (UINT i = 0; i < num_args; ++i) {
     WN    *arg_wn = args[i].first;
     TY_IDX arg_ty = args[i].second;
-    WN_kid(call_wn, i + 1) = WGEN_CreateParm(WN_rtype(arg_wn), arg_wn,
+    WN_kid(call_wn, i + extra) = WGEN_CreateParm(WN_rtype(arg_wn), arg_wn,
                                              arg_ty);
   }
-  WN_set_kid_count(call_wn, num_args + 1);
+  WN_set_kid_count(call_wn, num_args + extra);
   WN_Set_Call_Default_Flags(call_wn);
 
   return call_wn;
@@ -4206,79 +4218,52 @@ WhirlExprBuilder::ConvertCastExpr(const CastExpr *expr, Result dest) {
   case CK_UncheckedDerivedToBase:
   case CK_DerivedToBase:
   {
-    bool is_virtual = false;
-    UINT32 field_id = 0;
-    CastExpr::path_const_iterator path_begin = expr->path_begin();
-    CastExpr::path_const_iterator path_end = expr->path_end();
-    Is_True(path_begin != path_end, ("path should not be empty"));
-
-    if ((*path_begin)->isVirtual()) {
-      is_virtual = true;
-      const QualType base_type = (*path_begin)->getType();
-      const CXXRecordDecl* base_decl = base_type->isPointerType()
-                                         ? base_type->getPointeeCXXRecordDecl()
-                                         : base_type->getAsCXXRecordDecl();
-      const QualType derived_type = sub->getType();
-      const CXXRecordDecl* derived_decl = derived_type->isPointerType()
-                                         ? derived_type->getPointeeCXXRecordDecl()
-                                         : derived_type->getAsCXXRecordDecl();
-      Is_True(base_decl != NULL && derived_decl != NULL,
-              ("base or derived is not cxx record"));
-      const CXXBaseSpecifier* spec = Find_vbase(base_decl, derived_decl);
-      Is_True(spec != NULL, ("not find the base spec"));
-      field_id += _builder->TB().GetFieldIDFromDecl((const Decl*)spec);
-      ++ path_begin;  // move to next path
+    QualType source_type = sub->getType();
+    const bool pointer_source = source_type->isPointerType();
+    if (pointer_source || source_type->isReferenceType())
+      source_type = source_type->getPointeeType();
+    const CXXRecordDecl *record = source_type->getAsCXXRecordDecl();
+    Is_True(record && expr->path_begin() != expr->path_end(), ("missing base cast path"));
+    Result source = ConvertExpr(sub);
+    WN *address = pointer_source ? source.GetRValue() : source.GetLValue();
+    if (WN_rtype(address) == MTYPE_M) {
+      TY_IDX object_type = _builder->TB().ConvertType(source_type);
+      WN *store = WGEN_StidTemp(object_type, address, ".base_object");
+      WN_Set_Linenum(store, spos);
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), store);
+      address = WN_Lda(Pointer_Mtype, 0, WN_st(store));
     }
-
-    for ( ; path_begin != path_end; ++ path_begin ) {
-      Is_True(!(*path_begin)->isVirtual(), ("should no virtual here"));
-      field_id += _builder->TB().GetFieldIDFromDecl((const Decl*)*path_begin);
+    TY_IDX source_pointer = Make_Pointer_Type(_builder->TB().ConvertType(source_type));
+    address = Handle_expr_for_copy(WhirlBlockUtil::getCurrentBlock(), address,
+                                   source_pointer, spos, ".base_cast");
+    WN *original = WN_COPY_Tree(address);
+    ItaniumVTableContext *vtables =
+      cast<ItaniumVTableContext>(_builder->Context()->getVTableContext());
+    TY_IDX word = MTYPE_To_TY(Pointer_Mtype);
+    for (auto position = expr->path_begin(); position != expr->path_end(); ++position) {
+      const CXXBaseSpecifier *base = *position;
+      const CXXRecordDecl *target = base->getType()->getAsCXXRecordDecl();
+      if (base->isVirtual()) {
+        WN *vptr = WN_Iload(Pointer_Mtype, 0, word, WN_COPY_Tree(address));
+        INT64 slot = vtables->getVirtualBaseOffsetOffset(record, target).getQuantity();
+        TYPE_ID offset_type = Mtype_TransferSign(MTYPE_I4, Pointer_Mtype);
+        WN *offset = WN_Iload(offset_type, slot, MTYPE_To_TY(offset_type), vptr);
+        address = WN_Add(Pointer_Mtype, address, offset);
+      } else {
+        INT64 offset = _builder->Context()->getASTRecordLayout(record)
+                         .getBaseClassOffset(target).getQuantity();
+        if (offset)
+          address = WN_Add(Pointer_Mtype, address, WN_Intconst(Pointer_Mtype, offset));
+      }
+      record = target;
     }
-
-    Result r = ConvertExpr(sub);
-    r.AddFieldId(field_id);  
-
-    Is_True(r.isSym() || r.isNode(), ("invalid return type"));
-    if (r.isSym())
-      return r;
-
-    WN *node = r.Node();
-    TY_IDX derived_ty = r.Ty();
-
-    // store OPR_COMMA to temp st
-    if (WN_operator(node) == OPR_COMMA) {
-      UINT32 fld_id = r.FieldId();
-      Is_True(WN_rtype(node) == Pointer_Mtype &&
-              TY_kind(derived_ty) == KIND_POINTER &&
-              TY_kind(TY_pointed(derived_ty)) == KIND_STRUCT,
-              ("not return M* for field access"));
-      Update_pointee_ty(sub->getType(), derived_ty);
-      ST *temp = Gen_Temp_Symbol(derived_ty, ".temp_save");
-      WN *stid = WN_Stid(TY_mtype(derived_ty), 0, temp, derived_ty, node);
-      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
-      WN_Set_Linenum(stid, spos);
-      node = WN_Ldid(TY_mtype(derived_ty), 0, temp, derived_ty);
-      r = Result::nwNode(node, derived_ty);
-      r.SetFieldId(fld_id);
+    if (pointer_source) {
+      WN *nonnull = WN_NE(Pointer_Mtype, original, WN_Intconst(Pointer_Mtype, 0));
+      address = WGEN_CreateCselect(Pointer_Mtype, nonnull, address,
+                                   WN_Intconst(Pointer_Mtype, 0));
     }
-
-    // for non-virtual base, just return LValue
-    if (!is_virtual) {
-      r.SetArrow();
-      node = r.GetLValue();
-      return Result::nwNode(node, derived_ty);
-    }
-
-    QualType derived_type = sub->getType().getCanonicalType();
-    if (derived_type->isReferenceType()) {
-      derived_type = derived_type->getAs<ReferenceType>()->getPointeeType();
-    } else if (derived_type->isPointerType()) {
-      derived_type = derived_type->getAs<PointerType>()->getPointeeType();
-    }
-    const CXXRecordDecl *derived = derived_type->getAsCXXRecordDecl();
-    // call-site adjustment 
-    node = EmitAdjustVirtualBase(r.GetRValue(), r.Ty(), derived);
-    return Result::nwNode(node, derived_ty);
+    TY_IDX target_pointer = Make_Pointer_Type(_builder->TB().ConvertType(record->getTypeForDecl()));
+    return Result::nwNode(address, target_pointer);
   }
 
   case CK_ToUnion:

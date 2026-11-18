@@ -196,6 +196,10 @@ public:
 
   ST_IDX GetVTableST(const clang::CXXRecordDecl *decl);
 
+  ST_IDX GetVTTST(const clang::CXXRecordDecl *decl);
+
+  WN *GetVTTArgument(const clang::CXXRecordDecl *base, INT64 offset);
+
   void ConvertVTable(const clang::CXXRecordDecl *decl);
 
   const ST_IDX GetTcfST(const clang::Decl *decl);

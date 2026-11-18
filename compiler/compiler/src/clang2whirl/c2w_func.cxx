@@ -29,6 +29,7 @@
 */
 
 #include <clang/AST/VTableBuilder.h>
+#include <clang/AST/VTTBuilder.h>
 #include "c2w_func.h"
 #include "c2w_builder.h"
 #include "c2w_stmt.h"
@@ -184,7 +185,8 @@ WhirlFuncBuilder::EmitDestructorCall(const CXXDestructorDecl *decl,
   Is_True(st, ("bad dtor st"));
 
   // create call to dtor
-  WN *ret = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, 1);
+  const bool has_vtt = dtor == CXXDtorType::Dtor_Base && decl->getParent()->getNumVBases();
+  WN *ret = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, has_vtt ? 2 : 1);
   WN_st_idx(ret) = st;
   WN_Set_Call_Default_Flags(ret);
   ST_IDX this_st = _builder->Scope().Get_this();
@@ -195,7 +197,16 @@ WhirlFuncBuilder::EmitDestructorCall(const CXXDestructorDecl *decl,
   dest.SetFieldId(field_id);
   WN *ld_wn = dest.GetLValue();
   WN_kid0(ret) = WGEN_CreateParm(WN_rtype(ld_wn), ld_wn, this_ty);
-  WN_set_kid_count(ret, 1);
+  if (has_vtt) {
+    UINT32 field = 0;
+    UINT64 offset = 0;
+    if (field_id)
+      get_fld_and_offset(TY_pointed(this_ty), field_id, field, offset);
+    WN *vtt = _builder->DeclBuilder().GetVTTArgument(decl->getParent(), offset);
+    TY_IDX pointer = Make_Pointer_Type(MTYPE_To_TY(MTYPE_V));
+    WN_kid1(ret) = WGEN_CreateParm(Pointer_Mtype, vtt, Make_Pointer_Type(pointer));
+  }
+  WN_set_kid_count(ret, has_vtt ? 2 : 1);
 
   WhirlStmtBuilder stmt_bldr(_builder);
   ret = stmt_bldr.Setup_eh_region(ret, GetSrcPos(),
@@ -696,6 +707,11 @@ WhirlFuncBuilder::EmitVTableFieldInitialization(WN *blk, const CXXRecordDecl *de
   ItaniumVTableContext *vtable_c = cast<ItaniumVTableContext>(ast_c->getVTableContext());
   const VTableLayout &layout = vtable_c->getVTableLayout(decl);
 
+  ST_IDX incoming_vtt = _builder->Scope().Get_vtt();
+  std::unique_ptr<VTTBuilder> vtt;
+  if (incoming_vtt)
+    vtt.reset(new VTTBuilder(*ast_c, decl, true));
+
   // prepare a vector to save the base info
   std::vector<const BaseSubobject*> base_info;
   base_info.resize(layout.getNumVTables());
@@ -723,18 +739,45 @@ WhirlFuncBuilder::EmitVTableFieldInitialization(WN *blk, const CXXRecordDecl *de
     Set_ST_addr_saved(ST_ptr(vt_st));
     WN *size_wn = WN_Intconst(machine_uint_ty, idx * TY_size(pointer_type));
     WN *init_wn = WN_Add(WN_rtype(lda), lda, size_wn);
+    if (incoming_vtt) {
+      UINT64 vtt_index = 0;
+      bool use_vtt = i == 0;
+      auto position = vtt->getSecondaryVirtualPointerIndices().find(*base_info[i]);
+      if (position != vtt->getSecondaryVirtualPointerIndices().end()) {
+        use_vtt = true;
+        vtt_index = position->second;
+      }
+      if (use_vtt) {
+        WN *table = WN_Ldid(Pointer_Mtype, 0, incoming_vtt, ST_type(incoming_vtt));
+        init_wn = WN_Iload(Pointer_Mtype, vtt_index * TY_size(pointer_type),
+                           pointer_type, table);
+      }
+    }
     // get this
     WN *ldid_wn = WN_Ldid(TY_mtype(ST_type(this_st)), 0, this_st, ST_type(this_st));
-    // calculate field id
-    const CXXBaseSpecifier* spec = Find_base(base_info[i]->getBase(), decl);
-    UINT field_id = 1;  // skip the whole struct
-    if (spec)
-      field_id += _builder->TB().GetFieldIDFromDecl((const Decl*)spec);
     // calculate istore offset
     INT64 ofst = base_info[i]->getBaseOffset().getQuantity();
+    if (incoming_vtt && i != 0) {
+      const ASTRecordLayout &record_layout = ast_c->getASTRecordLayout(decl);
+      for (const CXXBaseSpecifier &base : decl->vbases()) {
+        const CXXRecordDecl *virtual_base = base.getType()->getAsCXXRecordDecl();
+        INT64 begin = record_layout.getVBaseClassOffset(virtual_base).getQuantity();
+        INT64 length = ast_c->getASTRecordLayout(virtual_base).getNonVirtualSize().getQuantity();
+        if (ofst < begin || ofst >= begin + length)
+          continue;
+        WN *table = WN_Ldid(Pointer_Mtype, 0, incoming_vtt, ST_type(incoming_vtt));
+        WN *primary = WN_Iload(Pointer_Mtype, 0, pointer_type, table);
+        INT64 entry = vtable_c->getVirtualBaseOffsetOffset(decl, virtual_base).getQuantity();
+        TYPE_ID offset_type = Mtype_TransferSign(MTYPE_I4, Pointer_Mtype);
+        WN *actual_offset = WN_Iload(offset_type, entry, MTYPE_To_TY(offset_type), primary);
+        ldid_wn = WN_Add(Pointer_Mtype, ldid_wn, actual_offset);
+        ofst -= begin;
+        break;
+      }
+    }
     // generate istore to set vptr
-    WN* istore = WN_Istore(TY_mtype(WN_ty(ldid_wn)), base_info[i]->getBaseOffset().getQuantity(),
-                           ST_type(this_st), ldid_wn, init_wn, field_id);
+    WN* istore = WN_Istore(Pointer_Mtype, ofst,
+                           Make_Pointer_Type(pointer_type), ldid_wn, init_wn);
     WN_INSERT_BlockLast(blk, istore);
     WN_Set_Linenum(istore, GetSrcPos());
   }
@@ -759,6 +802,8 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
       Set_ST_export(ST_ptr(st_idx),
                     _builder->SB().VisibilityExport(decl, true));
   }
+  _builder->SB().SetFunctionDefinitionLinkage(st_idx, decl);
+
 
   // __attribute__((constructor)) / ((destructor)): a pointer to the
   // function in .ctors / .dtors, as wgen makes it (its bug 11754); the
@@ -809,8 +854,13 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   WN_INSERT_BlockLast(body, pragma);
   WN_Set_Linenum(pragma, srcpos);
 
+  const CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(decl);
+  const bool has_vtt = method && method->getParent()->getNumVBases() &&
+    ((isa<CXXConstructorDecl>(decl) && gd.getCtorType() == CXXCtorType::Ctor_Base) ||
+     (isa<CXXDestructorDecl>(decl) && gd.getDtorType() == CXXDtorType::Dtor_Base));
   UINT num_of_param = decl->getNumParams();
   if (append_this) num_of_param++;
+  if (has_vtt) num_of_param++;
   pu_tree = WN_CreateEntry(num_of_param, st_idx, body, NULL, NULL);
   WN_Set_Linenum(pu_tree, srcpos);
 
@@ -864,12 +914,22 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     _builder->LambdaHelper().SetLambdaPhase(NOT_IN_LAMBDA);
   }
 
+  if (has_vtt) {
+    TY_IDX pointer = Make_Pointer_Type(MTYPE_To_TY(MTYPE_V));
+    ST *vtt = New_ST(_builder->Scope().CurrentSymtab());
+    ST_Init(vtt, Save_Str(".vtt"), CLASS_VAR, SCLASS_FORMAL,
+            EXPORT_LOCAL, Make_Pointer_Type(pointer));
+    Set_ST_is_value_parm(vtt);
+    WN_formal(pu_tree, i++) = WN_CreateIdname(0, vtt);
+    _builder->Scope().Set_vtt(ST_st_idx(vtt));
+  }
+
   // formal list
   WN_VECTOR args;
   for (i; i < num_of_param; ++i) {
     UINT real_parm = i;
     if (append_this)
-      real_parm = i - 1;
+      real_parm = i - 1 - (has_vtt ? 1 : 0);
     const ParmVarDecl *parm = decl->getParamDecl(real_parm);
 
     // If any of the arguments have a variably modified type,
@@ -1284,6 +1344,8 @@ WhirlFuncBuilder::EmitThunkFunction(const clang::ThunkInfo &ti, ST_IDX st_idx) {
       Set_ST_export(ST_ptr(st_idx),
                     _builder->SB().VisibilityExport(decl, true));
   }
+
+  _builder->SB().SetFunctionDefinitionLinkage(st_idx, decl);
 
   // get the parent Decl CXXRecordDecl
   const CXXRecordDecl *record_decl = NULL;

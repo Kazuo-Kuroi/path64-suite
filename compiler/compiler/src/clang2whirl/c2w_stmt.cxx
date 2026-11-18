@@ -2340,7 +2340,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
           if (!WN_block_empty(init_blk)) {
             llvm::StringRef name;
             STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-            ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos);
+            ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
             WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ret);
           }
         }
@@ -2353,7 +2353,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
           WN_INSERT_BlockLast(init_blk, r.Node());
           llvm::StringRef name;
           STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-          ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos);
+          ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
           return ret;
         }
         return r.Node();
@@ -2436,7 +2436,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
             WN_INSERT_BlockLast(init_blk, ret);
           llvm::StringRef name;
           STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-          ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos);
+          ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
           WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ret);
         }
         return NULL;
@@ -2507,7 +2507,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
         WN_INSERT_BlockLast(init_blk, ret);
       llvm::StringRef name;
       STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-      ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos);
+      ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
     }
   }
 

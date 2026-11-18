@@ -33,6 +33,7 @@
 
 // clang
 #include "clanginc.h"
+#include <clang/Sema/SemaConsumer.h>
 // llvm
 #include "llvm/Support/Timer.h"
 #include "llvm/IR/Module.h"
@@ -48,7 +49,7 @@ namespace wgen {
 using namespace clang;
 using namespace llvm;
 
-class WhirlGenConsumer : public ASTConsumer {
+class WhirlGenConsumer : public SemaConsumer {
   const CodeGenOptions &CodeGenOpts;
   const clang::TargetOptions &TargetOpts;
   const LangOptions &LangOpts;
@@ -79,6 +80,9 @@ public:
   llvm::Module *takeLinkModule() { return LinkModule.release(); }
   
   void Initialize(ASTContext &Context);
+
+  void InitializeSema(Sema &sema) override { Builder.SetSema(&sema); }
+  void ForgetSema() override { Builder.SetSema(nullptr); }
   
   bool HandleTopLevelDecl(DeclGroupRef D);
   

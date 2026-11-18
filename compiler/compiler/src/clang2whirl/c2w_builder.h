@@ -47,6 +47,8 @@ extern BOOL emit_exceptions;  // from whirl_gen.cxx
 extern BOOL TARGET_64BIT;
 extern bool C2W_No_Common;   // -fno-common
 
+namespace clang { class Sema; }
+
 namespace wgen {
 
 extern const clang::CXXBaseSpecifier*
@@ -83,6 +85,7 @@ private:
 
   clang::DiagnosticsEngine &_Diags;
   clang::ASTContext *_Context;
+  clang::Sema *_Sema;
   clang::MangleContext *_MC;
 
   // label idx map
@@ -173,6 +176,8 @@ public:
   void Finalize();
 
 public:
+  void SetSema(clang::Sema *sema) { _Sema = sema; }
+
   bool Lang_CPP() const { return _lang == IL_CPP; }
   
   bool Lang_C() const { return _lang == IL_C; }
@@ -215,6 +220,8 @@ public:
   void AddPUInfo(PU_Info *pu_info);
   
   void AddFunctionDecl(const clang::FunctionDecl* decl);
+
+  const clang::FunctionDecl *GetFunctionDefinition(const clang::FunctionDecl *decl) const;
 
   void AddDeferredFunc(const clang::GlobalDecl gd, BOOL force_global = FALSE);
 

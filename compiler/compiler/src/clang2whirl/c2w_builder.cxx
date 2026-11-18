@@ -28,6 +28,10 @@
 
 */
 
+#pragma push_macro("KEY")
+#undef KEY
+#include <clang/Sema/Sema.h>
+#pragma pop_macro("KEY")
 #include "c2w_builder.h"
 #include "c2w_sym.h"
 #include "c2w_decl.h"
@@ -261,6 +265,7 @@ WhirlBuilder::WhirlBuilder(const INPUT_LANG lang, DiagnosticsEngine &diag)
     _decl_type(TOP_DECL),
     _Diags(diag),
     _Context(NULL),
+    _Sema(NULL),
     _MC(NULL),
     _lambda_helper() {
 }
@@ -557,11 +562,13 @@ WhirlBuilder::HandleDeferredThunks() {
        it != end; ++it) {
     Is_True(it->first != ST_IDX_ZERO && it->second.Method,
             ("bad thunk info"));
-    const ThunkInfo &ti = it->second;
-    const GlobalDecl gd = GlobalDecl::getFromOpaquePtr((void*)ti.Method);
-    const FunctionDecl *func = cast<FunctionDecl>(gd.getDecl());
-    if (!func->doesThisDeclarationHaveABody())
+    ThunkInfo ti = it->second;
+    GlobalDecl gd = GlobalDecl::getFromOpaquePtr((void*)ti.Method);
+    const FunctionDecl *func = GetFunctionDefinition(cast<FunctionDecl>(gd.getDecl()));
+    if (!func)
       continue;
+    gd = GetGlobalDecl(func, gd);
+    ti.Method = (CXXMethodDecl *)gd.getAsOpaquePtr();
     ScopeHelper<GlobalDecl> shlp(Scope(), gd);
     WhirlFuncBuilder func_bldr(this);
     func_bldr.EmitThunkFunction(ti, it->first);
@@ -585,12 +592,13 @@ WhirlBuilder::HandleDeferredDecls(BOOL global) {
     HandleDeferredFuncs(TRUE);
 
   // handle deferred thunk functions
-  if (HasDeferredThunks())
+  if (global && HasDeferredThunks())
     HandleDeferredThunks();
 }
 
 void
 WhirlBuilder::HandleFunctionDecl(const clang::FunctionDecl *decl) {
+  AddFunctionDecl(decl);
   // ignore decl which will be available externally
   //if (Context()->GetGVALinkageForFunction(decl) == GVA_AvailableExternally)
   //  return;
@@ -604,7 +612,17 @@ WhirlBuilder::HandleFunctionDecl(const clang::FunctionDecl *decl) {
     if (!isa<CXXConstructorDecl>(decl) && !isa<CXXDestructorDecl>(decl))
       return;
   }
-  AddFunctionDecl(decl);
+}
+
+const FunctionDecl *
+WhirlBuilder::GetFunctionDefinition(const FunctionDecl *decl) const {
+  const FunctionDecl *definition = decl->getDefinition();
+  if (definition && definition->doesThisDeclarationHaveABody())
+    return definition;
+  auto position = _func_decl_map.find(decl->getCanonicalDecl());
+  if (position != _func_decl_map.end() && position->second->doesThisDeclarationHaveABody())
+    return position->second;
+  return NULL;
 }
 
 void
@@ -613,6 +631,16 @@ WhirlBuilder::AddFunctionDecl(const clang::FunctionDecl* decl) {
   if (_func_decl_map.find(canon_decl) == _func_decl_map.end() ||
       decl->doesThisDeclarationHaveABody())
     _func_decl_map[canon_decl] = decl;
+  const CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(decl);
+  if (method && method->isVirtual() && decl->doesThisDeclarationHaveABody()) {
+    const CXXRecordDecl *record = method->getParent();
+    const CXXMethodDecl *key = Context()->getCurrentKeyFunction(record);
+    if (key && key->getCanonicalDecl() == method->getCanonicalDecl()) {
+      ST_IDX table = DeclBuilder().GetVTableST(record);
+      if (!ST_is_initialized(ST_ptr(table)))
+        AddDeferredVTable(record);
+    }
+  }
 }
 
 // Clang CodeGen's isTriviallyRecursive: a body that calls the builtin of
@@ -931,12 +959,9 @@ WhirlBuilder::Get_thunk_st(const clang::GlobalDecl gd, clang::ThunkInfo ti) {
   ST_IDX st = SB().GetThunkST(name);
   if (st == ST_IDX_ZERO) {
     st = SB().ConvertThunkFunction(cast<NamedDecl>(gd.getDecl()), name);
-    // set gd to ti's Method field
-    const FunctionDecl *func = cast<FunctionDecl>(gd.getDecl());
-    if (func->isDefined()) {
-      ti.Method = (CXXMethodDecl *)GetGlobalDecl(func->getDefinition(), gd).getAsOpaquePtr();
-      AddDeferredThunk(st, ti);
-    }
+    // Resolve the definition after all top-level declarations are available.
+    ti.Method = (CXXMethodDecl *)gd.getAsOpaquePtr();
+    AddDeferredThunk(st, ti);
   }
   return st;
 }
@@ -953,6 +978,13 @@ WhirlBuilder::Get_func_st(const clang::GlobalDecl gd) {
 
 ST_IDX
 WhirlBuilder::Get_var_st(const clang::VarDecl *decl) {
+  if (_Sema && decl->getTemplateSpecializationKind() == TSK_ImplicitInstantiation &&
+      !decl->getDefinition()) {
+    const VarDecl *pattern = decl->getInstantiatedFromStaticDataMember();
+    if (pattern && pattern->getDefinition())
+      _Sema->InstantiateVariableDefinition(decl->getLocation(),
+                                           const_cast<VarDecl *>(decl), true);
+  }
   ST_IDX st = SB().GetST(decl);
   if (st == ST_IDX_ZERO) {
     st = SB().ConvertSymbol(decl);
