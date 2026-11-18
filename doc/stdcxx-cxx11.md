@@ -18,7 +18,8 @@ the reference for the design. Its test suite is the conformance test.
 * **Header-only.** The C++11 parts are templates and inline functions in
   `rw/_c11_*.h`, included by the standard headers in C++11 mode.
   `<type_traits>`, `<tuple>` and `<array>` switch to them;
-  `<utility>`, `<functional>` and `<memory>` add them.
+  `<utility>`, `<functional>` and `<memory>` add them. libcxxrt also supplies
+  the C++14 sized-deallocation entry points declared by `<new>`.
 * `_RWSTD_CONSTEXPR14` is `constexpr` from C++14 on (C++11 makes
   `constexpr` member functions `const`).
 
@@ -33,8 +34,9 @@ the reference for the design. Its test suite is the conformance test.
 | `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums), typed bitwise and C++14 transparent functors | function.objects: 88/88 |
 | `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 84/84; allocator.traits: 21/21; pointer.traits: 9/9 |
 | `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
-| `<iterator>` | Range access, `next`, `prev` | next/prev: 2/2 |
-| `<algorithm>` | `all_of`, `any_of`, `none_of`, `find_if_not` | 4/4 |
+| `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
+| `<iterator>` | Range access, `next`, `prev`, `move_iterator`, `make_move_iterator` | next/prev: 2/2; move.iterators: 29/29 |
+| `<algorithm>` | `all_of`, `any_of`, `none_of`, `find_if_not`, `move`, `move_backward` | predicate algorithms: 4/4; move algorithms: 2/2 |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 
@@ -47,9 +49,9 @@ listed in the TODO.
 test tools in `compiler/stdcxx/tests/cxx11`.
 
 **Next phases:**
-1. Containers: move, `initializer_list` and `emplace` members for `deque`,
-   `list`, `basic_string`, `map`/`set`.
-2. Remaining `<iterator>` additions (`move_iterator` and factory functions),
+1. Containers: move, `initializer_list` and `emplace` members for `list`,
+   `basic_string`, `map`/`set`.
+2. Remaining `<iterator>` additions (including `make_reverse_iterator`),
    `<algorithm>` and `<numeric>` additions.
 3. String conversions (`to_string`, `stoi`, ...) and Unicode string types.
 4. New headers: `<forward_list>`, `<unordered_map>`, `<unordered_set>`,
@@ -86,6 +88,15 @@ C++98 code as well:
 * **Conditional lifetimes** keep statement temporaries within their branch
   and construct class-valued alternatives into one destination.
 * **Narrow enum casts** retain WHIRL's widened register types.
+* **Nontrivial class results** use the caller's return area through direct,
+  indirect and virtual calls, member pointers and adjusting thunks. This
+  preserves self-referential objects and interoperation with host-compiled
+  functions; a completed result must not be copied as raw aggregate bytes.
+* **Cleanup sharing** compares destructor sequences without modifying them
+  on a failed match, preserving reverse construction order on exceptional exits.
+* **Optimized x86 exception unwinding** retains frame pointers in C++ functions
+  with exceptions enabled, including helpers without local handlers. The
+  existing frameless path lacks stack-adjustment CFI and could skip cleanups.
 * **Returned class objects** are materialized before ordinary member calls.
   Inherited member operators on prvalues copy their base subobject's value
   into the object temporary.

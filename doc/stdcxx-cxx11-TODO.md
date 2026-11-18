@@ -256,7 +256,30 @@ test without the library before fixing it in clang2whirl.
   Compiler fixes materialize returned records for member calls and copy base
   subobject values when a prvalue supplies an inherited member operator.
 
-The other containers below still need their C++11 extensions; `deque` is next.
+- [x] (Codex) **`deque` C++11 members.** Allocator-aware construction and
+  propagation, moves, initializer lists, emplacement at both ends and in the
+  middle, `const_iterator` modifiers, default insertion, range access and
+  `shrink_to_fit` retain the existing segmented representation. Internal raw
+  block/map pointers use an allocator-traits bridge for fancy allocators.
+  Growth guards release both allocations on failure; shrinking compacts the
+  pointer map without relocating elements. All 61 runnable reference tests
+  pass in C++11/C++14; three later-standard tests are unsupported.
+  `deque-exceptions.pass.cpp` checks allocation and construction rollback,
+  aliased emplacement, reference stability and unequal-allocator moves.
+
+The deque checks also fix nontrivial class returns: psclang constructs results
+in the caller's ABI return area rather than copying a completed object.
+Direct, indirect, virtual and member-pointer calls and adjusting thunks are
+covered by `compiler-return-object.pass.cpp` and mixed host/psclang probes.
+On x86, optimized C++ with exceptions retains frame pointers by default:
+frameless helpers lack stack-adjustment CFI and could otherwise skip cleanup
+frames. Cleanup sharing also preserves destruction order when landing-pad
+sequences differ. `compiler-unwind.pass.cpp` and deque rollback checks cover
+these paths.
+C++14 sized deletion is declared in `<new>` and implemented in libcxxrt, with
+`sized-delete.pass.cpp` checking replacement of unsized deallocators.
+
+The other containers below still need their C++11 extensions; `list` is next.
 
 Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
 - move constructor and move assignment (allocator propagation through
@@ -265,7 +288,7 @@ Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
 - `emplace`, `emplace_back` and `emplace_front`, `emplace_hint`;
 - `insert` and `push_*` from rvalues;
 - `cbegin`/`cend`/`crbegin`/`crend` (done for `vector`,
-  `vector<bool>`, and `list`);
+  `vector<bool>`, `deque`, and `list`);
 - `shrink_to_fit`, `data()` for `vector`;
 - `erase` and `insert` taking `const_iterator`;
 - `noexcept` where the standard says;
@@ -297,12 +320,13 @@ across a library boundary. Write the decision here before starting.
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
     (`iterator.range/begin-end.pass.cpp`);
   * [x] (Codex) `next`, `prev`;
-  * `move_iterator`, `make_move_iterator`;
+  * [x] (Codex) `move_iterator`, `make_move_iterator` (29 reference tests);
   * C++14 `make_reverse_iterator`;
   * `iterators` (161 tests).
 - [ ] **`<algorithm>`:**
   * [x] (Codex) `all_of`, `any_of`, `none_of`, `find_if_not`;
-  * `copy_if`, `copy_n`, `move`, `move_backward`;
+  * [x] (Codex) `move`, `move_backward` (including the deque-specific cases);
+  * `copy_if`, `copy_n`;
   * `is_partitioned`, `partition_copy`, `partition_point`, `is_sorted`,
     `is_sorted_until`, `is_heap`, `is_heap_until`;
   * `minmax`, `minmax_element`, the `initializer_list` forms of

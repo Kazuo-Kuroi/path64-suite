@@ -1244,6 +1244,21 @@ inline bool prev_permutation (_BidirIter __first, _BidirIter __last)
 
 #ifdef _RWSTD_CXX11
 
+template <class _InputIter, class _OutputIter>
+inline _OutputIter move (_InputIter __first, _InputIter __last, _OutputIter __out)
+{
+    for (; __first != __last; static_cast<void>(++__first), ++__out)
+        *__out = std::move (*__first);
+    return __out;
+}
+
+template <class _BidirIter1, class _BidirIter2>
+inline _BidirIter2 move_backward (_BidirIter1 __first, _BidirIter1 __last, _BidirIter2 __out)
+{
+    while (__first != __last) *--__out = std::move (*--__last);
+    return __out;
+}
+
 template <class _InputIter, class _Predicate>
 inline _InputIter find_if_not (_InputIter __first, _InputIter __last, _Predicate __pred)
 {

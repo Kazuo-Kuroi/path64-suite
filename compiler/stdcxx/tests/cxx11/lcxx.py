@@ -69,7 +69,7 @@ def run_one0(a, src, rel, work):
         return "COMPILE", re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(msg[:3]))
     try:
         r = subprocess.run([exe], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                           universal_newlines=True, errors="replace", timeout=30)
+                           universal_newlines=True, errors="replace", timeout=a.timeout)
         res = ("PASS" if r.returncode == 0 else "RUN", r.stdout[-300:])
     except subprocess.TimeoutExpired:
         res = ("TIMEOUT", "")
@@ -86,8 +86,11 @@ def main():
     ap.add_argument("-o")
     ap.add_argument("-v", action="store_true")
     ap.add_argument("--host", action="store_true")
+    ap.add_argument("--timeout", type=float, default=30, help="per-test runtime limit in seconds (default: 30)")
     ap.add_argument("paths", nargs="+")
     a = ap.parse_args()
+    if a.timeout <= 0:
+        ap.error("--timeout must be positive")
     if not a.libcxx or not os.path.isdir(os.path.join(a.libcxx, "test", "std")):
         ap.error("set --libcxx or LIBCXX_SRC to the libc++ 8.0.1 sources")
     if not a.host and not os.path.exists(os.path.join(a.stage, "bin", "pathCC")):

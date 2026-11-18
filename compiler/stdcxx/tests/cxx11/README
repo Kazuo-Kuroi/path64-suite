@@ -11,6 +11,12 @@ Tests for the C++11 library (doc/stdcxx-cxx11.md, doc/stdcxx-cxx11-TODO.md)
 Original regression tests can be passed by absolute path:
   ./lcxx.py "$PWD/compiler-lifetime.pass.cpp" "$PWD/compiler-virtual-base.pass.cpp"
   ./lcxx.py "$PWD/vector-exceptions.pass.cpp" "$PWD/vector-bool.pass.cpp"
+  ./lcxx.py "$PWD/deque-exceptions.pass.cpp" "$PWD/compiler-return-object.pass.cpp"
+  ./lcxx.py "$PWD/compiler-unwind.pass.cpp"
+  ./lcxx.py -std c++14 "$PWD/sized-delete.pass.cpp"
+
+Use --timeout 180 for the deque range-insertion stress test at -O0. The
+runner's default per-test runtime limit remains 30 seconds.
 
 The libc++ vector tests erase_iter, erase_iter_iter and vector.special/swap
 assume class iterators. With stdcxx's raw pointers, temporary test copies need

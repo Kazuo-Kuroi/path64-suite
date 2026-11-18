@@ -91,7 +91,7 @@ copy (_InputIter __first, _InputIter __last, _OutputIter __res)
 {
     _RWSTD_ASSERT_RANGE (__first, __last);
 
-    for (; !(__first == __last); ++__first,++__res)
+    for (; !(__first == __last); static_cast<void>(++__first), ++__res)
         *__res = *__first;
     return __res;
 }

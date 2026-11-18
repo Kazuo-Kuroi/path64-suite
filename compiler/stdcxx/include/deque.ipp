@@ -42,6 +42,7 @@
 _RWSTD_NAMESPACE (std) { 
 
 
+#ifndef _RWSTD_CXX11
 template <class _TypeT, class _Allocator>
 deque<_TypeT, _Allocator>&
 deque<_TypeT, _Allocator>::
@@ -185,8 +186,8 @@ swap (deque<_TypeT, _Allocator> &__rhs)
         _STD::swap (_C_nodes,     __rhs._C_nodes);
         _STD::swap (_C_node_size, __rhs._C_node_size);
 
-        if (pointer() == _C_beg._C_cur) {
-            _RWSTD_ASSERT (pointer() == _C_end._C_cur);
+        if (_C_raw_pointer() == _C_beg._C_cur) {
+            _RWSTD_ASSERT (_C_raw_pointer() == _C_end._C_cur);
             _RWSTD_ASSERT (   _C_beg._C_node == &__rhs._C_end._C_cur
                            && _C_end._C_node == &__rhs._C_end._C_cur);
 
@@ -194,11 +195,11 @@ swap (deque<_TypeT, _Allocator> &__rhs)
             _C_end._C_node = &_C_end._C_cur;
         }
         else {
-            _RWSTD_ASSERT (pointer() != _C_end._C_cur);
+            _RWSTD_ASSERT (_C_raw_pointer() != _C_end._C_cur);
         }
 
-        if (pointer() == __rhs._C_beg._C_cur) {
-            _RWSTD_ASSERT (pointer() == __rhs._C_end._C_cur);
+        if (_C_raw_pointer() == __rhs._C_beg._C_cur) {
+            _RWSTD_ASSERT (_C_raw_pointer() == __rhs._C_end._C_cur);
             _RWSTD_ASSERT (   __rhs._C_beg._C_node == &_C_end._C_cur
                            && __rhs._C_end._C_node == &_C_end._C_cur);
 
@@ -206,7 +207,7 @@ swap (deque<_TypeT, _Allocator> &__rhs)
             __rhs._C_end._C_node = &__rhs._C_end._C_cur;
         }
         else {
-            _RWSTD_ASSERT (pointer() != __rhs._C_end._C_cur);
+            _RWSTD_ASSERT (_C_raw_pointer() != __rhs._C_end._C_cur);
         }
     }
     else {
@@ -217,6 +218,63 @@ swap (deque<_TypeT, _Allocator> &__rhs)
 }
 
 
+#endif
+
+#ifdef _RWSTD_CXX11
+template <class _TypeT, class _Allocator>
+template <class... _Args>
+void deque<_TypeT, _Allocator>::_C_push (bool __at_back, _Args&&... __args)
+{
+    const size_type __bufsize = _C_bufsize ();
+    _C_value_alloc_type __alloc (get_allocator ());
+    _C_raw_pointer __buffer = __alloc.allocate (__bufsize);
+    _C_allocation<_C_value_alloc_type> __buffer_owner (__alloc, __buffer, __bufsize);
+    const bool __empty = empty ();
+
+    if (__empty || (__at_back ? _C_end._C_node == _C_nodes + _C_node_size - 1
+                             : _C_beg._C_node == _C_nodes)) {
+        _C_node_alloc_type __map_alloc (get_allocator ());
+        size_type __used = __empty ? 0 : size_type (_C_end._C_node - _C_beg._C_node + 1);
+        size_type __capacity = _C_vecsize (__used);
+        _C_node_pointer __map = __map_alloc.allocate (__capacity + 2);
+        _C_allocation<_C_node_alloc_type> __map_owner (__map_alloc, __map, __capacity + 2);
+        ++__map; // Keep a sentinel slot before and after the usable map.
+        size_type __first = __capacity / (__empty ? 2 : 4);
+        size_type __last = __first + __used;
+        _C_raw_pointer __where = __buffer + (__empty ? __bufsize / 2 - !__at_back
+                                                     : __at_back ? 0 : __bufsize - 1);
+        __alloc.construct (__where, std::forward<_Args>(__args)...);
+        if (!__empty)
+            std::copy (_C_beg._C_node, _C_end._C_node + 1, __map + __first + !__at_back);
+        if (_C_nodes) __map_alloc.deallocate (_C_nodes - 1, _C_node_size + 2);
+        _C_nodes = __map;
+        _C_node_size = __capacity;
+        if (__at_back) {
+            __map[__last] = __buffer;
+            _C_beg._C_node = __map + __first;
+            _C_end = _C_deque_iter (__buffer, __map + __last);
+        } else {
+            __map[__first] = __buffer;
+            _C_beg = _C_deque_iter (__buffer + __bufsize, __map + __first);
+            _C_end._C_node = __map + __last;
+        }
+        if (__empty) _C_beg._C_cur = _C_end._C_cur = __buffer + __bufsize / 2;
+        __map_owner.release ();
+    } else {
+        __alloc.construct (__buffer + (__at_back ? 0 : __bufsize - 1),
+                           std::forward<_Args>(__args)...);
+        if (__at_back) {
+            *++_C_end._C_node = __buffer;
+            _C_end._C_cur = __buffer;
+        } else {
+            *--_C_beg._C_node = __buffer;
+            _C_beg._C_cur = __buffer + __bufsize;
+        }
+    }
+    __buffer_owner.release ();
+    _C_end._C_node[1] = _C_beg._C_node[-1] = _C_raw_pointer ();
+}
+#else
 template <class _TypeT, class _Allocator>
 void deque<_TypeT, _Allocator>::
 _C_push (bool __at_back, const_reference __x)
@@ -228,7 +286,7 @@ _C_push (bool __at_back, const_reference __x)
     _C_value_alloc_type __alloc (*this);
 
     // allocate a new buffer to store elements in
-    const pointer __buf = __alloc.allocate (__bufsize, pointer ());
+    const _C_raw_pointer __buf = __alloc.allocate (__bufsize, _C_raw_pointer ());
 
     const bool __empty = empty ();
 
@@ -262,7 +320,7 @@ _C_push (bool __at_back, const_reference __x)
 
             _RWSTD_ASSERT (!(_C_node_pointer () == __nvec));
 
-            const pointer __where = __buf
+            const _C_raw_pointer __where = __buf
                 + (  __empty ? __bufsize / 2 - !__at_back
                    : __at_back ? 0 : __bufsize - 1);
 
@@ -356,10 +414,12 @@ _C_push (bool __at_back, const_reference __x)
         }
     }
 
-    _C_end._C_node [+1] = pointer ();
-    _C_beg._C_node [-1] = pointer ();
+    _C_end._C_node [+1] = _C_raw_pointer ();
+    _C_beg._C_node [-1] = _C_raw_pointer ();
 }
 
+
+#endif   // _RWSTD_CXX11
 
 template <class _TypeT, class _Allocator>
 void deque<_TypeT, _Allocator>::
@@ -367,15 +427,19 @@ _C_free_at_begin ()
 {
     const size_type __bufsize = _C_bufsize ();
 
+    #ifdef _RWSTD_CXX11
+    _C_value_alloc_type (get_allocator ()).deallocate (*_C_beg._C_node, __bufsize);
+#else
     _RWSTD_VALUE_ALLOC (_C_value_alloc_type, *this,
                         deallocate (*_C_beg._C_node, __bufsize));
+#endif
     if (empty ()) {
         _C_node_alloc_type (*this).
             deallocate (_C_nodes - 1, _C_node_size + 2);
         _C_init ();
     }
     else {
-        *_C_beg._C_node++ = pointer ();
+        *_C_beg._C_node++ = _C_raw_pointer ();
         _C_beg = _C_deque_iter (*_C_beg._C_node, _C_beg._C_node);
     }
 }
@@ -387,15 +451,19 @@ _C_free_at_end ()
 {
     const size_type __bufsize = _C_bufsize ();
 
+    #ifdef _RWSTD_CXX11
+    _C_value_alloc_type (get_allocator ()).deallocate (*_C_end._C_node, __bufsize);
+#else
     _RWSTD_VALUE_ALLOC (_C_value_alloc_type, *this,
                         deallocate (*_C_end._C_node, __bufsize));
+#endif
     if (empty ()) {
         _C_node_alloc_type (*this).
             deallocate (_C_nodes - 1, _C_node_size + 2);
         _C_init ();
     }
     else {
-        *_C_end._C_node-- = pointer ();
+        *_C_end._C_node-- = _C_raw_pointer ();
         _C_end = _C_deque_iter (*_C_end._C_node + __bufsize, _C_end._C_node);
     }
 }
@@ -731,8 +799,8 @@ _C_is_valid (int __emptyfl) const
     // the nodes just prior the first valid node and
     // just past the last valid node must always be 0
     if (_C_node_pointer () != _C_nodes) {
-        _RWSTD_ASSERT (pointer () == _C_beg._C_node [-1]);
-        _RWSTD_ASSERT (pointer () == _C_end._C_node [+1]);
+        _RWSTD_ASSERT (_C_raw_pointer () == _C_beg._C_node [-1]);
+        _RWSTD_ASSERT (_C_raw_pointer () == _C_end._C_node [+1]);
     }
 
     if (__emptyfl) {
@@ -740,8 +808,8 @@ _C_is_valid (int __emptyfl) const
         _RWSTD_ASSERT (empty ());
 
         // both `current' pointers must be 0
-        _RWSTD_ASSERT (pointer () == _C_beg._C_cur);
-        _RWSTD_ASSERT (pointer () == _C_end._C_cur);
+        _RWSTD_ASSERT (_C_raw_pointer () == _C_beg._C_cur);
+        _RWSTD_ASSERT (_C_raw_pointer () == _C_end._C_cur);
 
         // node pointers must be dereferenceable...
         _RWSTD_ASSERT (_C_node_pointer () != _C_beg._C_node);
@@ -759,8 +827,8 @@ _C_is_valid (int __emptyfl) const
     _RWSTD_ASSERT (!empty ());
 
     // current pointers must be non-0
-    _RWSTD_ASSERT (pointer () != _C_beg._C_cur);
-    _RWSTD_ASSERT (pointer () != _C_end._C_cur);
+    _RWSTD_ASSERT (_C_raw_pointer () != _C_beg._C_cur);
+    _RWSTD_ASSERT (_C_raw_pointer () != _C_end._C_cur);
 
     // `begin' must be less than `end'
     _RWSTD_ASSERT (_C_beg._C_node <= _C_end._C_node);
@@ -770,7 +838,7 @@ _C_is_valid (int __emptyfl) const
     _RWSTD_ASSERT (_C_beg._C_node <= _C_nodes + _C_node_size);
 
     // `begin' must point to a non-empty array of elements
-    _RWSTD_ASSERT (pointer () != *_C_beg._C_node);
+    _RWSTD_ASSERT (_C_raw_pointer () != *_C_beg._C_node);
 
     // `begin' must point into an array of `bufsize' elements
     _RWSTD_ASSERT (_C_beg._C_cur >= *_C_beg._C_node);
@@ -781,7 +849,7 @@ _C_is_valid (int __emptyfl) const
     _RWSTD_ASSERT (_C_end._C_node <= _C_nodes + _C_node_size);
 
     // `end' must point to a non-empty array of elements
-    _RWSTD_ASSERT (pointer () != *_C_end._C_node);
+    _RWSTD_ASSERT (_C_raw_pointer () != *_C_end._C_node);
 
     // `end' must point into an array of `bufsize' elements
     _RWSTD_ASSERT (_C_end._C_cur >= *_C_end._C_node);

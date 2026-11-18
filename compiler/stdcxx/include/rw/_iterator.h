@@ -50,6 +50,10 @@
 #endif   // _RWSTD_RW_ITERBASE_H_INCLUDED
 
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_utility.h>
+#endif
+
 #if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
 #  include <initializer_list>
 #endif
@@ -532,6 +536,72 @@ inline insert_iterator<_Container> inserter (_Container& __x, _Iterator __it)
 
 
 #ifdef _RWSTD_CXX11
+
+// [move.iterators]
+template <class _Iterator>
+class move_iterator {
+    _Iterator _C_current;
+public:
+    typedef _Iterator iterator_type;
+    typedef typename iterator_traits<_Iterator>::iterator_category iterator_category;
+    typedef typename iterator_traits<_Iterator>::value_type value_type;
+    typedef typename iterator_traits<_Iterator>::difference_type difference_type;
+    typedef _Iterator pointer;
+    typedef typename iterator_traits<_Iterator>::reference _OriginalReference;
+    typedef typename conditional<is_reference<_OriginalReference>::value,
+        typename remove_reference<_OriginalReference>::type&&, _OriginalReference>::type reference;
+
+    constexpr move_iterator () : _C_current () { }
+    explicit constexpr move_iterator (_Iterator __it) : _C_current (std::move (__it)) { }
+    template <class _Other, class = typename enable_if<is_convertible<_Other, _Iterator>::value>::type>
+    constexpr move_iterator (const move_iterator<_Other>& __other) : _C_current (__other.base ()) { }
+    template <class _Other>
+    typename enable_if<is_assignable<_Iterator&, const _Other&>::value, move_iterator&>::type
+    operator= (const move_iterator<_Other>& __other) { _C_current = __other.base (); return *this; }
+
+    constexpr _Iterator base () const { return _C_current; }
+    constexpr reference operator* () const { return static_cast<reference>(*_C_current); }
+    constexpr pointer operator-> () const { return _C_current; }
+    reference operator[] (difference_type __n) const { return static_cast<reference>(_C_current[__n]); }
+    move_iterator& operator++ () { ++_C_current; return *this; }
+    move_iterator operator++ (int) { move_iterator __old (*this); ++*this; return __old; }
+    move_iterator& operator-- () { --_C_current; return *this; }
+    move_iterator operator-- (int) { move_iterator __old (*this); --*this; return __old; }
+    move_iterator& operator+= (difference_type __n) { _C_current += __n; return *this; }
+    move_iterator& operator-= (difference_type __n) { _C_current -= __n; return *this; }
+    move_iterator operator+ (difference_type __n) const { return move_iterator (_C_current + __n); }
+    move_iterator operator- (difference_type __n) const { return move_iterator (_C_current - __n); }
+};
+
+template <class _Left, class _Right>
+inline constexpr bool operator== (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+{ return __left.base () == __right.base (); }
+template <class _Left, class _Right>
+inline constexpr bool operator!= (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+{ return !(__left == __right); }
+template <class _Left, class _Right>
+inline constexpr bool operator< (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+{ return __left.base () < __right.base (); }
+template <class _Left, class _Right>
+inline constexpr bool operator> (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+{ return __right < __left; }
+template <class _Left, class _Right>
+inline constexpr bool operator<= (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+{ return !(__right < __left); }
+template <class _Left, class _Right>
+inline constexpr bool operator>= (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+{ return !(__left < __right); }
+template <class _Left, class _Right>
+inline auto operator- (const move_iterator<_Left>& __left, const move_iterator<_Right>& __right)
+    -> decltype (__left.base () - __right.base ())
+{ return __left.base () - __right.base (); }
+template <class _Iterator>
+inline move_iterator<_Iterator> operator+ (typename move_iterator<_Iterator>::difference_type __n,
+                                          const move_iterator<_Iterator>& __it)
+{ return __it + __n; }
+template <class _Iterator>
+inline constexpr move_iterator<_Iterator> make_move_iterator (_Iterator __it)
+{ return move_iterator<_Iterator> (std::move (__it)); }
 
 // [iterator.operations]
 template <class _InputIter>
