@@ -1,9 +1,9 @@
 # Backend and platform support
 
 Inventory based on the Path64 suite audit of `59ed2d4d8` (2026-11-17),
-updated after the platform removals described in the [README](../README).
+updated after the platform removals described in the [README](../README.md).
 The maintained platforms in this checkout are x86-64 Linux and the Linux-hosted IRIX 6.5
-n32 cross compiler. The [README](../README) describes how to build both.
+n32 cross compiler. The [README](../README.md) describes how to build both.
 The tables below also record targets with working code generation but
 limited runtime evidence, and platform code inherited from earlier ports.
 The validation section records the scope of the checks.
@@ -70,7 +70,7 @@ and ABI sources from the corresponding architecture directories.
 | OS or environment | What remains and its status |
 | --- | --- |
 | Linux | **Working build host and x86-64 target.** CMake detects GCC CRT/library paths and generates Linux interpreter paths and distro-specific driver variants. Source also contains a SiCortex-era MIPS Linux cross path, including a Gentoo cross directory, little-endian linker emulations and n32 Linux unwind selection. That MIPS Linux path was not rebuilt or run in this audit. [Defaults](../DetectDefaults.cmake), [driver variants](../compiler/compiler/src/driver/CMakeLists.txt), [linker phases](../compiler/compiler/src/driver/phases.c), [unwind build](../libunwind/CMakeLists.txt). |
-| IRIX 6.5 | **Maintained cross target.** Use `PSC_TARGET=mips64-sgi-irix6.5`, `PSC_BINUTILS_TARGET=mips-sgi-irix6.5` and `PSC_TARGET_OS_mips_32=irix`. The link uses the IRIX sysroot's startup files and libc/libm, PathScale's n32 CRT and static support libraries, and the `/lib32/rld` interpreter. Native IRIX builds, the vendor assembler, the n64 runtime, `libstl`, and Fortran remain outside the documented working configuration. C++/exception support is partial, including the README's unwind register-restore limitation. The MIPS compare-and-swap return-value issue recorded there also remains outside this check. `IRIX64` in the archived `uname` output denotes the kernel, while the tested binaries are n32. [Port and limits](../README), [GCC target cases](../compiler/compiler/GCC/gcc/config.gcc), [driver phase handling](../compiler/compiler/src/driver/phases.c). |
+| IRIX 6.5 | **Maintained cross target.** Use `PSC_TARGET=mips64-sgi-irix6.5`, `PSC_BINUTILS_TARGET=mips-sgi-irix6.5` and `PSC_TARGET_OS_mips_32=irix`. The link uses the IRIX sysroot's startup files and libc/libm, PathScale's n32 CRT and static support libraries, and the `/lib32/rld` interpreter. Native IRIX builds, the vendor assembler, the n64 runtime, `libstl`, and Fortran remain outside the documented working configuration. C++/exception support is partial, including the README's unwind register-restore limitation. The MIPS compare-and-swap return-value issue recorded there also remains outside this check. `IRIX64` in the archived `uname` output denotes the kernel, while the tested binaries are n32. [Port and limits](../README.md), [GCC target cases](../compiler/compiler/GCC/gcc/config.gcc), [driver phase handling](../compiler/compiler/src/driver/phases.c). |
 | FreeBSD | **Historical build/runtime branches.** CMake has driver link flags, avoids `libdl` where appropriate, selects x86-64 unwind sources, and permits OpenMP. The driver has a FreeBSD IPA-link accommodation. The embedded GCC catalog includes FreeBSD x86. No FreeBSD build or executable was verified. [Driver flags](../compiler/compiler/src/driver/CMakeLists.txt), [unwind build](../libunwind/CMakeLists.txt), [driver phase handling](../compiler/compiler/src/driver/phases.c). |
 | Solaris / OpenSolaris (`SunOS`) | **Historical x86 build/runtime branches.** CMake forces a 64-bit host build by default and has different driver linkage, export flags and runtime sources. The driver and emitter carry `__sun` branches. These are x86-oriented references and there is no SPARC phase set. No SunOS build or executable was verified. [Compiler build](../compiler/compiler/CMakeLists.txt), [driver build](../compiler/compiler/src/driver/CMakeLists.txt), [unwind build](../libunwind/CMakeLists.txt). |
 | NetBSD and other old Unix references | **Isolated branches or inherited target metadata.** NetBSD appears in the driver's dynamic-linker argument handling and the embedded GCC x86/MIPS targets. GCC also lists GNU/kFreeBSD and GNU/kNetBSD triplets. Older `__sgi` and `__hpux` compatibility guards remain in shared code. None provides an additional suite configuration with end-to-end evidence here. [Driver phases](../compiler/compiler/src/driver/phases.c), [GCC target catalog](../compiler/compiler/GCC/gcc/config.gcc), [common host utilities](../compiler/compiler/src/common/util/dso.c). |
@@ -102,8 +102,8 @@ the IRIX implementation from `PSC_TARGET_OS_mips_32`. [Compiler definitions](../
   records successful startup, floating-point, constructor, varargs and
   byte-order runs at `-O0` and `-O2`. The long-double tests ran at both
   levels and recorded a comparison result differing from MIPSpro. These
-  transcripts supply narrower, later evidence than the README's earlier
-  readelf/objdump-only validation note.
+  transcripts provide limited hardware execution evidence; the README
+  summarizes that evidence alongside the remaining port limitations.
 - No other OS or full ABI matrix rebuild was attempted in the original audit.
 
 After the removals, the Linux x86-64 compiler and C/C++ runtime targets
