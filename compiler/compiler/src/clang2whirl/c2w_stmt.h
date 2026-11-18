@@ -113,6 +113,10 @@ static HANDLER_INFO *handler_info_stack =
     (HANDLER_INFO *) malloc (sizeof(HANDLER_INFO) * handler_info_max);;
 
 void Push_dtor_for_copy_ctor(clang::QualType ty, ST_IDX st);
+void Reset_conditional_temporary_guards();
+void Push_conditional_temporary_guard(ST_IDX guard);
+void Pop_conditional_temporary_guard();
+void Mark_conditional_temporary_constructed(ST_IDX st);
 
 void Push_dtor_call_stack(clang::QualType ty, ST_IDX st);
 

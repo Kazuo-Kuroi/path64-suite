@@ -1205,10 +1205,44 @@ WhirlExprBuilder::ConvertBinaryOperator(const BinaryOperator *expr, BOOL retv) {
   }
 
   BOOL lhs_retv = opcode == clang::BO_Comma ? FALSE : TRUE;
+  const bool short_circuit = opcode == clang::BO_LAnd || opcode == clang::BO_LOr;
+  WN *lhs_block = short_circuit ? WhirlBlockUtil::nwBlock() : NULL;
   WN *lhs = ConvertToNode(lhs_expr, Result::nwNone(), lhs_retv);
   lhs = Get_real_wn(lhs, lhs_expr, lhs_ty);
+  if (short_circuit) {
+    WhirlBlockUtil::popCurrentBlock();
+    if (WN_first(lhs_block))
+      lhs = WGEN_CreateComma(WN_rtype(lhs), lhs_block, lhs);
+    else
+      WN_Delete(lhs_block);
+  }
+  // Materializing a reference argument can emit stores and calls directly
+  // into the current block. Keep those statements inside the RHS so they
+  // execute only when the logical operator selects that operand.
+  ST *rhs_guard = NULL;
+  if (short_circuit) {
+    rhs_guard = Create_tmp_sym(MTYPE_To_TY(MTYPE_I4), ".logical.rhs", spos);
+    WN *init = WN_Stid(MTYPE_I4, 0, rhs_guard, ST_type(rhs_guard), WN_Intconst(MTYPE_I4, 0));
+    WN_Set_Linenum(init, spos);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), init);
+    Push_conditional_temporary_guard(ST_st_idx(rhs_guard));
+  }
+  WN *rhs_block = short_circuit ? WhirlBlockUtil::nwBlock() : NULL;
+  if (short_circuit) {
+    WN *reached = WN_Stid(MTYPE_I4, 0, rhs_guard, ST_type(rhs_guard), WN_Intconst(MTYPE_I4, 1));
+    WN_Set_Linenum(reached, spos);
+    WN_INSERT_BlockLast(rhs_block, reached);
+  }
   WN *rhs = ConvertToNode(rhs_expr, Result::nwNone(), TRUE);
   rhs = Get_real_wn(rhs, rhs_expr, rhs_ty);
+  if (short_circuit) {
+    WhirlBlockUtil::popCurrentBlock();
+    Pop_conditional_temporary_guard();
+    if (WN_first(rhs_block))
+      rhs = WGEN_CreateComma(WN_rtype(rhs), rhs_block, rhs);
+    else
+      WN_Delete(rhs_block);
+  }
   if (expr->isGLValue())
     ty_idx = Make_Pointer_Type(ty_idx);
 
@@ -2049,8 +2083,10 @@ WhirlExprBuilder::ConvertCXXBindTemporaryExpr(const CXXBindTemporaryExpr *expr, 
   if (need_push_st_to_stack)
     Push_dtor_for_copy_ctor(expr->getType(), dest.Sym());
 
-  if (ret.isNone() || ret.isSym())
+  if (ret.isNone() || ret.isSym()) {
+    if (need_push_st_to_stack) Mark_conditional_temporary_constructed(dest.Sym());
     return ret;
+  }
   Is_True(ret.isNode(), ("should be whirl node"));
 
   if (is_dest_none) {
@@ -2076,6 +2112,7 @@ WhirlExprBuilder::ConvertCXXBindTemporaryExpr(const CXXBindTemporaryExpr *expr, 
     // insert into current block
     WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), tmp_wn);
     WN_Set_Linenum(tmp_wn, GetSrcPos());
+    if (need_push_st_to_stack) Mark_conditional_temporary_constructed(dest.Sym());
     return dest;
   }
 
@@ -4972,6 +5009,8 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
   }
 
   Result ret = ConvertExpr(getSubExpr(expr), tmp_dest);
+  if (expr->getType()->isRecordType() && tmp_dest.isSym())
+    Mark_conditional_temporary_constructed(tmp_dest.Sym());
 
   if (is_dest_none) {
     if (!ret.isNone() && ret != tmp_dest) {

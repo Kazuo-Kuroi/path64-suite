@@ -30,6 +30,7 @@
 
 #include "c2w_stmt.h"
 #include <set>
+#include <map>
 #include <vector>
 #include "c2w_builder.h"
 #include "c2w_expr.h"
@@ -151,8 +152,44 @@ static vector<TYPE_FILTER_ENTRY>        type_filter_vector;
 typedef std::stack<DTOR_ST_PAIR> DTOR_COPY_STACK;
 DTOR_COPY_STACK dtor_for_copy_ctor_stack;
 
+// Full-expression temporaries in a logical operand are destroyed only
+// when that operand was reached. Preserve enclosing guards for nesting.
+static std::vector<ST_IDX> conditional_temporary_guards;
+static std::map<ST_IDX, std::vector<ST_IDX> > temporary_guards;
+static std::vector<WN*> conditional_temporary_init_blocks;
+void Reset_conditional_temporary_guards() {
+  conditional_temporary_guards.clear();
+  temporary_guards.clear();
+  conditional_temporary_init_blocks.clear();
+}
+void Push_conditional_temporary_guard(ST_IDX guard) {
+  conditional_temporary_guards.push_back(guard);
+  conditional_temporary_init_blocks.push_back(wgen::WhirlBlockUtil::getCurrentBlock());
+}
+void Pop_conditional_temporary_guard() {
+  conditional_temporary_guards.pop_back();
+  conditional_temporary_init_blocks.pop_back();
+}
+
 void Push_dtor_for_copy_ctor(QualType ty, ST_IDX st) {
+  if (!conditional_temporary_guards.empty()) {
+    ST *live = wgen::Create_tmp_sym(MTYPE_To_TY(MTYPE_I4), ".logical.live", ST_Srcpos(*ST_ptr(conditional_temporary_guards.back())));
+    WN *init = WN_Stid(MTYPE_I4, 0, live, ST_type(live), WN_Intconst(MTYPE_I4, 0));
+    WN_Set_Linenum(init, ST_Srcpos(*ST_ptr(conditional_temporary_guards.back())));
+    WN_INSERT_BlockLast(conditional_temporary_init_blocks.front(), init);
+    temporary_guards[st] = conditional_temporary_guards;
+    temporary_guards[st].push_back(ST_st_idx(live));
+  }
   dtor_for_copy_ctor_stack.push(std::make_pair(ty, st));
+}
+
+void Mark_conditional_temporary_constructed(ST_IDX st) {
+  std::map<ST_IDX, std::vector<ST_IDX> >::const_iterator found = temporary_guards.find(st);
+  if (found == temporary_guards.end()) return;
+  ST *live = ST_ptr(found->second.back());
+  WN *set = WN_Stid(MTYPE_I4, 0, live, ST_type(live), WN_Intconst(MTYPE_I4, 1));
+  WN_Set_Linenum(set, ST_Srcpos(*live));
+  WN_INSERT_BlockLast(wgen::WhirlBlockUtil::getCurrentBlock(), set);
 }
 
 void Push_dtor_call_stack(QualType ty, ST_IDX st) {
@@ -869,6 +906,20 @@ WN *WhirlStmtBuilder::Emit_cxx_destructor_call(QualType type, ST_IDX arg_st) {
   if (emit_exceptions /* && Maybe_do_eh_cleanups()*/)
     call_wn = Setup_eh_region(call_wn, GetSrcPos(), false /* for_unwinding */,
                               true /* is_dtor_or_ctor_call */);
+  std::map<ST_IDX, std::vector<ST_IDX> >::const_iterator guards = temporary_guards.find(arg_st);
+  if (guards != temporary_guards.end()) {
+    WN *condition = NULL;
+    for (size_t i = 0; i < guards->second.size(); ++i) {
+      ST *guard = ST_ptr(guards->second[i]);
+      WN *test = WN_NE(MTYPE_I4, WN_Ldid(MTYPE_I4, 0, guard, ST_type(guard)),
+                        WN_Intconst(MTYPE_I4, 0));
+      condition = condition ? WN_CAND(condition, test) : test;
+    }
+    WN *body = WN_CreateBlock();
+    WN_INSERT_BlockLast(body, call_wn);
+    call_wn = WN_CreateIf(condition, body, WN_CreateBlock());
+    WN_Set_Linenum(call_wn, GetSrcPos());
+  }
   return call_wn;
 }
 
@@ -1049,7 +1100,10 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
     while (!may_cleanup.empty()) {
       const DTOR_ST_PAIR& item = may_cleanup.top();
       if (item.second) {
-        if (WN_operator(wn) == OPR_CALL && strcmp(ST_name(WN_st(wn)), "__cxa_throw")) {
+        WN *cleanup_call = WN_operator(wn) == OPR_CALL ? wn :
+            (temporary_guards.find(item.second) != temporary_guards.end() ? FindCallWn(wn) : NULL);
+        if (cleanup_call && WN_operator(cleanup_call) == OPR_CALL &&
+            strcmp(ST_name(WN_st(cleanup_call)), "__cxa_throw")) {
           cleanups->push_back(item);
           may_cleanup.pop();
           continue;

@@ -785,6 +785,7 @@ WhirlFuncBuilder::EmitVTableFieldInitialization(WN *blk, const CXXRecordDecl *de
 
 PU_Info *
 WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
+  Reset_conditional_temporary_guards();
   const FunctionDecl *decl = cast<FunctionDecl>(gd.getDecl());
   Is_True(_builder->Scope().CurrentDecl() == decl,
           ("invalid scope"));
