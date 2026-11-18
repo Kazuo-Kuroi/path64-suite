@@ -50,10 +50,30 @@
 #endif   // _RWSTD_RW_DEFS_H_INCLUDED
 
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_type_traits.h>
+#endif
+
 _RWSTD_NAMESPACE (std) { 
 
 
 // 24.3.1 - Iterator traits
+#ifdef _RWSTD_CXX11
+template <class...> struct __rw_iterator_void { typedef void type; };
+template <class _Iterator, class = void> struct __rw_iterator_traits { };
+template <class _Iterator>
+struct __rw_iterator_traits<_Iterator, typename __rw_iterator_void<
+    typename _Iterator::value_type, typename _Iterator::difference_type,
+    typename _Iterator::pointer, typename _Iterator::reference,
+    typename _Iterator::iterator_category>::type> {
+    typedef typename _Iterator::value_type value_type;
+    typedef typename _Iterator::difference_type difference_type;
+    typedef typename _Iterator::pointer pointer;
+    typedef typename _Iterator::reference reference;
+    typedef typename _Iterator::iterator_category iterator_category;
+};
+template <class _Iterator> struct iterator_traits : __rw_iterator_traits<_Iterator> { };
+#else
 template <class _Iterator>
 struct iterator_traits
 {
@@ -64,6 +84,8 @@ struct iterator_traits
     typedef typename _Iterator::iterator_category iterator_category;
 };
 
+
+#endif
 
 // 24.3.3 - Standard iterator tags
 struct input_iterator_tag { };
@@ -78,10 +100,14 @@ struct random_access_iterator_tag : public bidirectional_iterator_tag { };
 template <class _TypeT>
 struct iterator_traits<_TypeT*>
 {
+#ifdef _RWSTD_CXX11
+    typedef typename remove_cv<_TypeT>::type value_type;
+#else
     typedef _TypeT                     value_type;
+#endif
     typedef _RWSTD_PTRDIFF_T           difference_type;
-    typedef value_type*                pointer;
-    typedef value_type&                reference;
+    typedef _TypeT*                    pointer;
+    typedef _TypeT&                    reference;
     typedef random_access_iterator_tag iterator_category;
 };
 
@@ -89,10 +115,14 @@ struct iterator_traits<_TypeT*>
 template <class _TypeT>
 struct iterator_traits<const _TypeT*>
 {
+#ifdef _RWSTD_CXX11
+    typedef typename remove_cv<_TypeT>::type value_type;
+#else
     typedef _TypeT                     value_type;
+#endif
     typedef _RWSTD_PTRDIFF_T           difference_type;
-    typedef const value_type*          pointer;
-    typedef const value_type&          reference;
+    typedef const _TypeT*              pointer;
+    typedef const _TypeT&              reference;
     typedef random_access_iterator_tag iterator_category;
 };
 

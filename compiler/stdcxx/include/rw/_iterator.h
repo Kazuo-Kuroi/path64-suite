@@ -119,10 +119,14 @@ public:
 
     typedef _Iterator iterator_type;
 
+#ifdef _RWSTD_CXX11
+    constexpr reverse_iterator () : current () { }
+#else
     reverse_iterator () { }
+#endif
 
     // 24.4.1.3.1, p1
-    explicit reverse_iterator (iterator_type __rhs) : current (__rhs) { }
+    _RWSTD_CONSTEXPR14 explicit reverse_iterator (iterator_type __rhs) : current (__rhs) { }
  
 
 #ifndef _RWSTD_NO_CLASS_PARTIAL_SPEC 
@@ -145,7 +149,7 @@ public:
 
 
     // 24.4.1.3.2, p1
-    iterator_type base () const {
+    _RWSTD_CONSTEXPR14 iterator_type base () const {
         return current;
     }
 
@@ -160,7 +164,7 @@ public:
 
     // 24.4.1.3.5, p1
     reverse_iterator& operator++ () {
-        return --current, *this;
+        --current; return *this;
     }
 
     // 24.4.1.3.5, p3
@@ -171,7 +175,7 @@ public:
 
     // 24.4.1.3.6, p1
     reverse_iterator& operator-- () {
-        return ++current, *this;
+        ++current; return *this;
     }
 
     // 24.4.1.3.6, p3
@@ -182,7 +186,7 @@ public:
 
     // 24.4.1.3.8, p1
     reverse_iterator& operator+= (difference_type __n) {
-        return current -= __n, *this;
+        current -= __n; return *this;
     }
 
     // 24.4.1.3.10, p1
@@ -420,7 +424,13 @@ public:
     typedef _Container container_type;
 
     explicit back_insert_iterator (container_type& __rhs)
-        : container (&__rhs) { }
+        : container (
+#ifdef _RWSTD_CXX11
+            __builtin_addressof (__rhs)
+#else
+            &__rhs
+#endif
+        ) { }
 
     back_insert_iterator&
     operator= (typename container_type::const_reference __x) {
@@ -459,7 +469,13 @@ public:
     typedef _Container container_type;
 
     explicit front_insert_iterator (container_type& __rhs)
-        : container (&__rhs) { }
+        : container (
+#ifdef _RWSTD_CXX11
+            __builtin_addressof (__rhs)
+#else
+            &__rhs
+#endif
+        ) { }
 
     front_insert_iterator&
     operator= (typename container_type::const_reference __x) { 
@@ -499,7 +515,13 @@ public:
 
     insert_iterator (container_type                    &__x,
                      typename container_type::iterator __it)
-      : iter (__it), container (&__x) { }
+      : iter (__it), container (
+#ifdef _RWSTD_CXX11
+            __builtin_addressof (__x)
+#else
+            &__x
+#endif
+        ) { }
 
     insert_iterator&
     operator= (typename container_type::const_reference __x) { 
@@ -536,6 +558,29 @@ inline insert_iterator<_Container> inserter (_Container& __x, _Iterator __it)
 
 
 #ifdef _RWSTD_CXX11
+
+template <class _Left, class _Right>
+inline bool operator== (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+{ return __a.base () == __b.base (); }
+template <class _Left, class _Right>
+inline bool operator!= (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+{ return !(__a == __b); }
+template <class _Left, class _Right>
+inline bool operator< (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+{ return __b.base () < __a.base (); }
+template <class _Left, class _Right>
+inline bool operator> (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+{ return __b < __a; }
+template <class _Left, class _Right>
+inline bool operator<= (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+{ return !(__b < __a); }
+template <class _Left, class _Right>
+inline bool operator>= (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+{ return !(__a < __b); }
+template <class _Left, class _Right>
+inline auto operator- (const reverse_iterator<_Left>& __a, const reverse_iterator<_Right>& __b)
+    -> decltype (__b.base () - __a.base ())
+{ return __b.base () - __a.base (); }
 
 // [move.iterators]
 template <class _Iterator>
@@ -646,6 +691,10 @@ inline _RWSTD_CONSTEXPR14 _Tp* end (_Tp (&__a)[_Size]) noexcept
 { return __a + _Size; }
 
 #if __cplusplus >= 201402L
+
+template <class _Iterator>
+inline constexpr reverse_iterator<_Iterator> make_reverse_iterator (_Iterator __it)
+{ return reverse_iterator<_Iterator> (__it); }
 
 template <class _Container>
 inline constexpr auto cbegin (const _Container& __c)

@@ -321,19 +321,32 @@ across a library boundary. Write the decision here before starting.
     (`iterator.range/begin-end.pass.cpp`);
   * [x] (Codex) `next`, `prev`;
   * [x] (Codex) `move_iterator`, `make_move_iterator` (29 reference tests);
-  * C++14 `make_reverse_iterator`;
-  * `iterators` (161 tests).
+  * [x] (Codex) C++14 `make_reverse_iterator`, mixed reverse-iterator
+    comparisons, value initialization, SFINAE-safe iterator traits and
+    cv-correct pointer traits;
+  * `iterators` (161 tests). Remaining failures: move-only insertion
+    through the three output adapters; constexpr input-stream iterator
+    constructors; stream-buffer iterator typedefs. Eight stream-buffer
+    iterator runtime tests pass with host Clang and fail with psclang
+    (constructors, equality, and pre/post increment).
 - [ ] **`<algorithm>`:**
   * [x] (Codex) `all_of`, `any_of`, `none_of`, `find_if_not`;
   * [x] (Codex) `move`, `move_backward` (including the deque-specific cases);
-  * `copy_if`, `copy_n`;
-  * `is_partitioned`, `partition_copy`, `partition_point`, `is_sorted`,
-    `is_sorted_until`, `is_heap`, `is_heap_until`;
-  * `minmax`, `minmax_element`, the `initializer_list` forms of
-    `min`/`max`, `is_permutation`, `shuffle`;
-  * C++14 `equal`/`mismatch` with four iterators;
-  * `algorithms` (150 tests).
-- [ ] **`<numeric>`:** `iota` (`numerics/numeric.ops`, 25 tests).
+  * [x] (Codex) `copy_if`, `copy_n`, C++11 `generate_n` return value;
+  * [x] (Codex) `is_partitioned`, `partition_copy`, `partition_point`,
+    `is_sorted`, `is_sorted_until`, `is_heap`, `is_heap_until`;
+  * [x] (Codex) `minmax`, `minmax_element`, the `initializer_list` forms of
+    `min`/`max`, `is_permutation` (including the C++14 bounded overloads);
+  * `shuffle` (pending `<random>`);
+  * [x] (Codex) C++14 `equal`/`mismatch` with four iterators;
+  * `algorithms` (150 tests). Remaining failures include missing `<random>`,
+    legacy copy operations on move-only values, overloaded-comma handling,
+    and C++17 `clamp` tests without exclusion markers. The overall item
+    remains open until these cases are resolved or classified.
+- [x] (Codex) **`<numeric>`:** `iota`; move assignment in
+  `adjacent_difference` and safe iterator increments in `inner_product`.
+  `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests
+  excluded in C++11/14.
 - [ ] **`<string>`:**
   * `to_string`, `to_wstring`, `stoi`/`stol`/`stoul`/`stoll`/`stoull`/
     `stof`/`stod`/`stold` (`strings/string.conversions`, 10 tests);

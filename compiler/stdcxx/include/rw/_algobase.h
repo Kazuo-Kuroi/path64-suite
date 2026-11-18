@@ -56,13 +56,13 @@ _RWSTD_NAMESPACE (std) {
 
 // 25.3.7, p1
 template <class _TypeT>
-inline const _TypeT& (min)(const _TypeT& __a, const _TypeT& __b)
+inline _RWSTD_CONSTEXPR14 const _TypeT& (min)(const _TypeT& __a, const _TypeT& __b)
 {
     return __b < __a ? __b : __a;
 }
 
 template <class _TypeT, class _Compare>
-inline const _TypeT& (min)(const _TypeT& __a, const _TypeT& __b, _Compare __cmp)
+inline _RWSTD_CONSTEXPR14 const _TypeT& (min)(const _TypeT& __a, const _TypeT& __b, _Compare __cmp)
 {
     return __cmp (__b, __a) ? __b : __a;
 }
@@ -70,14 +70,14 @@ inline const _TypeT& (min)(const _TypeT& __a, const _TypeT& __b, _Compare __cmp)
 
 // 25.3.7, p3
 template <class _TypeT>
-inline const _TypeT& (max)(const _TypeT& __a, const _TypeT& __b)
+inline _RWSTD_CONSTEXPR14 const _TypeT& (max)(const _TypeT& __a, const _TypeT& __b)
 {
     return  __a < __b ? __b : __a;
 }
 
 
 template <class _TypeT, class _Compare>
-inline const _TypeT&
+inline _RWSTD_CONSTEXPR14 const _TypeT&
 (max)(const _TypeT& __a, const _TypeT& __b, _Compare __cmp)
 {
     return !(__cmp (__a, __b) == false) ? __b : __a;

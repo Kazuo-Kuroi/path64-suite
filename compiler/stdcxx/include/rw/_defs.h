@@ -982,7 +982,12 @@
 #ifndef _RWSTD_NO_NONCLASS_ARROW_RETURN
    // expected signature: "_TypeT* operator->()"
    // and/or:             "const _TypeT* operator->() const"
-#  define _RWSTD_OPERATOR_ARROW(signature) signature { return &**this; }
+#  ifdef _RWSTD_CXX11
+#    define _RWSTD_OPERATOR_ARROW(signature) \
+         signature { return __builtin_addressof (**this); }
+#  else
+#    define _RWSTD_OPERATOR_ARROW(signature) signature { return &**this; }
+#  endif
 #else
 #  define _RWSTD_OPERATOR_ARROW(ignore)
 #endif   // _RWSTD_NO_NONCLASS_ARROW_RETURN

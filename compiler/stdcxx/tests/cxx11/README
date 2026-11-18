@@ -14,6 +14,7 @@ Original regression tests can be passed by absolute path:
   ./lcxx.py "$PWD/deque-exceptions.pass.cpp" "$PWD/compiler-return-object.pass.cpp"
   ./lcxx.py "$PWD/compiler-unwind.pass.cpp"
   ./lcxx.py -std c++14 "$PWD/sized-delete.pass.cpp"
+  ./lcxx.py "$PWD/phase3-algorithms.pass.cpp"
 
 Use --timeout 180 for the deque range-insertion stress test at -O0. The
 runner's default per-test runtime limit remains 30 seconds.
@@ -23,3 +24,8 @@ assume class iterators. With stdcxx's raw pointers, temporary test copies need
 qualified std::distance and std::next, and std::prev(v.end()) in place of
 --v.end(). Keep the reference sources unchanged and report their compile
 failures separately from these adapted checks.
+
+phase3-algorithms.pass.cpp checks min/max tie selection, the minmax_element
+comparison bound on exhaustive small sequences through forward iterators,
+negative copy counts, numeric generation, bounded comparisons, and C++14
+constant evaluation. It needs no <random> implementation.

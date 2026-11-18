@@ -421,7 +421,13 @@ inline void generate (_FwdIter __first, _FwdIter __last, _Generator __gen)
 
 
 template <class _OutputIter, class _Size, class _Generator>
-inline void generate_n (_OutputIter __first, _Size __n, _Generator __gen)
+inline
+#ifdef _RWSTD_CXX11
+_OutputIter
+#else
+void
+#endif
+generate_n (_OutputIter __first, _Size __n, _Generator __gen)
 {
     // Size must be convertible to integral type but need not itself be one
     // Complexity:
@@ -429,6 +435,9 @@ inline void generate_n (_OutputIter __first, _Size __n, _Generator __gen)
     // (see lwg issue 426 for the complexity when n is not positive)
     for (_RWSTD_PTRDIFF_T __inx = __n; 0 < __inx; --__inx, ++__first)
         *__first = __gen ();
+#ifdef _RWSTD_CXX11
+    return __first;
+#endif
 }
 
 
@@ -1243,6 +1252,233 @@ inline bool prev_permutation (_BidirIter __first, _BidirIter __last)
 
 
 #ifdef _RWSTD_CXX11
+
+struct __rw_c11_algorithm_less {
+    template <class _Left, class _Right>
+    constexpr bool operator() (const _Left& __a, const _Right& __b) const { return __a < __b; }
+};
+struct __rw_c11_algorithm_equal {
+    template <class _Left, class _Right>
+    constexpr bool operator() (const _Left& __a, const _Right& __b) const { return __a == __b; }
+};
+
+template <class _Input, class _Output, class _Predicate>
+inline _Output copy_if (_Input __first, _Input __last, _Output __out, _Predicate __pred)
+{
+    for (; __first != __last; ++__first)
+        if (__pred (*__first)) { *__out = *__first; ++__out; }
+    return __out;
+}
+template <class _Input, class _Size, class _Output>
+inline _Output copy_n (_Input __first, _Size __n, _Output __out)
+{
+    auto __count = +__n;
+    for (; __count > 0; --__count) {
+        *__out = *__first;
+        ++__out;
+        if (__count > 1) ++__first;
+    }
+    return __out;
+}
+template <class _Input, class _Predicate>
+inline bool is_partitioned (_Input __first, _Input __last, _Predicate __pred)
+{
+    for (; __first != __last && __pred (*__first); ++__first) { }
+    if (__first != __last) ++__first;
+    for (; __first != __last; ++__first) if (__pred (*__first)) return false;
+    return true;
+}
+template <class _Input, class _Output1, class _Output2, class _Predicate>
+inline pair<_Output1, _Output2> partition_copy (_Input __first, _Input __last,
+    _Output1 __yes, _Output2 __no, _Predicate __pred)
+{
+    for (; __first != __last; ++__first) {
+        if (__pred (*__first)) { *__yes = *__first; ++__yes; }
+        else { *__no = *__first; ++__no; }
+    }
+    return pair<_Output1, _Output2> (__yes, __no);
+}
+template <class _Forward, class _Predicate>
+inline _Forward partition_point (_Forward __first, _Forward __last, _Predicate __pred)
+{
+    typename iterator_traits<_Forward>::difference_type __n = std::distance (__first, __last);
+    while (__n > 0) {
+        typename iterator_traits<_Forward>::difference_type __half = __n / 2;
+        _Forward __middle = __first;
+        std::advance (__middle, __half);
+        if (__pred (*__middle)) { __first = ++__middle; __n -= __half + 1; }
+        else __n = __half;
+    }
+    return __first;
+}
+template <class _Forward, class _Compare>
+inline _Forward is_sorted_until (_Forward __first, _Forward __last, _Compare __comp)
+{
+    if (__first == __last) return __last;
+    _Forward __next = __first;
+    while (++__next != __last) {
+        if (__comp (*__next, *__first)) return __next;
+        __first = __next;
+    }
+    return __last;
+}
+template <class _Forward>
+inline _Forward is_sorted_until (_Forward __first, _Forward __last)
+{ return std::is_sorted_until (__first, __last, __rw_c11_algorithm_less ()); }
+template <class _Forward, class _Compare>
+inline bool is_sorted (_Forward __first, _Forward __last, _Compare __comp)
+{ return std::is_sorted_until (__first, __last, __comp) == __last; }
+template <class _Forward>
+inline bool is_sorted (_Forward __first, _Forward __last)
+{ return std::is_sorted_until (__first, __last) == __last; }
+template <class _Random, class _Compare>
+inline _Random is_heap_until (_Random __first, _Random __last, _Compare __comp)
+{
+    typedef typename iterator_traits<_Random>::difference_type _Difference;
+    if (__first == __last) return __last;
+    _Difference __n = __last - __first;
+    for (_Difference __child = 1; __child < __n; ++__child)
+        if (__comp (__first[(__child - 1) / 2], __first[__child])) return __first + __child;
+    return __last;
+}
+template <class _Random>
+inline _Random is_heap_until (_Random __first, _Random __last)
+{ return std::is_heap_until (__first, __last, __rw_c11_algorithm_less ()); }
+template <class _Random, class _Compare>
+inline bool is_heap (_Random __first, _Random __last, _Compare __comp)
+{ return std::is_heap_until (__first, __last, __comp) == __last; }
+template <class _Random>
+inline bool is_heap (_Random __first, _Random __last)
+{ return std::is_heap_until (__first, __last) == __last; }
+
+template <class _Tp, class _Compare>
+inline constexpr pair<const _Tp&, const _Tp&> minmax (const _Tp& __a, const _Tp& __b, _Compare __comp)
+{ return __comp (__b, __a) ? pair<const _Tp&, const _Tp&> (__b, __a) : pair<const _Tp&, const _Tp&> (__a, __b); }
+template <class _Tp>
+inline constexpr pair<const _Tp&, const _Tp&> minmax (const _Tp& __a, const _Tp& __b)
+{ return std::minmax (__a, __b, __rw_c11_algorithm_less ()); }
+template <class _Forward, class _Compare>
+inline _RWSTD_CONSTEXPR14 pair<_Forward, _Forward> minmax_element (_Forward __first, _Forward __last, _Compare __comp)
+{
+    pair<_Forward, _Forward> __result (__first, __first);
+    if (__first == __last || ++__first == __last) return __result;
+    if (__comp (*__first, *__result.first)) __result.first = __first;
+    else __result.second = __first;
+    while (++__first != __last) {
+        _Forward __small = __first, __large = __first;
+        if (++__first == __last) {
+            if (__comp (*__small, *__result.first)) __result.first = __small;
+            if (!__comp (*__large, *__result.second)) __result.second = __large;
+            break;
+        }
+        if (__comp (*__first, *__small)) __small = __first;
+        else __large = __first;
+        if (__comp (*__small, *__result.first)) __result.first = __small;
+        if (!__comp (*__large, *__result.second)) __result.second = __large;
+    }
+    return __result;
+}
+template <class _Forward>
+inline _RWSTD_CONSTEXPR14 pair<_Forward, _Forward> minmax_element (_Forward __first, _Forward __last)
+{ return std::minmax_element (__first, __last, __rw_c11_algorithm_less ()); }
+template <class _Tp, class _Compare>
+inline _RWSTD_CONSTEXPR14 _Tp min (initializer_list<_Tp> __values, _Compare __comp)
+{
+    const _Tp* __best = __values.begin ();
+    for (const _Tp* __i = __best + 1; __i != __values.end (); ++__i)
+        if (__comp (*__i, *__best)) __best = __i;
+    return *__best;
+}
+template <class _Tp>
+inline _RWSTD_CONSTEXPR14 _Tp min (initializer_list<_Tp> __values)
+{ return (std::min) (__values, __rw_c11_algorithm_less ()); }
+template <class _Tp, class _Compare>
+inline _RWSTD_CONSTEXPR14 _Tp max (initializer_list<_Tp> __values, _Compare __comp)
+{
+    const _Tp* __best = __values.begin ();
+    for (const _Tp* __i = __best + 1; __i != __values.end (); ++__i)
+        if (__comp (*__best, *__i)) __best = __i;
+    return *__best;
+}
+template <class _Tp>
+inline _RWSTD_CONSTEXPR14 _Tp max (initializer_list<_Tp> __values)
+{ return (std::max) (__values, __rw_c11_algorithm_less ()); }
+template <class _Tp, class _Compare>
+inline _RWSTD_CONSTEXPR14 pair<_Tp, _Tp> minmax (initializer_list<_Tp> __values, _Compare __comp)
+{
+    pair<const _Tp*, const _Tp*> __result = std::minmax_element (__values.begin (), __values.end (), __comp);
+    return pair<_Tp, _Tp> (*__result.first, *__result.second);
+}
+template <class _Tp>
+inline _RWSTD_CONSTEXPR14 pair<_Tp, _Tp> minmax (initializer_list<_Tp> __values)
+{ return std::minmax (__values, __rw_c11_algorithm_less ()); }
+
+template <class _Forward1, class _Forward2, class _Predicate>
+inline bool is_permutation (_Forward1 __first, _Forward1 __last, _Forward2 __other, _Predicate __pred)
+{
+    while (__first != __last && __pred (*__first, *__other)) { ++__first; ++__other; }
+    if (__first == __last) return true;
+    _Forward2 __other_end = __other;
+    std::advance (__other_end, std::distance (__first, __last));
+    for (_Forward1 __i = __first; __i != __last; ++__i) {
+        _Forward1 __previous = __first;
+        for (; __previous != __i; ++__previous) if (__pred (*__previous, *__i)) break;
+        if (__previous != __i) continue;
+        typename iterator_traits<_Forward1>::difference_type __count = 0;
+        for (_Forward1 __j = __i; __j != __last; ++__j) if (__pred (*__i, *__j)) ++__count;
+        for (_Forward2 __j = __other; __j != __other_end; ++__j) if (__pred (*__i, *__j)) --__count;
+        if (__count) return false;
+    }
+    return true;
+}
+template <class _Forward1, class _Forward2>
+inline bool is_permutation (_Forward1 __first, _Forward1 __last, _Forward2 __other)
+{ return std::is_permutation (__first, __last, __other, __rw_c11_algorithm_equal ()); }
+
+#if __cplusplus >= 201402L
+template <class _Input1, class _Input2, class _Tag1, class _Tag2>
+inline bool __rw_c11_equal_length (_Input1, _Input1, _Input2, _Input2, _Tag1, _Tag2) { return true; }
+template <class _Random1, class _Random2>
+inline bool __rw_c11_equal_length (_Random1 __first, _Random1 __last, _Random2 __other, _Random2 __other_end,
+                                  random_access_iterator_tag, random_access_iterator_tag)
+{ return __last - __first == __other_end - __other; }
+template <class _Forward1, class _Forward2, class _Predicate>
+inline bool is_permutation (_Forward1 __first, _Forward1 __last, _Forward2 __other, _Forward2 __other_end, _Predicate __pred)
+{
+    if (!__rw_c11_equal_length (__first, __last, __other, __other_end,
+        typename iterator_traits<_Forward1>::iterator_category (), typename iterator_traits<_Forward2>::iterator_category ())) return false;
+    while (__first != __last && __other != __other_end && __pred (*__first, *__other)) { ++__first; ++__other; }
+    if (__first == __last || __other == __other_end) return __first == __last && __other == __other_end;
+    return std::distance (__first, __last) == std::distance (__other, __other_end)
+        && std::is_permutation (__first, __last, __other, __pred);
+}
+template <class _Forward1, class _Forward2>
+inline bool is_permutation (_Forward1 __first, _Forward1 __last, _Forward2 __other, _Forward2 __other_end)
+{ return std::is_permutation (__first, __last, __other, __other_end, __rw_c11_algorithm_equal ()); }
+
+template <class _Input1, class _Input2, class _Predicate>
+inline bool equal (_Input1 __first, _Input1 __last, _Input2 __other, _Input2 __other_end, _Predicate __pred)
+{
+    if (!__rw_c11_equal_length (__first, __last, __other, __other_end,
+        typename iterator_traits<_Input1>::iterator_category (), typename iterator_traits<_Input2>::iterator_category ())) return false;
+    for (; __first != __last && __other != __other_end; static_cast<void>(++__first), ++__other)
+        if (!__pred (*__first, *__other)) return false;
+    return __first == __last && __other == __other_end;
+}
+template <class _Input1, class _Input2>
+inline bool equal (_Input1 __first, _Input1 __last, _Input2 __other, _Input2 __other_end)
+{ return std::equal (__first, __last, __other, __other_end, __rw_c11_algorithm_equal ()); }
+template <class _Input1, class _Input2, class _Predicate>
+inline pair<_Input1, _Input2> mismatch (_Input1 __first, _Input1 __last, _Input2 __other, _Input2 __other_end, _Predicate __pred)
+{
+    for (; __first != __last && __other != __other_end; static_cast<void>(++__first), ++__other)
+        if (!__pred (*__first, *__other)) break;
+    return pair<_Input1, _Input2> (__first, __other);
+}
+template <class _Input1, class _Input2>
+inline pair<_Input1, _Input2> mismatch (_Input1 __first, _Input1 __last, _Input2 __other, _Input2 __other_end)
+{ return std::mismatch (__first, __last, __other, __other_end, __rw_c11_algorithm_equal ()); }
+#endif
 
 template <class _InputIter, class _OutputIter>
 inline _OutputIter move (_InputIter __first, _InputIter __last, _OutputIter __out)

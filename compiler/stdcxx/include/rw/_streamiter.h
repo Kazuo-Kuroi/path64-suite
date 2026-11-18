@@ -159,7 +159,13 @@ struct ostream_iterator: iterator<output_iterator_tag, void, void, void, void>
 
     // 24.5.2.1, p1, p2
     ostream_iterator (ostream_type& __strm, const char_type* __s = 0) 
-      : _C_strm (&__strm), _C_str (__s) { }
+      : _C_strm (
+#ifdef _RWSTD_CXX11
+          __builtin_addressof (__strm)
+#else
+          &__strm
+#endif
+        ), _C_str (__s) { }
 
     // 24.5.2.2, p1
     ostream_iterator& operator= (const _TypeT &__val) { 
