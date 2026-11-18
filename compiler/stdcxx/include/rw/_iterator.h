@@ -533,6 +533,23 @@ inline insert_iterator<_Container> inserter (_Container& __x, _Iterator __it)
 
 #ifdef _RWSTD_CXX11
 
+// [iterator.operations]
+template <class _InputIter>
+inline _InputIter next (_InputIter __it,
+    typename iterator_traits<_InputIter>::difference_type __n = 1)
+{
+    std::advance (__it, __n);
+    return __it;
+}
+
+template <class _BidirectionalIter>
+inline _BidirectionalIter prev (_BidirectionalIter __it,
+    typename iterator_traits<_BidirectionalIter>::difference_type __n = 1)
+{
+    std::advance (__it, -__n);
+    return __it;
+}
+
 // [iterator.range]
 template <class _Container>
 inline auto begin (_Container& __c) -> decltype (__c.begin ())

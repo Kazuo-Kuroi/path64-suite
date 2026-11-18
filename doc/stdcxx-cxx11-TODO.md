@@ -227,6 +227,27 @@ test without the library before fixing it in clang2whirl.
 
 ## Phase 2: containers
 
+- [x] (Codex) **Normal `vector<T>` C++11 members.** Allocator-aware copy/move
+  construction and assignment, initializer lists, emplacement, rvalue insertion,
+  `const_iterator` modifiers, default insertion, `data`, `shrink_to_fit`, and
+  required `noexcept` declarations use the existing storage representation.
+  Element construction uses `allocator_traits`, including fancy pointers and
+  move-only elements. C++98 retains its original implementation.
+  The unmodified reference suite passes 51/54 runnable tests; three tests assume
+  class iterators (unqualified `distance`/`next`, and `--v.end()`) and fail to
+  compile with stdcxx's permitted raw-pointer iterators. Temporary copies using
+  `std::distance`, `std::next` and `std::prev(v.end())` check these cases.
+  The adapted cases and original regressions pass in C++11/C++14 at `-O0`
+  and `-O2`. Three later-standard tests are unsupported in these modes.
+  Original `vector-exceptions.pass.cpp` checks rollback, object counts and
+  aliased emplacement. The vector work also fixes psclang's unbraced-loop
+  temporary destruction, empty-object pointer strides and EH traversal of
+  branches with a nonthrowing constructor before a throwing call.
+
+The other containers below still need their C++11 extensions.
+`vector<bool>` is next: its initial host C++11 run passes 2/42 runnable tests
+(40 compile failures, two later-standard tests unsupported).
+
 Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
 - move constructor and move assignment (allocator propagation through
   `allocator_traits`);
@@ -265,12 +286,13 @@ across a library boundary. Write the decision here before starting.
 - [ ] **`<iterator>`:**
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
     (`iterator.range/begin-end.pass.cpp`);
-  * `next`, `prev`, `move_iterator`, `make_move_iterator`;
+  * [x] (Codex) `next`, `prev`;
+  * `move_iterator`, `make_move_iterator`;
   * C++14 `make_reverse_iterator`;
   * `iterators` (161 tests).
 - [ ] **`<algorithm>`:**
-  * `all_of`, `any_of`, `none_of`, `find_if_not`, `copy_if`, `copy_n`,
-    `move`, `move_backward`;
+  * [x] (Codex) `all_of`, `any_of`, `none_of`, `find_if_not`;
+  * `copy_if`, `copy_n`, `move`, `move_backward`;
   * `is_partitioned`, `partition_copy`, `partition_point`, `is_sorted`,
     `is_sorted_until`, `is_heap`, `is_heap_until`;
   * `minmax`, `minmax_element`, the `initializer_list` forms of

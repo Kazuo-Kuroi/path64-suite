@@ -7,3 +7,13 @@ Tests for the C++11 library (doc/stdcxx-cxx11.md, doc/stdcxx-cxx11-TODO.md)
 
   export LIBCXX_SRC=DIR PATH64_STAGE=BUILD/Xcompiler
   ./lcxx.py -v utilities/tuple
+
+Original regression tests can be passed by absolute path:
+  ./lcxx.py "$PWD/compiler-lifetime.pass.cpp" "$PWD/compiler-virtual-base.pass.cpp"
+  ./lcxx.py "$PWD/vector-exceptions.pass.cpp"
+
+The libc++ vector tests erase_iter, erase_iter_iter and vector.special/swap
+assume class iterators. With stdcxx's raw pointers, temporary test copies need
+qualified std::distance and std::next, and std::prev(v.end()) in place of
+--v.end(). Keep the reference sources unchanged and report their compile
+failures separately from these adapted checks.

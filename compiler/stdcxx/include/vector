@@ -55,6 +55,13 @@
 #include <rw/_select.h>
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_memory.h>
+#  include <initializer_list>
+#  include <limits>
+#  include <algorithm>
+#endif
+
 
 _RWSTD_NAMESPACE (std) {
 
@@ -67,16 +74,29 @@ _EXPORT
 template <class _TypeT, class _Allocator>
 class vector
 {
+#ifdef _RWSTD_CXX11
+    typedef allocator_traits<_Allocator> _C_traits;
+#endif
 public:
 
     typedef _TypeT                                     value_type;
     typedef _Allocator                                 allocator_type;
+#ifdef _RWSTD_CXX11
+    typedef typename _C_traits::size_type             size_type;
+    typedef typename _C_traits::difference_type       difference_type;
+    typedef value_type&                              reference;
+    typedef const value_type&                        const_reference;
+    typedef typename _C_traits::pointer               pointer;
+    typedef typename _C_traits::const_pointer         const_pointer;
+#else
     typedef typename allocator_type::size_type        size_type;
     typedef typename allocator_type::difference_type  difference_type;
     typedef typename allocator_type::reference        reference;
     typedef typename allocator_type::const_reference  const_reference;
     typedef typename allocator_type::pointer          pointer;
     typedef typename allocator_type::const_pointer    const_pointer;
+
+#endif
 
 public:
 
@@ -131,6 +151,116 @@ public:
 
 public:
 
+#ifdef _RWSTD_CXX11
+    vector () noexcept (is_nothrow_default_constructible<allocator_type>::value)
+        : _C_alloc () { }
+
+    explicit vector (const allocator_type& __a) noexcept : _C_alloc (__a) { }
+
+    explicit vector (size_type __n, const allocator_type& __a = allocator_type ())
+        : _C_alloc (__a) {
+        _TRY {
+            _C_allocate (__n);
+            while (size () != __n) {
+                _C_alloc.construct (_C_alloc._C_end);
+                ++_C_alloc._C_end;
+            }
+        }
+        _CATCH (...) { _C_release (); _RETHROW; }
+    }
+
+    vector (size_type __n, const_reference __value,
+            const allocator_type& __a = allocator_type ()) : _C_alloc (__a) {
+        _TRY { assign (__n, __value); }
+        _CATCH (...) { _C_release (); _RETHROW; }
+    }
+
+    template <class _InputIter, class = typename enable_if<!is_integral<_InputIter>::value>::type>
+    vector (_InputIter __first, _InputIter __last,
+            const allocator_type& __a = allocator_type ()) : _C_alloc (__a) {
+        _TRY { _C_initialize (__first, __last, typename iterator_traits<_InputIter>::iterator_category ()); }
+        _CATCH (...) { _C_release (); _RETHROW; }
+    }
+
+    vector (const vector& __rhs)
+        : vector (__rhs, _C_traits::select_on_container_copy_construction (__rhs._C_alloc)) { }
+
+    vector (const vector& __rhs, const allocator_type& __a)
+        : vector (__rhs.begin (), __rhs.end (), __a) { }
+
+    vector (vector&& __rhs) noexcept (is_nothrow_move_constructible<allocator_type>::value)
+        : _C_alloc (std::move (static_cast<allocator_type&>(__rhs._C_alloc))) {
+        _C_swap_data (__rhs);
+    }
+
+    vector (vector&& __rhs, const allocator_type& __a) : _C_alloc (__a) {
+        if (__a == __rhs.get_allocator ())
+            _C_swap_data (__rhs);
+        else {
+            _TRY {
+                reserve (__rhs.size ());
+                for (pointer __p = __rhs._C_alloc._C_begin; __p != __rhs._C_alloc._C_end; ++__p)
+                    emplace_back (std::move (*__p));
+            }
+            _CATCH (...) { _C_release (); _RETHROW; }
+        }
+    }
+
+    vector (initializer_list<value_type> __values,
+            const allocator_type& __a = allocator_type ())
+        : vector (__values.begin (), __values.end (), __a) { }
+
+    ~vector () { _C_release (); }
+
+    vector& operator= (const vector& __rhs) {
+        if (this != &__rhs) {
+            _C_copy_allocator (__rhs, typename _C_traits::propagate_on_container_copy_assignment ());
+            assign (__rhs.begin (), __rhs.end ());
+        }
+        return *this;
+    }
+
+    vector& operator= (vector&& __rhs)
+        noexcept (_C_traits::propagate_on_container_move_assignment::value
+                  && is_nothrow_move_assignable<allocator_type>::value) {
+        if (this != &__rhs)
+            _C_move_assign (__rhs, typename _C_traits::propagate_on_container_move_assignment ());
+        return *this;
+    }
+
+    vector& operator= (initializer_list<value_type> __values) {
+        assign (__values.begin (), __values.end ());
+        return *this;
+    }
+
+    template <class _InputIter, class = typename enable_if<!is_integral<_InputIter>::value>::type>
+    void assign (_InputIter __first, _InputIter __last) {
+        _C_assign_modern (__first, __last, typename iterator_traits<_InputIter>::iterator_category ());
+    }
+
+    void assign (size_type __n, const_reference __value) {
+        if (__n > capacity ()) {
+            vector __tmp (get_allocator ());
+            __tmp._C_allocate (__n);
+            while (__tmp.size () != __n) {
+                __tmp._C_alloc.construct (__tmp._C_alloc._C_end, __value);
+                ++__tmp._C_alloc._C_end;
+            }
+            _C_swap_data (__tmp);
+        } else {
+            size_type __common = (std::min)(__n, size ());
+            for (size_type __i = 0; __i != __common; ++__i)
+                _C_alloc._C_begin[__i] = __value;
+            if (__n < size ()) _C_destroy (begin () + __n);
+            while (size () < __n) {
+                _C_alloc.construct (_C_alloc._C_end, __value);
+                ++_C_alloc._C_end;
+            }
+        }
+    }
+
+    void assign (initializer_list<value_type> __values) { assign (__values.begin (), __values.end ()); }
+#else
     explicit
     vector (const allocator_type &__alloc = allocator_type ())
         : _C_alloc (__alloc) { }
@@ -174,39 +304,77 @@ public:
         _C_assign_n (__n, __x);
     }
 
-    allocator_type get_allocator () const {
+#endif
+
+    allocator_type get_allocator () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_alloc;
     }
     
-    iterator begin () {
+    iterator begin ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_make_iter (_C_alloc._C_begin);
     }
 
-    const_iterator begin () const {
+    const_iterator begin () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_make_iter (_C_alloc._C_begin);
     }
 
-    iterator end () {
+    iterator end ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_make_iter (_C_alloc._C_end);
     }
 
-    const_iterator end () const {
+    const_iterator end () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_make_iter (_C_alloc._C_end);
     }
     
-    reverse_iterator rbegin () { 
+    reverse_iterator rbegin ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return reverse_iterator (end ());
     }
     
-    const_reverse_iterator rbegin () const { 
+    const_reverse_iterator rbegin () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return const_reverse_iterator (end ());
     }
     
-    reverse_iterator rend () { 
+    reverse_iterator rend ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return reverse_iterator (begin ());
     }
     
-    const_reverse_iterator rend () const { 
+    const_reverse_iterator rend () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return const_reverse_iterator (begin ());
     }
 
@@ -217,21 +385,56 @@ public:
     const_reverse_iterator crend () const noexcept { return rend (); }
 #endif   // _RWSTD_CXX11
 
-    size_type size () const {
+    size_type size () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
+#ifdef _RWSTD_CXX11
+        if (_C_alloc._C_begin == pointer ()) return 0;
+#endif
         return size_type (_C_alloc._C_end - _C_alloc._C_begin);
     }
 
-    size_type max_size () const {
+    size_type max_size () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
+#ifdef _RWSTD_CXX11
+        return (std::min)(_C_alloc.max_size (),
+                           size_type ((numeric_limits<difference_type>::max)()));
+#else
         return _C_alloc.max_size ();
+#endif
     }
     
+#ifdef _RWSTD_CXX11
+    void resize (size_type);
+    void resize (size_type, const_reference);
+    void shrink_to_fit () noexcept;
+    value_type* data () noexcept { return __rw_c11::__raw_address (_C_alloc._C_begin); }
+    const value_type* data () const noexcept { return __rw_c11::__raw_address (_C_alloc._C_begin); }
+#else
     void resize (size_type, value_type = value_type ());
+#endif
 
-    size_type capacity () const {
+    size_type capacity () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
+#ifdef _RWSTD_CXX11
+        if (_C_alloc._C_begin == pointer ()) return 0;
+#endif
         return _C_alloc._C_bufend - _C_alloc._C_begin;
     }
     
-    bool empty () const {
+    bool empty () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_alloc._C_begin == _C_alloc._C_end;
     }
     
@@ -266,13 +469,68 @@ public:
     }
 
     void push_back (const_reference);
+#ifdef _RWSTD_CXX11
+    void push_back (value_type&& __value) { emplace_back (std::move (__value)); }
+    template <class... _Args> void emplace_back (_Args&&...);
+    template <class... _Args> iterator emplace (const_iterator, _Args&&...);
+    iterator insert (const_iterator __pos, value_type&& __value) {
+        return emplace (__pos, std::move (__value));
+    }
+#endif
     
-    void pop_back () {
+    void pop_back ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         _RWSTD_ASSERT (!empty ());
         _C_alloc.destroy (_C_alloc._C_end - 1);
         --_C_alloc._C_end;
     }
 
+#ifdef _RWSTD_CXX11
+    iterator insert (const_iterator __pos, const_reference __value) { return emplace (__pos, __value); }
+    iterator insert (const_iterator __pos, size_type __n, const_reference __value) {
+        size_type __off = empty () ? 0 : size_type (__pos - cbegin ());
+        _RWSTD_REQUIRES (__n <= max_size () - size (),
+                         (_RWSTD_ERROR_LENGTH_ERROR, "vector insert", __n, max_size ()));
+        _C_insert_n (empty () ? begin () : begin () + __off, __n, __value);
+        return empty () ? begin () : begin () + __off;
+    }
+    template <class _InputIter, class = typename enable_if<!is_integral<_InputIter>::value>::type>
+    iterator insert (const_iterator __pos, _InputIter __first, _InputIter __last) {
+        size_type __off = empty () ? 0 : size_type (__pos - cbegin ());
+        _C_insert_modern (__off, __first, __last, typename iterator_traits<_InputIter>::iterator_category ());
+        return empty () ? begin () : begin () + __off;
+    }
+    iterator insert (const_iterator __pos, initializer_list<value_type> __values) {
+        return insert (__pos, __values.begin (), __values.end ());
+    }
+    iterator erase (const_iterator __pos) { return erase (__pos, __pos + 1); }
+    iterator erase (const_iterator __first, const_iterator __last) {
+        size_type __off = empty () ? 0 : size_type (__first - cbegin ());
+        if (__first == __last) return empty () ? begin () : begin () + __off;
+        pointer __out = _C_alloc._C_begin + __off;
+        pointer __from = _C_alloc._C_begin + (__last - cbegin ());
+        for (; __from != _C_alloc._C_end; ++__out, ++__from)
+            *__out = std::move (*__from);
+        _C_destroy (_C_make_iter (__out));
+        return begin () + __off;
+    }
+    void swap (vector& __rhs)
+#if __cplusplus >= 201402L
+        noexcept (_C_traits::propagate_on_container_swap::value || _C_traits::is_always_equal::value)
+#else
+        noexcept (_C_traits::propagate_on_container_swap::value
+                  ? is_nothrow_move_constructible<allocator_type>::value && is_nothrow_move_assignable<allocator_type>::value
+                  : _C_traits::is_always_equal::value)
+#endif
+    {
+        _C_swap_allocator (__rhs, typename _C_traits::propagate_on_container_swap ());
+        _C_swap_data (__rhs);
+    }
+    void clear () noexcept { if (!empty ()) _C_destroy (begin ()); }
+#else
     iterator insert (iterator, const_reference);
 
     template <class _InputIter>
@@ -292,6 +550,8 @@ public:
     
     void clear ();
 
+#endif
+
 #ifdef _RWSTD_NO_PART_SPEC_OVERLOAD
 
     friend void swap (vector& __lhs, vector& __rhs) {
@@ -301,6 +561,110 @@ public:
 #endif   // _RWSTD_NO_PART_SPEC_OVERLOAD
 
 private:
+
+#ifdef _RWSTD_CXX11
+    void _C_swap_allocator (vector& __rhs, true_type) {
+        std::swap (static_cast<allocator_type&>(_C_alloc), static_cast<allocator_type&>(__rhs._C_alloc));
+    }
+    void _C_swap_allocator (vector& __rhs, false_type) {
+        _RWSTD_ASSERT (get_allocator () == __rhs.get_allocator ());
+    }
+    template <class _InputIter> void _C_insert_modern (size_type, _InputIter, _InputIter, input_iterator_tag);
+    template <class _ForwardIter> void _C_insert_modern (size_type, _ForwardIter, _ForwardIter, forward_iterator_tag);
+    size_type _C_grow_capacity (size_type __n) const {
+        _RWSTD_REQUIRES (__n <= max_size (),
+                         (_RWSTD_ERROR_LENGTH_ERROR, "vector capacity", __n, max_size ()));
+        size_type __cap = capacity ();
+        if (__cap > max_size () / 2) return max_size ();
+        return (std::max)(__n, size_type (2 * __cap));
+    }
+    template <class... _Args> iterator _C_emplace_reallocate (size_type, _Args&&...);
+    struct _C_temp_value {
+        allocator_type& _C_allocator;
+        typename aligned_storage<sizeof(value_type), alignof(value_type)>::type _C_storage;
+        value_type* get () { return reinterpret_cast<value_type*>(&_C_storage); }
+        template <class... _Args> _C_temp_value (allocator_type& __a, _Args&&... __args)
+            : _C_allocator (__a) {
+            _C_traits::construct (__a, get (), std::forward<_Args>(__args)...);
+        }
+        ~_C_temp_value () { _C_traits::destroy (_C_allocator, get ()); }
+    };
+    void _C_swap_data (vector& __rhs) noexcept {
+        std::swap (_C_alloc._C_begin, __rhs._C_alloc._C_begin);
+        std::swap (_C_alloc._C_end, __rhs._C_alloc._C_end);
+        std::swap (_C_alloc._C_bufend, __rhs._C_alloc._C_bufend);
+    }
+    void _C_release () noexcept {
+        clear ();
+        if (_C_alloc._C_begin != pointer ())
+            _C_alloc.deallocate (_C_alloc._C_begin, capacity ());
+        _C_alloc._C_begin = _C_alloc._C_end = _C_alloc._C_bufend = pointer ();
+    }
+    void _C_allocate (size_type __n) {
+        _RWSTD_REQUIRES (__n <= max_size (),
+                         (_RWSTD_ERROR_LENGTH_ERROR, "vector allocation", __n, max_size ()));
+        if (__n) {
+            _C_alloc._C_begin = _C_alloc.allocate (__n);
+            _C_alloc._C_end = _C_alloc._C_begin;
+            _C_alloc._C_bufend = _C_alloc._C_begin + __n;
+        }
+    }
+    void _C_copy_allocator (const vector&, false_type) { }
+    void _C_copy_allocator (const vector& __rhs, true_type) {
+        if (get_allocator () != __rhs.get_allocator ())
+            _C_release ();
+        static_cast<allocator_type&>(_C_alloc) = __rhs.get_allocator ();
+    }
+    void _C_move_assign (vector& __rhs, true_type) {
+        _C_release ();
+        static_cast<allocator_type&>(_C_alloc) = std::move (static_cast<allocator_type&>(__rhs._C_alloc));
+        _C_swap_data (__rhs);
+    }
+    void _C_move_assign (vector& __rhs, false_type) {
+        if (get_allocator () == __rhs.get_allocator ()) {
+            _C_release ();
+            _C_swap_data (__rhs);
+        } else {
+            clear ();
+            reserve (__rhs.size ());
+            for (pointer __p = __rhs._C_alloc._C_begin; __p != __rhs._C_alloc._C_end; ++__p)
+                emplace_back (std::move (*__p));
+        }
+    }
+    template <class _InputIter>
+    void _C_initialize (_InputIter __first, _InputIter __last, input_iterator_tag) {
+        for (; __first != __last; ++__first)
+            emplace_back (*__first);
+    }
+    template <class _ForwardIter>
+    void _C_initialize (_ForwardIter __first, _ForwardIter __last, forward_iterator_tag) {
+        if (__first == __last) return;
+        _C_allocate (size_type (std::distance (__first, __last)));
+        for (; __first != __last; ++__first) {
+            _C_alloc.construct (_C_alloc._C_end, *__first);
+            ++_C_alloc._C_end;
+        }
+    }
+    template <class _InputIter>
+    void _C_assign_modern (_InputIter __first, _InputIter __last, input_iterator_tag) {
+        pointer __p = _C_alloc._C_begin;
+        for (; __p != _C_alloc._C_end && __first != __last; static_cast<void>(++__p), ++__first)
+            *__p = *__first;
+        if (__first == __last)
+            _C_destroy (_C_make_iter (__p));
+        else
+            _C_initialize (__first, __last, input_iterator_tag ());
+    }
+    template <class _ForwardIter>
+    void _C_assign_modern (_ForwardIter __first, _ForwardIter __last, forward_iterator_tag) {
+        if (__first == __last) { clear (); return; }
+        if (size_type (std::distance (__first, __last)) > capacity ()) {
+            vector __tmp (__first, __last, get_allocator ());
+            _C_swap_data (__tmp);
+        } else
+            _C_assign_modern (__first, __last, input_iterator_tag ());
+    }
+#endif
 
     // implements assign with repetition
     void _C_assign_n (size_type, const_reference);
@@ -382,6 +746,22 @@ private:
 
     struct _C_VectorAlloc: allocator_type {
 
+#ifdef _RWSTD_CXX11
+        _C_VectorAlloc () : allocator_type (), _C_begin (), _C_end (), _C_bufend () { }
+        _C_VectorAlloc (allocator_type&& __a)
+            : allocator_type (std::move (__a)), _C_begin (), _C_end (), _C_bufend () { }
+        pointer address (value_type& __value) { return pointer_traits<pointer>::pointer_to (__value); }
+        pointer allocate (size_type __n, const void* = 0) {
+            return _C_traits::allocate (*this, __n);
+        }
+        void deallocate (pointer __p, size_type __n) { _C_traits::deallocate (*this, __p, __n); }
+        template <class... _Args> void construct (pointer __p, _Args&&... __args) {
+            _C_traits::construct (*this, __rw_c11::__raw_address (__p), std::forward<_Args>(__args)...);
+        }
+        void destroy (pointer __p) { _C_traits::destroy (*this, __rw_c11::__raw_address (__p)); }
+        size_type max_size () const { return _C_traits::max_size (*this); }
+#endif
+
         _C_VectorAlloc (const allocator_type &__alloc)
             : allocator_type (__alloc), _C_begin (), _C_end (), _C_bufend ()
             { /* empty */}
@@ -455,6 +835,7 @@ at (size_type __n)  const
 }
 
 
+#ifndef _RWSTD_CXX11
 template <class _TypeT, class _Allocator>
 inline void
 vector<_TypeT, _Allocator>::
@@ -466,6 +847,7 @@ resize (size_type __new_size, value_type __x /* = value_type () */)
         erase (begin () + __new_size, end ());
 }
 
+#endif
 
 template <class _TypeT, class _Allocator>
 inline void
@@ -487,13 +869,18 @@ inline void
 vector<_TypeT, _Allocator>::
 push_back (const_reference __x)
 {
+#ifdef _RWSTD_CXX11
+    emplace_back (__x);
+#else
     if (_C_alloc._C_end == _C_alloc._C_bufend)
         _C_insert_1 (end (), __x);
     else
         _C_push_back (__x);
+#endif
 }
 
 
+#ifndef _RWSTD_CXX11
 template <class _TypeT, class _Allocator>
 inline typename vector<_TypeT, _Allocator>::iterator
 vector<_TypeT, _Allocator>::
@@ -579,6 +966,8 @@ swap (vector &__other)
 }
 
 
+#endif
+
 template <class _TypeT, class _Allocator>
 inline bool
 operator== (const vector<_TypeT, _Allocator> &__x,
@@ -634,6 +1023,9 @@ operator<= (const vector<_TypeT, _Allocator> &__x,
 template <class _TypeT, class _Allocator>
 inline void
 swap (vector<_TypeT, _Allocator> &__x, vector<_TypeT, _Allocator> &__y)
+#ifdef _RWSTD_CXX11
+    noexcept (noexcept (__x.swap (__y)))
+#endif
 {
     __x.swap (__y);
 }
@@ -1166,12 +1558,12 @@ public:
 
     reverse_iterator       rbegin () { return reverse_iterator(end()); }
     const_reverse_iterator rbegin () const
-    { 
+    {
       return const_reverse_iterator(end()); 
     }
     reverse_iterator       rend () { return reverse_iterator(begin()); }
     const_reverse_iterator rend () const
-    { 
+    {
       return const_reverse_iterator(begin()); 
     }
 
@@ -1217,7 +1609,7 @@ public:
     // element access
     //
     reference       operator[] (size_type __n)       
-    { 
+    {
 #ifdef _RWSTD_BOUNDS_CHECKING
 
         _RWSTD_REQUIRES (__n < size (),
@@ -1230,7 +1622,7 @@ public:
       return *(begin() + __n); 
     }
     const_reference operator[] (size_type __n) const 
-    { 
+    {
 #ifdef _RWSTD_BOUNDS_CHECKING
 
         _RWSTD_REQUIRES (__n < size (),
@@ -1243,7 +1635,7 @@ public:
       return *(begin() + __n); 
     }
     reference       at (size_type __n)               
-    { 
+    {
         _RWSTD_REQUIRES (__n < size (),
                          (_RWSTD_ERROR_LENGTH_ERROR,
                           _RWSTD_FUNC ("vector<bool>::at(size_type)"),

@@ -41,6 +41,195 @@
 
 _RWSTD_NAMESPACE (std) { 
 
+#ifdef _RWSTD_CXX11
+
+template <class _TypeT, class _Allocator>
+template <class... _Args>
+typename vector<_TypeT, _Allocator>::iterator
+vector<_TypeT, _Allocator>::_C_emplace_reallocate (size_type __off, _Args&&... __args)
+{
+    vector __tmp (get_allocator ());
+    __tmp._C_allocate (_C_grow_capacity (size () + 1));
+    pointer __inserted = __tmp._C_alloc._C_begin + __off;
+    __tmp._C_alloc.construct (__inserted, std::forward<_Args>(__args)...);
+    _TRY {
+        for (size_type __i = 0; __i != __off; ++__i)
+            __tmp.emplace_back (std::move_if_noexcept (_C_alloc._C_begin[__i]));
+    }
+    _CATCH (...) {
+        __tmp._C_alloc.destroy (__inserted);
+        _RETHROW;
+    }
+    ++__tmp._C_alloc._C_end;
+    for (size_type __i = __off; __i != size (); ++__i)
+        __tmp.emplace_back (std::move_if_noexcept (_C_alloc._C_begin[__i]));
+    _C_swap_data (__tmp);
+    return begin () + __off;
+}
+
+template <class _TypeT, class _Allocator>
+template <class... _Args>
+void vector<_TypeT, _Allocator>::emplace_back (_Args&&... __args)
+{
+    if (_C_alloc._C_end != _C_alloc._C_bufend) {
+        _C_alloc.construct (_C_alloc._C_end, std::forward<_Args>(__args)...);
+        ++_C_alloc._C_end;
+    } else
+        _C_emplace_reallocate (size (), std::forward<_Args>(__args)...);
+}
+
+template <class _TypeT, class _Allocator>
+template <class... _Args>
+typename vector<_TypeT, _Allocator>::iterator
+vector<_TypeT, _Allocator>::emplace (const_iterator __pos, _Args&&... __args)
+{
+    size_type __off = empty () ? 0 : size_type (__pos - cbegin ());
+    if (_C_alloc._C_end == _C_alloc._C_bufend)
+        return _C_emplace_reallocate (__off, std::forward<_Args>(__args)...);
+    pointer __position = _C_alloc._C_begin + __off;
+    if (__position == _C_alloc._C_end)
+        emplace_back (std::forward<_Args>(__args)...);
+    else {
+        _C_temp_value __value (_C_alloc, std::forward<_Args>(__args)...);
+        _C_alloc.construct (_C_alloc._C_end, std::move (*(_C_alloc._C_end - 1)));
+        ++_C_alloc._C_end;
+        for (pointer __p = _C_alloc._C_end - 2; __p != __position; --__p)
+            *__p = std::move (*(__p - 1));
+        *__position = std::move (*__value.get ());
+    }
+    return begin () + __off;
+}
+
+template <class _TypeT, class _Allocator>
+template <class _InputIter>
+void vector<_TypeT, _Allocator>::_C_insert_modern (
+    size_type __off, _InputIter __first, _InputIter __last, input_iterator_tag)
+{
+    size_type __old = size ();
+    for (; __first != __last; ++__first)
+        emplace_back (*__first);
+    if (__off != __old && size () != __old) {
+        std::reverse (begin () + __off, begin () + __old);
+        std::reverse (begin () + __old, end ());
+        std::reverse (begin () + __off, end ());
+    }
+}
+
+template <class _TypeT, class _Allocator>
+template <class _ForwardIter>
+void vector<_TypeT, _Allocator>::_C_insert_modern (
+    size_type __off, _ForwardIter __first, _ForwardIter __last, forward_iterator_tag)
+{
+    if (__first == __last) return;
+    size_type __n = size_type (std::distance (__first, __last));
+    _RWSTD_REQUIRES (__n <= max_size () - size (),
+                     (_RWSTD_ERROR_LENGTH_ERROR, "vector insert", __n, max_size ()));
+    if (__n > capacity () - size ()) {
+        vector __tmp (get_allocator ());
+        __tmp._C_allocate (_C_grow_capacity (size () + __n));
+        size_type __constructed = 0;
+        _TRY {
+            for (; __first != __last; static_cast<void>(++__first), ++__constructed)
+                __tmp._C_alloc.construct (__tmp._C_alloc._C_begin + __off + __constructed, *__first);
+            for (size_type __i = 0; __i != __off; ++__i)
+                __tmp.emplace_back (std::move_if_noexcept (_C_alloc._C_begin[__i]));
+        }
+        _CATCH (...) {
+            while (__constructed)
+                __tmp._C_alloc.destroy (__tmp._C_alloc._C_begin + __off + --__constructed);
+            _RETHROW;
+        }
+        __tmp._C_alloc._C_end += __n;
+        for (size_type __i = __off; __i != size (); ++__i)
+            __tmp.emplace_back (std::move_if_noexcept (_C_alloc._C_begin[__i]));
+        _C_swap_data (__tmp);
+        return;
+    }
+    pointer __position = _C_alloc._C_begin + __off;
+    pointer __old_end = _C_alloc._C_end;
+    size_type __tail = size () - __off;
+    _ForwardIter __middle = __first;
+    _TRY {
+        if (__n > __tail) {
+            std::advance (__middle, difference_type (__tail));
+            for (_ForwardIter __i = __middle; __i != __last; ++__i) {
+                _C_alloc.construct (_C_alloc._C_end, *__i);
+                ++_C_alloc._C_end;
+            }
+        }
+        pointer __from = __n > __tail ? __position : __old_end - __n;
+        for (; __from != __old_end; ++__from) {
+            _C_alloc.construct (_C_alloc._C_end, std::move_if_noexcept (*__from));
+            ++_C_alloc._C_end;
+        }
+    }
+    _CATCH (...) { _C_destroy (_C_make_iter (__old_end)); _RETHROW; }
+    if (__n <= __tail) {
+        for (pointer __p = __old_end - __n; __p != __position;) {
+            --__p;
+            *(__p + __n) = std::move (*__p);
+        }
+        __middle = __last;
+    }
+    for (; __first != __middle; static_cast<void>(++__first), ++__position)
+        *__position = *__first;
+}
+
+template <class _TypeT, class _Allocator>
+void vector<_TypeT, _Allocator>::resize (size_type __n)
+{
+    size_type __old = size ();
+    if (__n <= __old) {
+        if (__n != __old) _C_destroy (begin () + __n);
+        return;
+    }
+    if (__n <= capacity ()) {
+        _TRY {
+            while (size () != __n) {
+                _C_alloc.construct (_C_alloc._C_end);
+                ++_C_alloc._C_end;
+            }
+        }
+        _CATCH (...) { _C_destroy (begin () + __old); _RETHROW; }
+        return;
+    }
+    vector __tmp (get_allocator ());
+    __tmp._C_allocate (_C_grow_capacity (__n));
+    size_type __constructed = 0;
+    _TRY {
+        for (; __constructed != __n - __old; ++__constructed)
+            __tmp._C_alloc.construct (__tmp._C_alloc._C_begin + __old + __constructed);
+        for (pointer __p = _C_alloc._C_begin; __p != _C_alloc._C_end; ++__p)
+            __tmp.emplace_back (std::move_if_noexcept (*__p));
+    }
+    _CATCH (...) {
+        while (__constructed)
+            __tmp._C_alloc.destroy (__tmp._C_alloc._C_begin + __old + --__constructed);
+        _RETHROW;
+    }
+    __tmp._C_alloc._C_end = __tmp._C_alloc._C_begin + __n;
+    _C_swap_data (__tmp);
+}
+
+template <class _TypeT, class _Allocator>
+void vector<_TypeT, _Allocator>::resize (size_type __n, const_reference __value)
+{
+    if (__n < size ()) _C_destroy (begin () + __n);
+    else if (__n > size ()) insert (end (), __n - size (), __value);
+}
+
+template <class _TypeT, class _Allocator>
+void vector<_TypeT, _Allocator>::shrink_to_fit () noexcept
+{
+    if (size () == capacity ()) return;
+    _TRY { _C_realloc (size ()); }
+    _CATCH (...) { }
+}
+
+#endif
+
+
+#ifndef _RWSTD_CXX11
 template <class _TypeT, class _Allocator>
 vector<_TypeT, _Allocator>&
 vector<_TypeT, _Allocator>::
@@ -62,12 +251,20 @@ operator= (const vector &__rhs)
     return *this;
 }
 
+#endif
 
 template <class _TypeT, class _Allocator>
 void
 vector<_TypeT, _Allocator>::
 _C_realloc (size_type __n)
 {
+#ifdef _RWSTD_CXX11
+    vector __tmp (get_allocator ());
+    __tmp._C_allocate (__n);
+    for (pointer __p = _C_alloc._C_begin; __p != _C_alloc._C_end; ++__p)
+        __tmp.emplace_back (std::move_if_noexcept (*__p));
+    _C_swap_data (__tmp);
+#else
     const size_type __max_size = max_size ();
 
     // compute the new capacity from the greater of the current size
@@ -100,6 +297,7 @@ _C_realloc (size_type __n)
 
     // swap *this with the temporary, having its dtor clean up
     swap (__tmp);
+#endif
 }
 
 
@@ -108,6 +306,9 @@ void vector<_TypeT, _Allocator>::
 _C_destroy (iterator __first)
 {
     _RWSTD_ASSERT_RANGE (__first, end ());
+#ifdef _RWSTD_CXX11
+    if (__first == end ()) return;
+#endif
 
     for (size_type __n = end () - __first; !(0 == __n); --__n)
         _C_alloc.destroy (--_C_alloc._C_end);

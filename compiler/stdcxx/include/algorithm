@@ -1242,6 +1242,36 @@ inline bool prev_permutation (_BidirIter __first, _BidirIter __last)
 }
 
 
+#ifdef _RWSTD_CXX11
+
+template <class _InputIter, class _Predicate>
+inline _InputIter find_if_not (_InputIter __first, _InputIter __last, _Predicate __pred)
+{
+    for (; __first != __last; ++__first)
+        if (!__pred (*__first)) return __first;
+    return __last;
+}
+
+template <class _InputIter, class _Predicate>
+inline bool all_of (_InputIter __first, _InputIter __last, _Predicate __pred)
+{
+    return std::find_if_not (__first, __last, __pred) == __last;
+}
+
+template <class _InputIter, class _Predicate>
+inline bool any_of (_InputIter __first, _InputIter __last, _Predicate __pred)
+{
+    return std::find_if (__first, __last, __pred) != __last;
+}
+
+template <class _InputIter, class _Predicate>
+inline bool none_of (_InputIter __first, _InputIter __last, _Predicate __pred)
+{
+    return !std::any_of (__first, __last, __pred);
+}
+
+#endif
+
 }   // namespace std
 
 

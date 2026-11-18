@@ -22,7 +22,7 @@ the reference for the design. Its test suite is the conformance test.
 * `_RWSTD_CONSTEXPR14` is `constexpr` from C++14 on (C++11 makes
   `constexpr` member functions `const`).
 
-## Status (phase 1)
+## Status
 
 | Header | C++11/14 content | libc++ 8 tests (C++11, -O0) |
 |---|---|---|
@@ -32,6 +32,9 @@ the reference for the design. Its test suite is the conformance test.
 | `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 54/55 |
 | `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums), typed bitwise and C++14 transparent functors | function.objects: 88/88 |
 | `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 84/84; allocator.traits: 21/21; pointer.traits: 9/9 |
+| `<vector>` | Normal `vector<T>` C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; `vector<bool>` remains pending | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO) |
+| `<iterator>` | Range access, `next`, `prev` | next/prev: 2/2 |
+| `<algorithm>` | `all_of`, `any_of`, `none_of`, `find_if_not` | 4/4 |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 
@@ -44,9 +47,9 @@ listed in the TODO.
 test tools in `compiler/stdcxx/tests/cxx11`.
 
 **Next phases:**
-1. Containers: move, `initializer_list` and `emplace` members for
-   `vector`, `deque`, `list`, `basic_string`, `map`/`set`.
-2. `<iterator>` (`begin`/`end`, `next`/`prev`, `move_iterator`),
+1. Containers: `vector<bool>`, then move, `initializer_list` and `emplace`
+   members for `deque`, `list`, `basic_string`, `map`/`set`.
+2. Remaining `<iterator>` additions (`move_iterator` and factory functions),
    `<algorithm>` and `<numeric>` additions.
 3. String conversions (`to_string`, `stoi`, ...) and Unicode string types.
 4. New headers: `<forward_list>`, `<unordered_map>`, `<unordered_set>`,
@@ -83,6 +86,11 @@ C++98 code as well:
 * **Conditional lifetimes** keep statement temporaries within their branch
   and construct class-valued alternatives into one destination.
 * **Narrow enum casts** retain WHIRL's widened register types.
+* **Unbraced loop bodies** destroy expression temporaries on each iteration.
+* **Empty-object pointer arithmetic** uses a nonzero stride while retaining
+  empty-base layout optimization.
+* **EH branch traversal** finds throwing calls after nonthrowing constructors,
+  including exception objects thrown from an unbraced `if` body.
 * **Class static data members** retain external linkage and ODR coalescing.
   This also fixes optimized string assignment across the runtime boundary.
 * **Member calls through pointer prvalues** pass the allocated object address.

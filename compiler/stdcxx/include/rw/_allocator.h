@@ -51,6 +51,10 @@
 #endif   // _RWSTD_SPECIALIZED_H_INCLUDED
 
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_utility.h>
+#endif
+
 _RWSTD_NAMESPACE (__rw) {
 
 // [de]allocate storage (in bytes)
@@ -108,6 +112,11 @@ public:
     typedef const value_type*   const_pointer;
     typedef value_type&         reference;
     typedef const value_type&   const_reference;
+
+#ifdef _RWSTD_CXX11
+    typedef true_type propagate_on_container_move_assignment;
+    typedef true_type is_always_equal;
+#endif
 
     allocator () _THROWS (()) { }
 
@@ -173,6 +182,13 @@ public:
             : size_type (1);
     }
 
+#ifdef _RWSTD_CXX11
+    template <class _Up, class... _Args>
+    void construct (_Up* __p, _Args&&... __args) {
+        ::new ((void*)__p) _Up (std::forward<_Args>(__args)...);
+    }
+    template <class _Up> void destroy (_Up* __p) { __p->~_Up (); }
+#else
     void construct (pointer __p, const_reference __val) {
         _RW::__rw_construct (__p, __val);
     }
@@ -181,6 +197,8 @@ public:
         _RWSTD_ASSERT (0 != __p);
         __p->~_TypeT ();
     }
+#endif
+
 };
 
 
