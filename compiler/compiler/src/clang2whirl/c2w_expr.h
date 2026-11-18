@@ -90,7 +90,7 @@ private:
 
   Result ConvertCXXMFPToINITV(const clang::Expr *expr, TY_IDX ty);
 
-  Result EmitCXXMemberPointerCall(const clang::CXXMemberCallExpr *expr, BOOL retv);
+  Result EmitCXXMemberPointerCall(const clang::CXXMemberCallExpr *expr, BOOL retv, Result dest = Result::nwNone());
 
   Result EmitCXXNewDeleteCall(const clang::CallExpr *expr, bool is_delete);
 
@@ -121,7 +121,7 @@ private:
 
   void EmitCallee(const clang::Expr *expr);
 
-  Result ConvertCallExpr(const clang::CallExpr *expr, BOOL retv);
+  Result ConvertCallExpr(const clang::CallExpr *expr, BOOL retv, Result dest = Result::nwNone());
   
   Result ConvertChooseExpr(const clang::ChooseExpr *expr);
 
@@ -157,9 +157,9 @@ private:
 
   Result ConvertCXXMFPFromWhirl(WN *value, TY_IDX ty, INT64 ofst);
 
-  Result ConvertCXXMemberCallExpr(const clang::CXXMemberCallExpr *expr, BOOL retv);
+  Result ConvertCXXMemberCallExpr(const clang::CXXMemberCallExpr *expr, BOOL retv, Result dest = Result::nwNone());
   
-  Result ConvertCXXOperatorCallExpr(const clang::CXXOperatorCallExpr *expr, BOOL retv);
+  Result ConvertCXXOperatorCallExpr(const clang::CXXOperatorCallExpr *expr, BOOL retv, Result dest = Result::nwNone());
   
   Result ConvertCXXReinterpretCastExpr(const clang::CXXReinterpretCastExpr *expr);
   

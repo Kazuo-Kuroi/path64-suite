@@ -1466,18 +1466,26 @@ WhirlExprBuilder::EmitCallee(const Expr *expr) {
 }
 
 Result
-WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
+WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv, Result dest) {
   TRACE_FUNC();
   const FunctionDecl *callee = expr->getDirectCallee();
   WN *call_wn = NULL;
   WN *ld_wn = NULL;
   TY_IDX ret_ty_idx;
+  TY_IDX result_type = _builder->TB().ConvertType(expr->getType());
+  const bool memory_result = !expr->isGLValue() && TY_return_in_mem(result_type);
+  Result result_object = dest;
+  if (memory_result && result_object.isNone()) {
+    ST *object = Create_tmp_sym(result_type, ".call_result", GetSrcPos());
+    result_object = Result::nwSym(ST_st_idx(object), result_type);
+  }
 
   // generate parm for implicit object
   const auto *cxx_call_expr = dyn_cast<CXXMemberCallExpr>(expr);
   const Expr *impl_obj = cxx_call_expr ? cxx_call_expr->getImplicitObjectArgument() : NULL;
   UINT num_args = expr->getNumArgs();
   num_args = impl_obj ? num_args + 1 : num_args;
+  if (memory_result) ++num_args;
 
   // check if MemberExpr is Arrow
   bool mem_expr_is_arrow = false;
@@ -1540,7 +1548,7 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
 
     // get right return type from callee type
     ret_ty_idx = TY_ret_type(ST_pu_type(ce_st));
-    call_wn = WN_Create(OPR_CALL, retv ? TY_mtype(ret_ty_idx) : MTYPE_V, MTYPE_V, num_args);
+    call_wn = WN_Create(OPR_CALL, retv && !memory_result ? TY_mtype(ret_ty_idx) : MTYPE_V, MTYPE_V, num_args);
     WN_Set_Linenum(call_wn, SetSrcPos(getLocation(expr)));
     WN_st_idx(call_wn) = ce_st;
     WN_Set_Call_Default_Flags(call_wn);
@@ -1569,8 +1577,8 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
     ret_ty_idx = _builder->TB().ConvertType(expr->getType());
     if (expr->isGLValue())
       ret_ty_idx = Make_Pointer_Type(ret_ty_idx);
-    call_wn = WN_Icall(retv ? TY_mtype(ret_ty_idx) : MTYPE_V, MTYPE_V,
-                       expr->getNumArgs() + 1, rty);
+    call_wn = WN_Icall(retv && !memory_result ? TY_mtype(ret_ty_idx) : MTYPE_V, MTYPE_V,
+                       num_args + 1, rty);
     WN_Set_Linenum(call_wn, SetSrcPos(getLocation(expr)));
     WN_Set_Call_Default_Flags(call_wn);
     if (!_builder->DeclBuilder().Call_nothrow(expr->getCalleeDecl()))
@@ -1579,6 +1587,11 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
   Is_True(call_wn != NULL, ("missing call whirl node"));
 
   int  parm_idx = 0;
+  if (memory_result) {
+    WN *address = result_object.GetLValue();
+    WN_kid(call_wn, parm_idx++) = WGEN_CreateParm(Pointer_Mtype, address,
+                                                 Make_Pointer_Type(result_type));
+  }
   if(impl_obj) {
     Result r = ConvertExpr(impl_obj);
     WN *impl_node = impl_obj->getType()->isPointerType()
@@ -1608,6 +1621,11 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
   // handle indirect call
   if (indirect_call) {
     WN_kid(call_wn, parm_idx) = ld_wn;
+  }
+
+  if (memory_result) {
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), call_wn);
+    return retv ? result_object : Result::nwNone();
   }
 
   if (retv && !expr->getType()->isVoidType()) {
@@ -2984,7 +3002,7 @@ WhirlExprBuilder::ConvertCXXMFPToINITV(const Expr *expr, TY_IDX ty) {
 }
 
 Result
-WhirlExprBuilder::EmitCXXMemberPointerCall(const CXXMemberCallExpr *expr, BOOL retv) {
+WhirlExprBuilder::EmitCXXMemberPointerCall(const CXXMemberCallExpr *expr, BOOL retv, Result dest) {
   const BinaryOperator *BO =
     cast<BinaryOperator>(expr->getCallee()->IgnoreParens());
   const Expr *BaseExpr = BO->getLHS();
@@ -3011,6 +3029,11 @@ WhirlExprBuilder::EmitCXXMemberPointerCall(const CXXMemberCallExpr *expr, BOOL r
   TY_IDX ret_ty_idx = _builder->TB().ConvertType(expr->getType());
   if (expr->isGLValue())
     ret_ty_idx = Make_Pointer_Type(ret_ty_idx);
+
+  const bool memory_result = !expr->isGLValue() && TY_return_in_mem(ret_ty_idx);
+  Result result_object = dest;
+  if (memory_result && result_object.isNone())
+    result_object = Result::nwSym(ST_st_idx(Create_tmp_sym(ret_ty_idx, ".member_result", spos)), ret_ty_idx);
 
   // get the member function pointer
   WN *fun_idx, *fun_ptr;
@@ -3054,13 +3077,17 @@ WhirlExprBuilder::EmitCXXMemberPointerCall(const CXXMemberCallExpr *expr, BOOL r
   fun_idx = mem_fun_idx.Node();
 
   WN *parm = WN_Add(WN_rtype(addr), addr, fun_idx);
-  WN *icall_wn = WN_Icall(TY_mtype(ret_ty_idx), MTYPE_V, expr->getNumArgs() + 2, fty);
+  WN *icall_wn = WN_Icall(memory_result ? MTYPE_V : TY_mtype(ret_ty_idx), MTYPE_V,
+                            expr->getNumArgs() + 2 + memory_result, fty);
   WN_Set_Linenum(icall_wn, spos);
   if (!_builder->DeclBuilder().Call_nothrow(expr->getMethodDecl()))
     Mark_call_region(icall_wn);
 
   WN *parm_first = WGEN_CreateParm(WN_rtype(parm), parm, base_ty);
   int parm_idx = 0;
+  if (memory_result)
+    WN_kid(icall_wn, parm_idx++) = WGEN_CreateParm(Pointer_Mtype,
+        result_object.GetLValue(), Make_Pointer_Type(ret_ty_idx));
   WN_kid(icall_wn, parm_idx++) = parm_first;
   SetCallParm(expr, icall_wn, parm_idx);
 
@@ -3081,6 +3108,11 @@ WhirlExprBuilder::EmitCXXMemberPointerCall(const CXXMemberCallExpr *expr, BOOL r
                                  WN_COPY_Tree(fun_ptr));
   WN_kid(icall_wn, parm_idx++) = parm3;
   WN_Set_Call_Default_Flags(icall_wn);
+
+  if (memory_result) {
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), icall_wn);
+    return retv ? result_object : Result::nwNone();
+  }
 
   if (retv && !expr->getType()->isVoidType()) {
     WN *blk = WN_CreateBlock();
@@ -3126,11 +3158,11 @@ WhirlExprBuilder::EmitAdjustVirtualBase(WN *wn, TY_IDX ty_idx, const CXXRecordDe
 }
 
 Result
-WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL retv) {
+WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL retv, Result dest) {
   CXXMethodDecl *md = expr->getMethodDecl();
   const Expr *callee = expr->getCallee()->ignoreParenBaseCasts();
   if (isa<BinaryOperator>(callee)) {
-    return EmitCXXMemberPointerCall(expr, retv);
+    return EmitCXXMemberPointerCall(expr, retv, dest);
   }
   SRCPOS spos = SetSrcPos(getLocation(expr));
 
@@ -3173,8 +3205,14 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
     TY_IDX ret_ty_idx = _builder->TB().ConvertType(expr->getType());
     if (expr->isGLValue())
       ret_ty_idx = Make_Pointer_Type(ret_ty_idx);
-    TY_IDX func_ty_idx = _builder->TB().ConvertType(md->getType());
-    WN *icall_wn = WN_Icall(TY_mtype(ret_ty_idx), MTYPE_V, expr->getNumArgs() + 2, func_ty_idx);
+    const bool memory_result = !expr->isGLValue() && TY_return_in_mem(ret_ty_idx);
+    Result result_object = dest;
+    if (memory_result && result_object.isNone())
+      result_object = Result::nwSym(ST_st_idx(Create_tmp_sym(ret_ty_idx, ".virtual_result", spos)), ret_ty_idx);
+    TY_IDX func_ty_idx = _builder->TB().ConvertType(md->getType().getTypePtr(), FALSE,
+                                                       md->getParent()->getTypeForDecl());
+    WN *icall_wn = WN_Icall(memory_result ? MTYPE_V : TY_mtype(ret_ty_idx), MTYPE_V,
+                              expr->getNumArgs() + 2 + memory_result, func_ty_idx);
     WN_Set_Linenum(icall_wn, spos);
     WN_Set_Call_Default_Flags(icall_wn);
     WN_Set_Call_Is_Virtual(icall_wn);
@@ -3183,6 +3221,9 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
 
     WN *parm_first = WGEN_CreateParm(TY_mtype(base_ty_idx), ldid_base_wn, base_ty_idx);
     int parm_idx = 0;
+    if (memory_result)
+      WN_kid(icall_wn, parm_idx++) = WGEN_CreateParm(Pointer_Mtype,
+          result_object.GetLValue(), Make_Pointer_Type(ret_ty_idx));
     WN_kid(icall_wn, parm_idx++) = parm_first;
     SetCallParm(expr, icall_wn, parm_idx);
     Result base_r2 = ConvertExpr(base);
@@ -3204,7 +3245,11 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
     TYPE_ID uintptr_ty = _builder->TB().GetUIntPtrMType();
     WN *ilod_vptr_wn = WN_Iload(uintptr_ty, 0, base_ty_idx, ldid_base_wn2, 0);
     WN *ilod_func_ptr_wn = WN_Iload(uintptr_ty, offset, func_ty_idx, ilod_vptr_wn, 0);
-    WN_kid(icall_wn, expr->getNumArgs() + 1) = ilod_func_ptr_wn;
+    WN_kid(icall_wn, expr->getNumArgs() + 1 + memory_result) = ilod_func_ptr_wn;
+    if (memory_result) {
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), icall_wn);
+      return retv ? result_object : Result::nwNone();
+    }
     if (retv && !expr->getType()->isVoidType()) {
       TYPE_ID ret_mty = TY_mtype(ret_ty_idx);
       WN *blk = WN_CreateBlock();
@@ -3218,12 +3263,12 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
     return Result::nwNode(icall_wn, 0);
   }
   else {
-    return ConvertCallExpr(cast<CallExpr>(expr), retv);
+    return ConvertCallExpr(cast<CallExpr>(expr), retv, dest);
   }
 }
 
 Result
-WhirlExprBuilder::ConvertCXXOperatorCallExpr(const CXXOperatorCallExpr *expr, BOOL retv) {
+WhirlExprBuilder::ConvertCXXOperatorCallExpr(const CXXOperatorCallExpr *expr, BOOL retv, Result dest) {
   TRACE_FUNC();
   const CXXMethodDecl *met_decl = dyn_cast_or_null<CXXMethodDecl>(expr->getCalleeDecl());
   // no need to convert for trivial operator call expression
@@ -3238,7 +3283,7 @@ WhirlExprBuilder::ConvertCXXOperatorCallExpr(const CXXOperatorCallExpr *expr, BO
     Result asgn = EmitAssignNode(lhs, rhs, ty, rv);
     return asgn;
   }
-  return ConvertCallExpr(expr, retv);
+  return ConvertCallExpr(expr, retv, dest);
 }
 
 Result
@@ -6519,7 +6564,7 @@ WhirlExprBuilder::ConvertExpr(const Expr *expr, Result dest, BOOL retv) {
       r = ConvertBinaryOperator(cast<BinaryOperator>(expr), retv);
       break;
     case Expr::CallExprClass:
-      r = ConvertCallExpr(cast<CallExpr>(expr), retv);
+      r = ConvertCallExpr(cast<CallExpr>(expr), retv, dest);
       break;
     case Expr::CharacterLiteralClass:
       r = ConvertCharacterLiteral(cast<CharacterLiteral>(expr));
@@ -6571,10 +6616,10 @@ WhirlExprBuilder::ConvertExpr(const Expr *expr, Result dest, BOOL retv) {
       r = ConvertCXXFunctionalCastExpr(cast<CXXFunctionalCastExpr>(expr), dest);
       break;
     case Expr::CXXMemberCallExprClass:
-      r = ConvertCXXMemberCallExpr(cast<CXXMemberCallExpr>(expr), retv);
+      r = ConvertCXXMemberCallExpr(cast<CXXMemberCallExpr>(expr), retv, dest);
       break;
     case Expr::CXXOperatorCallExprClass:
-      r = ConvertCXXOperatorCallExpr(cast<CXXOperatorCallExpr>(expr), retv);
+      r = ConvertCXXOperatorCallExpr(cast<CXXOperatorCallExpr>(expr), retv, dest);
       break;
     case Expr::CXXReinterpretCastExprClass:
       r = ConvertCXXReinterpretCastExpr(cast<CXXReinterpretCastExpr>(expr));

@@ -983,18 +983,13 @@ Optimize_cleanups(DTOR_ST_VECTOR *current, DTOR_ST_VECTOR *prev)
 {
   if (prev->size() >= current->size())
         return false;
-  reverse(current->begin(), current->end());
-  reverse(prev->begin(), prev->end());
-  DTOR_ST_VECTOR::iterator c = current->begin();
-  for (DTOR_ST_VECTOR::iterator p = prev->begin(); p != prev->end(); ++p, ++c)
+  // Compare common tails without changing either cleanup sequence. A failed
+  // match must not reverse an existing landing pad's destruction order.
+  DTOR_ST_VECTOR::reverse_iterator c = current->rbegin();
+  for (DTOR_ST_VECTOR::reverse_iterator p = prev->rbegin(); p != prev->rend(); ++p, ++c)
     if (*p != *c)
       return false;
-  // all cleanups in prev are in current, so remove them from current
-  // first reverse it back
-  reverse(current->begin(), current->end());
-  reverse(prev->begin(), prev->end());
-  for (int i=0; i<prev->size(); ++i)
-    current->pop_back();
+  current->resize(current->size() - prev->size());
   return true;
 }
 
@@ -2329,7 +2324,13 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
     if (decl->getType()->isReferenceType())
       tgt_r.SetRef();
     WhirlExprBuilder expr_bldr(_builder);
-    Result r = expr_bldr.ConvertExpr(init, tgt_r, TRUE);
+    const Expr *plain_initializer = init->IgnoreParenImpCasts();
+    const bool member_function_address = decl->getType()->isMemberFunctionPointerType() &&
+        isa<UnaryOperator>(plain_initializer) &&
+        cast<UnaryOperator>(plain_initializer)->getOpcode() == UO_AddrOf;
+    Result r = member_function_address
+        ? Result::nwNode(expr_bldr.ConvertToNode(init), ty_idx)
+        : expr_bldr.ConvertExpr(init, tgt_r, TRUE);
     Is_True(r.isNone() || r.isSym() || r.isNode() || r.isTCon() || r.isIntConst(),
             ("Invalid wn for initialize"));
 
@@ -2828,6 +2829,31 @@ WN *WhirlStmtBuilder::ConvertReturnStmt(const ReturnStmt *stmt) {
   if (retv == NULL) {
     return WGEN_CreateReturn(GetSrcPos());
   } else {
+    ST_IDX result_symbol = _builder->Scope().Get_return_object();
+    if (result_symbol) {
+      // Nontrivial C++ results are constructed in the caller's return area.
+      // A later aggregate copy would break objects containing self pointers.
+      Result destination = Result::nwSym(result_symbol, ST_type(ST_ptr(result_symbol)));
+      destination.SetRef();
+      WhirlExprBuilder expr_bldr(_builder);
+      Result result = expr_bldr.ConvertExpr(retv, destination);
+      WN *block = WhirlBlockUtil::getCurrentBlock();
+      if (!result.isNone() && !(result.isSym() && result.Sym() == result_symbol)) {
+        WN *value = result.GetRValue();
+        if (OPERATOR_is_stmt(WN_operator(value)))
+          WN_INSERT_BlockLast(block, value);
+        else {
+          TY_IDX object_type = _builder->TB().ConvertType(retv->getType());
+          if (WN_rtype(value) != MTYPE_M)
+            value = WN_Iload(MTYPE_M, 0, object_type, value);
+          WN_INSERT_BlockLast(block, WN_Istore(MTYPE_M, 0,
+              Make_Pointer_Type(object_type), destination.GetLValue(), value));
+        }
+      }
+      pop_dtor_for_copy_ctor_stack(block, retv->getType());
+      pop_dtor_call_for_return(block);
+      return WGEN_CreateReturn(GetSrcPos());
+    }
     TY_IDX ret_ty = _builder->TB().ConvertType(retv->getType());
     BOOL rv = retv->getType()->isVoidType() ? FALSE : TRUE;
     // InitListExprClass require a dest

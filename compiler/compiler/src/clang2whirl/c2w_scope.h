@@ -75,11 +75,12 @@ private:
     const clang::Decl *_decl;                  // the decl starts the scope
     std::vector<LexicalBlockScope> _blocks;    // lexicalscopes in the function
     ST_IDX _this;                  // symbol of 'this' in current scope
+    ST_IDX _return_object;         // incoming address for a nontrivial class result
     ST_IDX _vtt;                   // incoming sub-VTT in a base constructor or destructor
     //ST_IDX_MAP         _st_map;                // symbols in the scope (include lexical blocks)   // 2018
   public:
     Scope(UINT32 level, const clang::Decl *decl)
-      : _level(level), _dst(DST_INVALID_IDX), _decl(decl), _this(0), _vtt(0) {
+      : _level(level), _dst(DST_INVALID_IDX), _decl(decl), _this(0), _return_object(0), _vtt(0) {
     }
   };
   
@@ -222,6 +223,9 @@ public:
 
   void Set_this(ST_IDX);
   const ST_IDX Get_this();
+  void Set_return_object(ST_IDX symbol) { _scopes.back()._return_object = symbol; }
+  ST_IDX Get_return_object() const { return _scopes.back()._return_object; }
+
   void Set_vtt(ST_IDX symbol) { _scopes.back()._vtt = symbol; }
   ST_IDX Get_vtt() const { return _scopes.back()._vtt; }
 }; // WhirlScopeManager

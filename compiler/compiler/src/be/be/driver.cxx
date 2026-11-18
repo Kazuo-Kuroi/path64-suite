@@ -1579,8 +1579,10 @@ Preorder_Process_PUs (PU_Info *current_pu)
 #ifdef TARG_X8664
   if (!Force_Frame_Pointer_Set)
   {
-    // C++ PU having exception regions, or with -g
-    if ((PU_cxx_lang (func) && PU_has_region (func)) || Debug_Level > 0
+    // Unwinding can cross C++ functions without local handlers. The x86
+    // frameless path does not emit stack-adjustment CFI, so those frames
+    // also need a frame pointer when exceptions are enabled.
+    if ((PU_cxx_lang (func) && (CXX_Exceptions_On || PU_has_region (func))) || Debug_Level > 0
 #ifdef KEY
         || PU_has_goto_outer_block(func)
 #endif

@@ -384,6 +384,12 @@ WhirlTypeBuilder::ConvertFunctionType(const FunctionType *type, const Type *reco
   // return type
   TYLIST_IDX tylist_idx;
   TY_IDX rty = ConvertType(type->getReturnType());
+  if (TY_return_in_mem(rty)) {
+    // The front end supplies the result-area argument explicitly.
+    // Match wgen's void-return convention to prevent a second hidden argument.
+    Set_TY_return_to_param(ty_idx);
+    rty = MTYPE_To_TY(MTYPE_V);
+  }
   Set_TYLIST_type(New_TYLIST(tylist_idx), rty);
   Set_TY_tylist(ty_idx, tylist_idx);
 
