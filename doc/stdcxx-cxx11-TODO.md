@@ -244,9 +244,19 @@ test without the library before fixing it in clang2whirl.
   temporary destruction, empty-object pointer strides and EH traversal of
   branches with a nonthrowing constructor before a throwing call.
 
-The other containers below still need their C++11 extensions.
-`vector<bool>` is next: its initial host C++11 run passes 2/42 runnable tests
-(40 compile failures, two later-standard tests unsupported).
+- [x] (Codex) **`vector<bool>` C++11 members.** Allocator-traits rebinding,
+  fancy-pointer allocation, allocator propagation, moves, initializer lists,
+  emplacement, `const_iterator` modifiers, `shrink_to_fit`, proxy swaps and
+  `hash<vector<bool, A>>` retain packed word storage. Required nonthrowing
+  operations have `noexcept` declarations. The reference suite passes 42/42
+  tests in C++11 and 44/44 in C++14; two C++14 tests are unsupported in C++11.
+  Mutable/const iterators also support subtraction in either order.
+  Original `vector-bool.pass.cpp` checks single-pass input ranges, allocation
+  rollback, proxy/bool swaps and hash equality after storage padding changes.
+  Compiler fixes materialize returned records for member calls and copy base
+  subobject values when a prvalue supplies an inherited member operator.
+
+The other containers below still need their C++11 extensions; `deque` is next.
 
 Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
 - move constructor and move assignment (allocator propagation through

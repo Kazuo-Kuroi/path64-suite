@@ -32,7 +32,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 54/55 |
 | `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums), typed bitwise and C++14 transparent functors | function.objects: 88/88 |
 | `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 84/84; allocator.traits: 21/21; pointer.traits: 9/9 |
-| `<vector>` | Normal `vector<T>` C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; `vector<bool>` remains pending | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO) |
+| `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
 | `<iterator>` | Range access, `next`, `prev` | next/prev: 2/2 |
 | `<algorithm>` | `all_of`, `any_of`, `none_of`, `find_if_not` | 4/4 |
 | `<array>` | `array` | array: 27/27 |
@@ -47,8 +47,8 @@ listed in the TODO.
 test tools in `compiler/stdcxx/tests/cxx11`.
 
 **Next phases:**
-1. Containers: `vector<bool>`, then move, `initializer_list` and `emplace`
-   members for `deque`, `list`, `basic_string`, `map`/`set`.
+1. Containers: move, `initializer_list` and `emplace` members for `deque`,
+   `list`, `basic_string`, `map`/`set`.
 2. Remaining `<iterator>` additions (`move_iterator` and factory functions),
    `<algorithm>` and `<numeric>` additions.
 3. String conversions (`to_string`, `stoi`, ...) and Unicode string types.
@@ -86,6 +86,9 @@ C++98 code as well:
 * **Conditional lifetimes** keep statement temporaries within their branch
   and construct class-valued alternatives into one destination.
 * **Narrow enum casts** retain WHIRL's widened register types.
+* **Returned class objects** are materialized before ordinary member calls.
+  Inherited member operators on prvalues copy their base subobject's value
+  into the object temporary.
 * **Unbraced loop bodies** destroy expression temporaries on each iteration.
 * **Empty-object pointer arithmetic** uses a nonzero stride while retaining
   empty-base layout optimization.

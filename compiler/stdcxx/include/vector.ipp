@@ -856,6 +856,8 @@ _C_insert_range (iterator __it, _FwdIter __first, _FwdIter __last,
 
 #ifndef _RWSTD_NO_BOOL
 
+#ifndef _RWSTD_CXX11
+
 // The body of this function is duplicated in src/vecbool.cpp and
 // further down in this file as well.
 #if !defined (_RWSTD_NO_CLASS_PARTIAL_SPEC) 
@@ -892,6 +894,8 @@ _C_insert_range (iterator __it, _FwdIter __first, _FwdIter __last,
     }
   }
 
+#endif   // !_RWSTD_CXX11
+
 #ifndef _RWSTD_NO_CLASS_PARTIAL_SPEC
 
 // Duplicates of the following functions exist in src/stl/vecbool.cpp.
@@ -899,6 +903,9 @@ _C_insert_range (iterator __it, _FwdIter __first, _FwdIter __last,
 
   template <class _Allocator>
   void vector<bool,_Allocator >::flip ()
+#ifdef _RWSTD_CXX11
+      noexcept
+#endif
   {
     for (iterator __i = begin(); !(__i == end()); __i++)
       *__i = !(*__i);
@@ -906,10 +913,15 @@ _C_insert_range (iterator __it, _FwdIter __first, _FwdIter __last,
 
   template <class _Allocator>
   void vector<bool,_Allocator >::swap (reference __x, reference __y)
+#ifdef _RWSTD_CXX11
+      noexcept
+#endif
   {
     bool __tmp = __x; __x = __y; __y = __tmp;
   }
 
+
+#ifndef _RWSTD_CXX11
 
 template <class _Allocator>
 void vector<bool,_Allocator >::
@@ -971,6 +983,8 @@ _C_insert (iterator __it, bool __x)
     }
   }
 
+
+#endif   // !_RWSTD_CXX11
 
   template <class _Allocator>
   void vector<bool,_Allocator >::resize (size_type __new_size, bool __c)

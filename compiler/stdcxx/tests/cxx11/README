@@ -10,7 +10,7 @@ Tests for the C++11 library (doc/stdcxx-cxx11.md, doc/stdcxx-cxx11-TODO.md)
 
 Original regression tests can be passed by absolute path:
   ./lcxx.py "$PWD/compiler-lifetime.pass.cpp" "$PWD/compiler-virtual-base.pass.cpp"
-  ./lcxx.py "$PWD/vector-exceptions.pass.cpp"
+  ./lcxx.py "$PWD/vector-exceptions.pass.cpp" "$PWD/vector-bool.pass.cpp"
 
 The libc++ vector tests erase_iter, erase_iter_iter and vector.special/swap
 assume class iterators. With stdcxx's raw pointers, temporary test copies need
