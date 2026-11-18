@@ -222,6 +222,9 @@ _RWSTD_EXPORT
 void* operator new (_RWSTD_SIZE_T, const _STD::nothrow_t&) _NEW_THROWS (());
 
 void operator delete (void*) _NEW_THROWS (());
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+void operator delete (void*, _RWSTD_SIZE_T) _NEW_THROWS (());
+#endif
 
 // guarded in case a compiler has trouble with these
 // (e.g. gcc 2.95.2 in conjunction with placement new)
@@ -249,6 +252,9 @@ void* operator new[] (_RWSTD_SIZE_T, const _STD::nothrow_t&) _NEW_THROWS (());
 _RWSTD_EXPORT
 #endif   // _RWSTD_NO_OPERATOR_DELETE_ARRAY
 void operator delete[] (void*) _NEW_THROWS (());
+#if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
+void operator delete[] (void*, _RWSTD_SIZE_T) _NEW_THROWS (());
+#endif
 
 #ifndef _RWSTD_NO_PLACEMENT_DELETE
 

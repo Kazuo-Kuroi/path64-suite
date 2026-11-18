@@ -109,3 +109,15 @@ void operator delete[](void * ptr)
 }
 
 
+// C++14 sized deallocation preserves replacements of the unsized operators.
+__attribute__((weak))
+void operator delete(void *ptr, size_t) throw()
+{
+    ::operator delete(ptr);
+}
+
+__attribute__((weak))
+void operator delete[](void *ptr, size_t) throw()
+{
+    ::operator delete[](ptr);
+}
