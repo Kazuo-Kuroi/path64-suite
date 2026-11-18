@@ -76,6 +76,13 @@ with the same stdcxx headers and runtime libraries.
 ## Phase 1 leftovers (library)
 
 Measured with C++11 at `-O0`; "host" means with `--host`.
+The affected tuple, functional, smart-pointer and allocator directories pass
+285/287 tests in C++11 and 296/298 in C++14 at both `-O0` and `-O2`.
+The additional compiler lifetime regression passes at both levels.
+The two remaining failures are the stream construction ABI issue and
+`PR31384` below. Host Clang passes 286/287 C++11 tests.
+The shared and static C++98 library rebuilds pass, as do all 11 C++98/C++03
+language probes at both optimization levels.
 
 ### `<type_traits>` — 123/123 (+1 XFAIL)
 - [x] (Codex) **`result_of` with a `reference_wrapper` object.** For example,
@@ -89,7 +96,7 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
 - [x] (Codex) **`get` on `const pair&&`.** Test:
   `pairs/pair.astuple/get_const_rv.pass.cpp`.
 
-### `<tuple>` — 51/55
+### `<tuple>` — 54/55
 - [x] (Codex) **`get` on `const tuple&&`.** Test: `tuple.elem/get_const_rv`.
 - [x] (Codex) **SFINAE-friendly `tuple_size` for cv-qualified types.**
   Tests:
@@ -99,60 +106,62 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
 - [x] (Codex) **`std::allocator<void>` from `<tuple>`.** The existing
   specialization is visible to allocator-extended tuple constructors.
   Test: `tuple.cnstr/alloc_UTypes`.
-- [ ] **Constructor constraints.** Tests: `tuple.cnstr/move.pass.cpp`
-  (constructibility from `tuple_leaf`), `PR23256_constrain_UTypes_ctor`,
-  `PR22806_constrain_tuple_like_ctor` (this one also asserts in psclang,
-  `c2w_expr.cxx:4789`).
-- [ ] **`PR31384.pass.cpp`** fails at run time.
+- [x] (Codex) **Constructor constraints.** Copy, move, forwarding and
+  allocator-extended constructors reject incompatible arguments through SFINAE.
+  `move`, `PR23256_constrain_UTypes_ctor` and
+  `PR22806_constrain_tuple_like_ctor` pass.
+- [x] (Codex) **Constant-expression assignment to `ignore`.** The C++14
+  `tuple.general/ignore` test passes.
+- [ ] **`PR31384.pass.cpp`** exercises a libc++ tuple-like constructor
+  extension. Its derived-tuple conversion-operator preference differs here
+  with both psclang and host Clang.
 
-### `<functional>` — 77/88
+### `<functional>` — 88/88
 - [x] (Codex) **Bitwise functors.** Added typed `bit_and`, `bit_or`, and
   `bit_xor` in all modes, plus C++14 `bit_not` and the transparent forms.
 - [x] (Codex) **Legacy callable typedefs.** `function` exposes its
   argument typedefs for unary and binary signatures. `reference_wrapper`
   exposes the weak result and argument types of the wrapped callable. Tests:
   `func.wrap.func/types`, `refwrap/weak_result`.
-- [ ] **`hash` for library types.** For example `hash<string>`,
-  `hash<wstring>` and `hash<bool>` checks. Test:
-  `unord.hash/enabled_hashes`. `hash<string>` belongs in `<string>`
-  (phase 3).
-- [ ] **`<functional>` should include `<memory>`,** as libc++'s does.
-  `std::allocator` is already available via the shared allocator header.
-  `derive_from.pass.cpp` compiles and has an intermittent psclang run-time
-  failure with both the original and updated headers.
+- [x] (Codex) **Hash support.** `<string>` supplies `hash<string>` and
+  `hash<wstring>`. Signed and unsigned `__int128` hashing completes
+  `unord.hash/enabled_hashes`, including its existing `hash<bool>` check.
+- [x] (Codex) **`<functional>` includes `<memory>` and `<cstdint>`.**
+  The inherited-constructor parameter forwarding fix also makes
+  `derive_from.pass.cpp` pass.
 - [x] (Codex) **`F_incomplete.pass.cpp`.** Copy and move operations avoid
   evaluating the callable constraint against the wrapper itself.
 - [x] (Codex) **Reentrant target destruction.** Move and swap clear the
   wrapper's state before destroying the inline target. The host test
   `move_reentrant.pass.cpp` passes with this change. See the psclang
   failure below.
-- [ ] **Blocked:** `isnan` and friends unqualified (`bind/copy`,
-  `bind/nested`, `unord.hash/floating`) need the C++11 `<cmath>`;
-  `int8_t` in `std` (`unord.hash/integral`) needs `<cstdint>`. See
-  "C library headers" below.
+- [x] (Codex) **Math and integer dependencies.** Classification declarations
+  precede their template uses. Mixed arithmetic `pow` supports nested binds.
+  `bind/copy`, `bind/nested`, `unord.hash/floating` and `unord.hash/integral` pass.
 - [x] (Codex) **C++14 transparent functors.** Arithmetic, comparison,
   logical and bitwise functors support `<void>` and the default `<>`
   forms. The typed operators also support constant evaluation in C++14.
 
-### `<memory>` — util.smartptr 58/84 (host 64), smartptr 33/39 (host 34)
-- [ ] **Fancy pointers.** The control blocks have to work with
+### `<memory>` — util.smartptr 83/84 (host 84), smartptr 39/39 (host 39)
+- [x] (Codex) **Fancy pointers.** The control blocks have to work with
   allocators whose `pointer` is a class (`min_pointer`): convert with
   `pointer_traits`, keep raw pointers. Tests: `shared_ptr` constructors
   with an allocator, `allocate_shared*`.
-- [ ] **`enable_shared_from_this` as a private base** must be ignored, not
+- [x] (Codex) **`enable_shared_from_this` as a private base** must be ignored, not
   rejected. Test: `util.smartptr.enab`.
-- [ ] **`owner_less` typedefs:** `first_argument_type` and the rest.
-- [ ] **`unique_ptr` deleters must not be copied.**
+- [x] (Codex) **`owner_less` typedefs:** `first_argument_type` and the rest.
+- [x] (Codex) **`unique_ptr` deleters must not be copied.**
   * `__ptr_del` should forward its deleter.
   * Non-copyable deleters must work.
   * The constructor constraints need fixing (`pointer_deleter`).
   * `noexcept` and the converting assignment in `move_convert*`.
-- [ ] **`shared_ptr(unique_ptr&&)`** fails at run time.
-- [ ] **`std::hash<bool>`** for the `enabled_hash` check.
-- [ ] **`shared_ptr` atomics** (`atomic_load`, `atomic_store`,
+- [x] (Codex) **`shared_ptr(unique_ptr&&)`** fails at run time.
+- [x] (Codex) **`enabled_hash` checks.** The missing specializations were
+  signed and unsigned `__int128`. `hash<bool>` already existed.
+- [x] (Codex) **`shared_ptr` atomics** (`atomic_load`, `atomic_store`,
   `atomic_exchange`, `atomic_compare_exchange_*`): 12 tests. Use a
   spin-lock pool with `__sync`.
-- [ ] **`allocator_traits::allocate` with a hint** on an incomplete
+- [x] (Codex) **`allocator_traits::allocate` with a hint** on an incomplete
   `value_type` (`allocate_hint.pass.cpp`).
 
 ### `<array>` — 27/27
@@ -168,27 +177,29 @@ Measured with C++11 at `-O0`; "host" means with `--host`.
 
 These fail with psclang and pass with `--host`. Reduce each one to a small
 test without the library before fixing it in clang2whirl.
-- [ ] **`std::function` from lambdas and functors.** The WHIRL verifier
-  says "field_id and descriptor type are inconsistent" (`wn_verifier.cxx`
-  line 1187). Tests: `func.wrap.func.con/F.pass.cpp`, `F_assign`,
-  `F_nullptr`, `func.wrap.func.inv/invoke`.
-- [ ] **`std::function` small-buffer assignment.**
-  `move_reentrant.pass.cpp` still segfaults in psclang during the initial
-  assignment, before the test enables reentry. It passes with host Clang.
-- [ ] **Throwing in a `shared_ptr` constructor.** The exception is not
-  caught: `shared_ptr(p, d)` and `(p, d, a)`, when the control block's
-  allocation throws. Tests: the `*_throw.pass.cpp` tests in
-  `util.smartptr.shared.const`.
-- [ ] **`dynamic_pointer_cast.pass.cpp`** fails at run time.
-- [ ] **`util.smartptr.shared.io/io.pass.cpp`** fails at run time.
-- [ ] **`unique.ptr.ctor/move.pass.cpp`** fails at run time.
+- [x] (Codex) **`std::function` from lambdas and functors.** Placement-new
+  destinations preserve the allocation pointer type, including member pointers.
+- [x] (Codex) **`std::function` small-buffer assignment.** Conditional
+  statement temporaries are destroyed inside the branch that constructs them.
+  `move_reentrant.pass.cpp` passes with psclang at both optimization levels.
+- [x] (Codex) **Throwing in a `shared_ptr` constructor.** Each constructor
+  captures its live argument temporaries in an unwind region before adding
+  its destination to the cleanup stack. The four `*_throw.pass.cpp` cases pass.
+- [x] (Codex) **`dynamic_pointer_cast.pass.cpp`.** Class-valued conditional
+  expressions construct into one shared destination. Inactive alternatives
+  no longer leave uninitialized objects on the destructor stack.
+- [ ] **`util.smartptr.shared.io/io.pass.cpp`.** `ostringstream` construction
+  calls an imported base constructor with virtual bases without its ABI VTT
+  parameter. The failure also occurs without `shared_ptr`.
+- [x] (Codex) **`unique.ptr.ctor/move.pass.cpp`.** Guarded local statics
+  register their object address with `__cxa_atexit`, and register destruction
+  before publishing completed initialization.
 - [ ] **`<stdatomic.h>` and `std::atomic`:** the `__c11_atomic_*` and
   `__atomic_*` builtins (`c2w_builtin.cxx`). Implementing them makes
   `<atomic>` much simpler.
-- [ ] **Static-storage `initializer_list`.** A namespace-scope
-  `std::initializer_list<int> values = {9, 12};` reports size zero in
-  psclang. Local initializer lists are covered by
-  `iterators/iterator.range/begin-end.pass.cpp`.
+- [x] (Codex) **Static-storage `initializer_list`.** Namespace-scope lists
+  receive runtime initialization for their backing array and extent.
+  `compiler-lifetime.pass.cpp` covers this alongside object lifetime fixes.
 - [ ] **`vector<bool>` iterator operations.** A probe that inserts two
   bits and exercises const iterators hits the field-access assertion in
   `c2w_expr.cxx`. The same probe fails with the C++98 iterator members
@@ -250,7 +261,8 @@ across a library boundary. Write the decision here before starting.
 - [ ] **`<string>`:**
   * `to_string`, `to_wstring`, `stoi`/`stol`/`stoul`/`stoll`/`stoull`/
     `stof`/`stod`/`stold` (`strings/string.conversions`, 10 tests);
-  * `hash<string>`, `u16string`/`u32string`, `char_traits<char16_t>`
+  * `hash<string>` and `hash<wstring>` are implemented.
+  * `u16string`/`u32string`, `char_traits<char16_t>`
     and `char_traits<char32_t>` (`strings/char.traits`, 79 tests).
 - [ ] **C library headers:**
   * `<cmath>`: the C++11 functions (`isnan`, `isinf`, `fpclassify`,

@@ -29,9 +29,9 @@ the reference for the design. Its test suite is the conformance test.
 | `<initializer_list>` | new | (used throughout) |
 | `<type_traits>` | all of C++11 and the C++14 `_t` aliases, on Clang's builtins | meta: 123/123 (+1 XFAIL for clang-4) |
 | `<utility>` | `move`, `forward`, `move_if_noexcept`, `swap` (move, arrays), `declval`, C++11 `pair` (N4387 constructors, piecewise, `get`), `exchange`, `integer_sequence` | utility: 41/41 |
-| `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 51/55 |
-| `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums), typed bitwise and C++14 transparent functors | function.objects: 77/88 |
-| `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter` | util.smartptr: 58/84; allocator.traits: 20/21; pointer.traits: 9/9 |
+| `<tuple>` | `tuple` (allocator constructors, conversions), `get`, `make_tuple`, `tie`, `forward_as_tuple`, `tuple_cat`, comparisons, `ignore` | tuple: 54/55 |
+| `<functional>` | `reference_wrapper`, `ref`/`cref`, INVOKE, `function` (small buffer), `bind` and placeholders, `mem_fn`, `hash` (scalars, pointers, enums), typed bitwise and C++14 transparent functors | function.objects: 88/88 |
+| `<memory>` | `pointer_traits`, `allocator_traits`, `addressof`, `align`, `unique_ptr` (and `[]`), `make_unique`, `shared_ptr`, `weak_ptr`, `make_shared`, `allocate_shared`, `enable_shared_from_this`, pointer casts, `owner_less`, `get_deleter`, shared-pointer atomics | util.smartptr: 83/84; allocator.traits: 21/21; pointer.traits: 9/9 |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 
@@ -46,7 +46,7 @@ test tools in `compiler/stdcxx/tests/cxx11`.
    `vector`, `deque`, `list`, `basic_string`, `map`/`set`.
 2. `<iterator>` (`begin`/`end`, `next`/`prev`, `move_iterator`),
    `<algorithm>` and `<numeric>` additions.
-3. String conversions (`to_string`, `stoi`, ...) and `hash<string>`.
+3. String conversions (`to_string`, `stoi`, ...) and Unicode string types.
 4. New headers: `<forward_list>`, `<unordered_map>`, `<unordered_set>`,
    `<ratio>`, `<chrono>`, `<system_error>`, `<atomic>`, `<thread>`,
    `<mutex>`, `<condition_variable>`, `<random>`; later `<future>`,
@@ -73,6 +73,24 @@ C++98 code as well:
   * a member function pointer could not initialize an aggregate member;
   * a member function pointer bound to a forwarding reference crashed.
 * **`__builtin_addressof`** worked only on variables.
+* **Constructor initialization state** leaked between empty bases and members.
+* **Return expressions** read scalar values after local destructors ran.
+* **Nontrivial value parameters** use invisible references through function
+  signatures, ordinary calls and inherited constructor forwarding.
+* **Member destructors** handle typedefs and specialized template types.
+* **Conditional lifetimes** keep statement temporaries within their branch
+  and construct class-valued alternatives into one destination.
+* **Narrow enum casts** retain WHIRL's widened register types.
+* **Class static data members** retain external linkage and ODR coalescing.
+  This also fixes optimized string assignment across the runtime boundary.
+* **Member calls through pointer prvalues** pass the allocated object address.
+* **Namespace-scope initializer lists** receive runtime initialization.
+* **Constructor exception cleanup** preserves argument temporary ownership.
+* **Static-local destruction** registers the object address with `__cxa_atexit`.
+
+`compiler/stdcxx/tests/cxx11/compiler-lifetime.pass.cpp` covers the reduced
+lifetime, conditional construction, pointer call and enum regressions.
+
 
 Checking method: the same test is built with psclang and with the host
 Clang over the same stdcxx headers and runtime. When the host build is

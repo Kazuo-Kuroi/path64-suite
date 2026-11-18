@@ -72,6 +72,19 @@ move_if_noexcept (_Tp& __x) noexcept
     return std::move (__x);
 }
 
+namespace __rw_c11 {
+// FNV-1a over the bytes
+inline size_t __hash_bytes (const void* __p, size_t __n) noexcept
+{
+    const unsigned char* __c = static_cast<const unsigned char*>(__p);
+    size_t __h = sizeof (size_t) == 8 ? size_t (14695981039346656037ULL) : size_t (2166136261U);
+    const size_t __prime = sizeof (size_t) == 8 ? size_t (1099511628211ULL) : size_t (16777619U);
+    for (size_t __i = 0; __i != __n; ++__i)
+        __h = (__h ^ __c [__i]) * __prime;
+    return __h;
+}
+}   // namespace __rw_c11
+
 // [specialized.addressof]
 template <class _Tp>
 inline constexpr _Tp* addressof (_Tp& __x) noexcept

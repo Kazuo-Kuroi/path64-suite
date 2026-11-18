@@ -43,6 +43,10 @@
 #include <rw/_strref.h>
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_utility.h>
+#endif
+
 #ifndef _RWSTD_STRICT_HEADERS
 #include <cctype>
 #endif // _RWSTD_STRICT_HEADERS
@@ -1587,6 +1591,31 @@ _RWSTD_INSTANTIATE_3 (class _RWSTD_TI_EXPORT
                                    allocator<wchar_t> >);
 
 #endif   // _RWSTD_INSTANTIATE (_BASIC_STRING, _WCHAR_T)
+
+#ifdef _RWSTD_CXX11
+
+template <class _Tp> struct hash;
+
+namespace __rw_c11 {
+template <class _String>
+struct __string_hash
+{
+    typedef _String argument_type;
+    typedef size_t result_type;
+
+    size_t operator() (const _String& __s) const noexcept
+    {
+        return __hash_bytes (__s.data (), __s.size () * sizeof (typename _String::value_type));
+    }
+};
+}   // namespace __rw_c11
+
+template <> struct hash<string> : __rw_c11::__string_hash<string> { };
+#ifndef _RWSTD_NO_WCHAR_T
+template <> struct hash<wstring> : __rw_c11::__string_hash<wstring> { };
+#endif
+
+#endif   // _RWSTD_CXX11
 
 }   // namespace std
 

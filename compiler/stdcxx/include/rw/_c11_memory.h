@@ -213,7 +213,8 @@ template <class _Alloc> false_type __select_test (...);
 
 template <class _Alloc, class _Size, class _Hint>
 auto __alloc_hint_test (int)
-    -> decltype (declval<_Alloc&>().allocate (declval<_Size>(), declval<_Hint>()),
+    -> decltype (static_cast<void>(declval<_Alloc&>().allocate (declval<_Size>(),
+                                                              declval<_Hint>())),
                  true_type ());
 template <class _Alloc, class _Size, class _Hint> false_type __alloc_hint_test (...);
 }   // namespace __rw_c11
@@ -367,6 +368,7 @@ class __ptr_del
     _Del __d;
 public:
     __ptr_del () : __p (), __d () { }
+    explicit __ptr_del (const _Ptr& __ptr) : __p (__ptr), __d () { }
     template <class _Pp, class _Dp>
     __ptr_del (_Pp&& __pp, _Dp&& __dp)
         : __p (std::forward<_Pp>(__pp)), __d (std::forward<_Dp>(__dp)) { }
@@ -382,6 +384,7 @@ class __ptr_del<_Ptr, _Del, true> : private _Del
     _Ptr __p;
 public:
     __ptr_del () : _Del (), __p () { }
+    explicit __ptr_del (const _Ptr& __ptr) : _Del (), __p (__ptr) { }
     template <class _Pp, class _Dp>
     __ptr_del (_Pp&& __pp, _Dp&& __dp)
         : _Del (std::forward<_Dp>(__dp)), __p (std::forward<_Pp>(__pp)) { }
@@ -436,7 +439,7 @@ public:
 
     template <bool _Dummy = true, class = typename enable_if<
         _Dummy && !is_pointer<_Dp>::value && is_default_constructible<_Dp>::value>::type>
-    explicit unique_ptr (pointer __p) noexcept : __pd (__p, _Dp ()) { }
+    explicit unique_ptr (pointer __p) noexcept : __pd (__p) { }
 
     template <bool _Dummy = true, class = typename enable_if<
         _Dummy && is_constructible<_Dp, _LValRefDel>::value>::type>
@@ -446,6 +449,10 @@ public:
         _Dummy && !is_reference<_Dp>::value
         && is_constructible<_Dp, _RValRefDel>::value>::type>
     unique_ptr (pointer __p, _RValRefDel __d) noexcept : __pd (__p, std::move (__d)) { }
+
+    template <bool _Dummy = true, class = typename enable_if<
+        _Dummy && is_reference<_Dp>::value>::type>
+    unique_ptr (pointer, _RValRefDel, int = 0) = delete;
 
     unique_ptr (unique_ptr&& __u) noexcept
         : __pd (__u.release (), std::forward<_Dp>(__u.get_deleter ())) { }
@@ -473,7 +480,8 @@ public:
     }
 
     template <class _Up, class _Ep, class = typename enable_if<
-        __convertible_from<_Up, _Ep>::value
+        !is_array<_Up>::value
+        && is_convertible<typename unique_ptr<_Up, _Ep>::pointer, pointer>::value
         && is_assignable<_Dp&, _Ep&&>::value>::type>
     unique_ptr& operator= (unique_ptr<_Up, _Ep>&& __u) noexcept
     {
@@ -537,14 +545,19 @@ private:
                                  const _Dp&>::type _LValRefDel;
     typedef typename remove_reference<_Dp>::type&& _RValRefDel;
 
-    // [unique.ptr.runtime.ctor]: pointer, or U* for U[] convertible to T[]
+    // [unique.ptr.runtime.ctor]: pointer, or U* for U[] convertible to T[].
+    template <class _Up, class = void>
+    struct __array_ptr_ok : false_type { };
+
+    template <class _Up>
+    struct __array_ptr_ok<_Up*, typename __rw_tt::__void_t<_Up (*)[]>::type>
+        : integral_constant<bool, is_same<pointer, element_type*>::value
+                                  && is_convertible<_Up (*)[], element_type (*)[]>::value> { };
+
     template <class _Up>
     struct __ptr_ok
         : integral_constant<bool, is_same<_Up, pointer>::value
-                                  || (is_same<pointer, element_type*>::value
-                                      && is_pointer<_Up>::value
-                                      && is_convertible<typename remove_pointer<_Up>::type (*)[],
-                                                        element_type (*)[]>::value)> { };
+                                  || __array_ptr_ok<_Up>::value> { };
 
 public:
     template <bool _Dummy = true, class = typename enable_if<
@@ -558,7 +571,7 @@ public:
     template <class _Up, class = typename enable_if<
         __ptr_ok<_Up>::value && !is_pointer<_Dp>::value
         && is_default_constructible<_Dp>::value>::type>
-    explicit unique_ptr (_Up __p) noexcept : __pd (__p, _Dp ()) { }
+    explicit unique_ptr (_Up __p) noexcept : __pd (__p) { }
 
     template <class _Up, class = typename enable_if<
         __ptr_ok<_Up>::value && is_constructible<_Dp, _LValRefDel>::value>::type>
@@ -569,7 +582,25 @@ public:
         && is_constructible<_Dp, _RValRefDel>::value>::type>
     unique_ptr (_Up __p, _RValRefDel __d) noexcept : __pd (__p, std::move (__d)) { }
 
-    unique_ptr (decltype (nullptr), _LValRefDel __d) noexcept : __pd (pointer (), __d) { }
+    template <class _Up, class = typename enable_if<
+        __ptr_ok<_Up>::value && is_reference<_Dp>::value>::type>
+    unique_ptr (_Up, _RValRefDel, int = 0) = delete;
+
+    template <bool _Dummy = true, class = typename enable_if<
+        _Dummy && is_constructible<_Dp, _LValRefDel>::value>::type>
+    unique_ptr (decltype (nullptr), _LValRefDel __d) noexcept
+        : __pd (pointer (), __d) { }
+
+    template <bool _Dummy = true, class = typename enable_if<
+        _Dummy && !is_reference<_Dp>::value
+        && is_constructible<_Dp, _RValRefDel>::value>::type>
+    unique_ptr (decltype (nullptr), _RValRefDel __d) noexcept
+        : __pd (pointer (), std::move (__d)) { }
+
+    template <bool _Dummy = true, class = typename enable_if<
+        _Dummy && is_reference<_Dp>::value>::type>
+    unique_ptr (decltype (nullptr), _RValRefDel, int = 0) = delete;
+
 
     unique_ptr (unique_ptr&& __u) noexcept
         : __pd (__u.release (), std::forward<_Dp>(__u.get_deleter ())) { }
@@ -600,6 +631,9 @@ public:
 
     template <class _Up, class _Ep, class = typename enable_if<
         is_array<_Up>::value
+        && is_same<pointer, element_type*>::value
+        && is_same<typename unique_ptr<_Up, _Ep>::pointer,
+                   typename unique_ptr<_Up, _Ep>::element_type*>::value
         && is_convertible<typename unique_ptr<_Up, _Ep>::element_type (*)[],
                           element_type (*)[]>::value
         && is_assignable<_Dp&, _Ep&&>::value>::type>
@@ -831,6 +865,14 @@ private:
     virtual void __on_zero_shared_weak () noexcept = 0;
 };
 
+template <class _Tp>
+inline _Tp* __raw_address (_Tp* __p) noexcept { return __p; }
+
+template <class _Ptr>
+inline typename pointer_traits<_Ptr>::element_type*
+__raw_address (const _Ptr& __p) noexcept
+{ return __rw_c11::__raw_address (__p.operator->()); }
+
 // a pointer owned with its deleter (and the allocator for the block)
 template <class _Tp, class _Dp, class _Alloc>
 class __shared_ptr_pointer : public __shared_count
@@ -855,9 +897,11 @@ private:
     {
         typedef typename allocator_traits<_Alloc>::template
             rebind_alloc<__shared_ptr_pointer> _Al;
+        typedef typename allocator_traits<_Al>::pointer _Ptr;
         _Al __al (__a);
+        _Ptr __mem = pointer_traits<_Ptr>::pointer_to (*this);
         __a.~_Alloc ();
-        allocator_traits<_Al>::deallocate (__al, this, 1);
+        allocator_traits<_Al>::deallocate (__al, __mem, 1);
     }
 };
 
@@ -884,9 +928,11 @@ private:
     {
         typedef typename allocator_traits<_Alloc>::template
             rebind_alloc<__shared_ptr_emplace> _Al;
+        typedef typename allocator_traits<_Al>::pointer _Ptr;
         _Al __al (__a);
+        _Ptr __mem = pointer_traits<_Ptr>::pointer_to (*this);
         __a.~_Alloc ();
-        allocator_traits<_Al>::deallocate (__al, this, 1);
+        allocator_traits<_Al>::deallocate (__al, __mem, 1);
     }
 };
 
@@ -918,28 +964,39 @@ private:
             __e->__weak_this = shared_ptr<_RawY>(*this,
                                    const_cast<_RawY*>(static_cast<const _Yp*>(__ptr)));
     }
-    void __enable_weak_this (...) noexcept { }
+    template <class _Yp>
+    auto __try_enable_weak_this (_Yp* __p, int) noexcept
+        -> decltype (__enable_weak_this (__p, __p), void ())
+    { __enable_weak_this (__p, __p); }
+
+    template <class _Yp>
+    void __try_enable_weak_this (_Yp*, long) noexcept { }
 
     template <class _Yp, class _Dp, class _Alloc>
     void __own (_Yp* __p, _Dp __d, _Alloc __a)
     {
         typedef __rw_c11::__shared_ptr_pointer<_Yp*, _Dp, _Alloc> _Block;
         typedef typename allocator_traits<_Alloc>::template rebind_alloc<_Block> _Al;
+        typedef typename allocator_traits<_Al>::pointer _Ptr;
         _Al __al (__a);
+        _Ptr __mem = _Ptr ();
 #ifndef _RWSTD_NO_EXCEPTIONS
         try {
 #endif
-            _Block* __b = allocator_traits<_Al>::allocate (__al, 1);
+            __mem = allocator_traits<_Al>::allocate (__al, 1);
+            _Block* __b = __rw_c11::__raw_address (__mem);
             ::new ((void*)__b) _Block (__p, std::move (__d), __a);
             __cntrl = __b;
 #ifndef _RWSTD_NO_EXCEPTIONS
         }
         catch (...) {
+            if (__mem != _Ptr ())
+                allocator_traits<_Al>::deallocate (__al, __mem, 1);
             __d (__p);
             throw;
         }
 #endif
-        __enable_weak_this (__p, __p);
+        __try_enable_weak_this (__p, 0);
     }
 
 public:
@@ -1037,7 +1094,27 @@ public:
         if (__ptr) {
             typedef typename conditional<is_reference<_Dp>::value,
                 reference_wrapper<typename remove_reference<_Dp>::type>, _Dp>::type _Del;
-            __own (__r.get (), _Del (__r.get_deleter ()), allocator<_Yp>());
+            typedef allocator<_Yp> _Alloc;
+            typedef __rw_c11::__shared_ptr_pointer<typename unique_ptr<_Yp, _Dp>::pointer,
+                                                    _Del, _Alloc> _Block;
+            typedef typename allocator_traits<_Alloc>::template rebind_alloc<_Block> _Al;
+            _Alloc __a;
+            _Al __al (__a);
+            _Block* __b = allocator_traits<_Al>::allocate (__al, 1);
+#ifndef _RWSTD_NO_EXCEPTIONS
+            try {
+#endif
+                ::new ((void*)__b) _Block (__r.get (),
+                                          _Del (std::forward<_Dp>(__r.get_deleter ())), __a);
+#ifndef _RWSTD_NO_EXCEPTIONS
+            }
+            catch (...) {
+                allocator_traits<_Al>::deallocate (__al, __b, 1);
+                throw;
+            }
+#endif
+            __cntrl = __b;
+            __try_enable_weak_this (__ptr, 0);
         }
         __r.release ();
     }
@@ -1126,7 +1203,7 @@ public:
         shared_ptr<_Tp> __r;
         __r.__ptr = __p;
         __r.__cntrl = __c;
-        __r.__enable_weak_this (__r.__ptr, __r.__ptr);
+        __r.__try_enable_weak_this (__r.__ptr, 0);
         return __r;
     }
 };
@@ -1138,7 +1215,8 @@ inline shared_ptr<_Tp> allocate_shared (const _Alloc& __a, _Args&&... __args)
     typedef __rw_c11::__shared_ptr_emplace<_Tp, _Alloc> _Block;
     typedef typename allocator_traits<_Alloc>::template rebind_alloc<_Block> _Al;
     _Al __al (__a);
-    _Block* __b = allocator_traits<_Al>::allocate (__al, 1);
+    typename allocator_traits<_Al>::pointer __mem = allocator_traits<_Al>::allocate (__al, 1);
+    _Block* __b = __rw_c11::__raw_address (__mem);
 #ifndef _RWSTD_NO_EXCEPTIONS
     try {
 #endif
@@ -1146,7 +1224,7 @@ inline shared_ptr<_Tp> allocate_shared (const _Alloc& __a, _Args&&... __args)
 #ifndef _RWSTD_NO_EXCEPTIONS
     }
     catch (...) {
-        allocator_traits<_Al>::deallocate (__al, __b, 1);
+        allocator_traits<_Al>::deallocate (__al, __mem, 1);
         throw;
     }
 #endif
@@ -1257,6 +1335,117 @@ struct hash<shared_ptr<_Tp> >
     size_t operator() (const argument_type& __p) const noexcept
     { return hash<_Tp*>()(__p.get ()); }
 };
+
+// [util.smartptr.shared.atomic]
+enum memory_order {
+    memory_order_relaxed, memory_order_consume, memory_order_acquire,
+    memory_order_release, memory_order_acq_rel, memory_order_seq_cst
+};
+
+namespace __rw_c11 {
+inline int* __shared_ptr_lock_for (const void* __p) noexcept
+{
+    static int __locks[32] = { 0 };
+    return &__locks[(reinterpret_cast<size_t>(__p) / sizeof (void*)) % 32];
+}
+
+class __shared_ptr_lock
+{
+    int* __lock;
+
+public:
+    explicit __shared_ptr_lock (const void* __p) noexcept
+        : __lock (__shared_ptr_lock_for (__p))
+    {
+        while (!__sync_bool_compare_and_swap (__lock, 0, 1)) { }
+    }
+
+    ~__shared_ptr_lock () { __sync_bool_compare_and_swap (__lock, 1, 0); }
+
+    __shared_ptr_lock (const __shared_ptr_lock&) = delete;
+    __shared_ptr_lock& operator= (const __shared_ptr_lock&) = delete;
+};
+}   // namespace __rw_c11
+
+template <class _Tp>
+inline bool atomic_is_lock_free (const shared_ptr<_Tp>*) noexcept
+{ return false; }
+
+// Full barriers supply at least the ordering each explicit overload requests.
+template <class _Tp>
+inline shared_ptr<_Tp> atomic_load (const shared_ptr<_Tp>* __p)
+{
+    __rw_c11::__shared_ptr_lock __guard (__p);
+    return *__p;
+}
+
+template <class _Tp>
+inline shared_ptr<_Tp> atomic_load_explicit (const shared_ptr<_Tp>* __p, memory_order)
+{ return std::atomic_load (__p); }
+
+template <class _Tp>
+inline void atomic_store (shared_ptr<_Tp>* __p, shared_ptr<_Tp> __value)
+{
+    __rw_c11::__shared_ptr_lock __guard (__p);
+    __p->swap (__value);
+}
+
+template <class _Tp>
+inline void atomic_store_explicit (shared_ptr<_Tp>* __p, shared_ptr<_Tp> __value, memory_order)
+{ std::atomic_store (__p, std::move (__value)); }
+
+template <class _Tp>
+inline shared_ptr<_Tp> atomic_exchange (shared_ptr<_Tp>* __p, shared_ptr<_Tp> __value)
+{
+    __rw_c11::__shared_ptr_lock __guard (__p);
+    __p->swap (__value);
+    return std::move (__value);
+}
+
+template <class _Tp>
+inline shared_ptr<_Tp>
+atomic_exchange_explicit (shared_ptr<_Tp>* __p, shared_ptr<_Tp> __value, memory_order)
+{ return std::atomic_exchange (__p, std::move (__value)); }
+
+template <class _Tp>
+inline bool atomic_compare_exchange_strong (shared_ptr<_Tp>* __p,
+                                            shared_ptr<_Tp>* __expected,
+                                            shared_ptr<_Tp> __desired)
+{
+    shared_ptr<_Tp> __actual;
+    {
+        __rw_c11::__shared_ptr_lock __guard (__p);
+        if (__p->get () == __expected->get ()
+            && !__p->owner_before (*__expected) && !__expected->owner_before (*__p)) {
+            __p->swap (__desired);
+            return true;
+        }
+        __actual = *__p;
+    }
+    // Releasing the old expected value can call a user deleter.
+    __expected->swap (__actual);
+    return false;
+}
+
+template <class _Tp>
+inline bool atomic_compare_exchange_weak (shared_ptr<_Tp>* __p,
+                                          shared_ptr<_Tp>* __expected,
+                                          shared_ptr<_Tp> __desired)
+{ return std::atomic_compare_exchange_strong (__p, __expected, std::move (__desired)); }
+
+template <class _Tp>
+inline bool atomic_compare_exchange_strong_explicit (shared_ptr<_Tp>* __p,
+                                                     shared_ptr<_Tp>* __expected,
+                                                     shared_ptr<_Tp> __desired,
+                                                     memory_order, memory_order)
+{ return std::atomic_compare_exchange_strong (__p, __expected, std::move (__desired)); }
+
+template <class _Tp>
+inline bool atomic_compare_exchange_weak_explicit (shared_ptr<_Tp>* __p,
+                                                   shared_ptr<_Tp>* __expected,
+                                                   shared_ptr<_Tp> __desired,
+                                                   memory_order, memory_order)
+{ return std::atomic_compare_exchange_strong (__p, __expected, std::move (__desired)); }
 
 // [util.smartptr.weak]
 template <class _Tp>
@@ -1382,6 +1571,8 @@ template <class _Tp>
 struct owner_less<shared_ptr<_Tp> >
 {
     typedef bool result_type;
+    typedef shared_ptr<_Tp> first_argument_type;
+    typedef shared_ptr<_Tp> second_argument_type;
     bool operator() (const shared_ptr<_Tp>& __x, const shared_ptr<_Tp>& __y) const noexcept
     { return __x.owner_before (__y); }
     bool operator() (const shared_ptr<_Tp>& __x, const weak_ptr<_Tp>& __y) const noexcept
@@ -1393,6 +1584,8 @@ template <class _Tp>
 struct owner_less<weak_ptr<_Tp> >
 {
     typedef bool result_type;
+    typedef weak_ptr<_Tp> first_argument_type;
+    typedef weak_ptr<_Tp> second_argument_type;
     bool operator() (const weak_ptr<_Tp>& __x, const weak_ptr<_Tp>& __y) const noexcept
     { return __x.owner_before (__y); }
     bool operator() (const shared_ptr<_Tp>& __x, const weak_ptr<_Tp>& __y) const noexcept

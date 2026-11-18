@@ -32,6 +32,10 @@
 
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_type_traits.h>
+#endif
+
 #ifndef _RWSTD_NO_PURE_C_HEADERS
 #  include <ansi/_cmath.h>
 #else
@@ -770,10 +774,12 @@ inline float pow (float __x, float __y)
 #endif   // _RWSTD_NO_POW_FLT
 
 #ifdef _RWSTD_NO_POW_FLT_INT
+#ifndef _RWSTD_CXX11
 inline float pow (float __x, int __y)
 {
     return _POWIF (__x, __y);
 }
+#endif   // !_RWSTD_CXX11
 #endif   // _RWSTD_NO_POW_FLT_INT
 
 
@@ -1051,16 +1057,16 @@ inline long double tanh (long double __x)
 
 #endif   // _RWSTD_NO_LONG_DOUBLE
 
-template <typename __T> int isfinite(__T __x) {
-    return !isnan(__x) && !isinf(__x);
-}
-
 template <typename __T> int isinf(__T __x) {
     return __builtin_isinf(__x);
 }
 
 template <typename __T> int isnan(__T __x) {
     return __builtin_isnan(__x);
+}
+
+template <typename __T> int isfinite(__T __x) {
+    return !isnan(__x) && !isinf(__x);
 }
 
 inline int isnormal(float __x) {
@@ -1148,6 +1154,21 @@ _USING (::tan);
 _USING (::tanh);
 
 #endif   // !_RWSTD_NO_HONOR_STD && !_RWSTD_NO_USING_LIBC_IN_STD
+
+#ifdef _RWSTD_CXX11
+template <class _Tp, class _Up>
+inline typename enable_if<is_arithmetic<_Tp>::value && is_arithmetic<_Up>::value,
+    typename common_type<
+        typename conditional<is_integral<_Tp>::value, double, _Tp>::type,
+        typename conditional<is_integral<_Up>::value, double, _Up>::type>::type>::type
+pow (_Tp __x, _Up __y)
+{
+    typedef typename common_type<
+        typename conditional<is_integral<_Tp>::value, double, _Tp>::type,
+        typename conditional<is_integral<_Up>::value, double, _Up>::type>::type _Result;
+    return std::pow (static_cast<_Result>(__x), static_cast<_Result>(__y));
+}
+#endif   // _RWSTD_CXX11
 
 #if !defined (_RWSTD_NO_USING_LIBC_IN_STD)
 }   // namespace std

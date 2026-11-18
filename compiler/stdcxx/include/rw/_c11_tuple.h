@@ -273,28 +273,38 @@ class tuple
 
     typedef __rw_c11::__tuple_ctor_checks<_Tp...> _Checks;
 
-    // the conversion from tuple<_Up...> (or tuple<_Up...>&&) is not used
-    // when it would be the copy/move constructor, or for tuple<T> made from
-    // a tuple<U> T converts from (LWG 2549)
-    template <class _Tuple, class... _Up>
-    struct __convert_ok
+    // Reject copy/move arguments before probing element constructors.
+    template <class... _Up>
+    struct __forward_ok
         : integral_constant<bool, sizeof... (_Up) == sizeof... (_Tp)
-                                  && !is_same<tuple<_Up...>, tuple>::value> { };
+                                  && sizeof... (_Up) != 0> { };
 
-    template <class _Tuple, class _U0>
+    template <class _Up>
+    struct __forward_ok<_Up>
+        : integral_constant<bool, sizeof... (_Tp) == 1
+                                  && !is_same<typename decay<_Up>::type, tuple>::value> { };
+
+    // A one-element tuple can store the source tuple as the element.
+    template <class _Tuple, class _U0,
+              bool = is_same<typename __rw_c11::__type_at<0, _Tp...>::type, _U0>::value>
     struct __single_ok
         : integral_constant<bool,
-              !(is_convertible<_Tuple, typename __rw_c11::__type_at<0, _Tp...>::type>::value
-                || is_constructible<typename __rw_c11::__type_at<0, _Tp...>::type,
-                                    _Tuple>::value
-                || is_same<typename __rw_c11::__type_at<0, _Tp...>::type, _U0>::value)> { };
+              !is_constructible<typename __rw_c11::__type_at<0, _Tp...>::type,
+                                _Tuple>::value> { };
+
+    template <class _Tuple, class _U0>
+    struct __single_ok<_Tuple, _U0, true> : false_type { };
 
     template <class _Tuple, class... _Up>
     struct __tuple_conv_ok : true_type { };
 
     template <class _Tuple, class _U0>
-    struct __tuple_conv_ok<_Tuple, _U0>
-        : integral_constant<bool, sizeof... (_Tp) != 1 || __single_ok<_Tuple, _U0>::value> { };
+    struct __tuple_conv_ok<_Tuple, _U0> : __single_ok<_Tuple, _U0> { };
+
+    template <class... _Up>
+    struct __convert_ok
+        : integral_constant<bool, sizeof... (_Up) == sizeof... (_Tp)
+                                  && !is_same<tuple<_Up...>, tuple>::value> { };
 
 public:
     // [tuple.cnstr] 4-5
@@ -324,59 +334,47 @@ public:
         : __impl (__from_values (), __t...) { }
 
     // [tuple.cnstr] 9-11
-    template <class... _Up, typename enable_if<
-        sizeof... (_Up) == sizeof... (_Tp) && (sizeof... (_Up) > 0)
-        && !(sizeof... (_Up) == 1
-             && is_same<typename decay<typename __rw_c11::__type_at<0, _Up...>::type>::type,
-                        tuple>::value)
-        && _Checks::template __constructible<_Up&&...>::value
+    template <class... _Up, class = typename enable_if<__forward_ok<_Up...>::value>::type,
+              typename enable_if<_Checks::template __constructible<_Up&&...>::value
         && _Checks::template __convertible<_Up&&...>::value, int>::type = 0>
     constexpr tuple (_Up&&... __u)
         noexcept (__rw_c11::__all<is_nothrow_constructible<_Tp, _Up>::value...>::value)
         : __impl (__from_values (), std::forward<_Up>(__u)...) { }
 
-    template <class... _Up, typename enable_if<
-        sizeof... (_Up) == sizeof... (_Tp) && (sizeof... (_Up) > 0)
-        && !(sizeof... (_Up) == 1
-             && is_same<typename decay<typename __rw_c11::__type_at<0, _Up...>::type>::type,
-                        tuple>::value)
-        && _Checks::template __constructible<_Up&&...>::value
+    template <class... _Up, class = typename enable_if<__forward_ok<_Up...>::value>::type,
+              typename enable_if<_Checks::template __constructible<_Up&&...>::value
         && !_Checks::template __convertible<_Up&&...>::value, int>::type = 0>
     explicit constexpr tuple (_Up&&... __u)
         noexcept (__rw_c11::__all<is_nothrow_constructible<_Tp, _Up>::value...>::value)
         : __impl (__from_values (), std::forward<_Up>(__u)...) { }
 
     // [tuple.cnstr] 15-17: from const tuple<U...>&
-    template <class... _Up, typename enable_if<
-        __convert_ok<const tuple<_Up...>&, _Up...>::value
-        && __tuple_conv_ok<const tuple<_Up...>&, _Up...>::value
-        && _Checks::template __constructible<const _Up&...>::value
+    template <class... _Up, class = typename enable_if<__convert_ok<_Up...>::value>::type,
+              class = typename enable_if<__tuple_conv_ok<const tuple<_Up...>&, _Up...>::value>::type,
+              typename enable_if<_Checks::template __constructible<const _Up&...>::value
         && _Checks::template __convertible<const _Up&...>::value, int>::type = 0>
     constexpr tuple (const tuple<_Up...>& __t)
         : tuple (__t, typename __rw_c11::__make_tuple_indices<sizeof... (_Up)>::type ()) { }
 
-    template <class... _Up, typename enable_if<
-        __convert_ok<const tuple<_Up...>&, _Up...>::value
-        && __tuple_conv_ok<const tuple<_Up...>&, _Up...>::value
-        && _Checks::template __constructible<const _Up&...>::value
+    template <class... _Up, class = typename enable_if<__convert_ok<_Up...>::value>::type,
+              class = typename enable_if<__tuple_conv_ok<const tuple<_Up...>&, _Up...>::value>::type,
+              typename enable_if<_Checks::template __constructible<const _Up&...>::value
         && !_Checks::template __convertible<const _Up&...>::value, int>::type = 0>
     explicit constexpr tuple (const tuple<_Up...>& __t)
         : tuple (__t, typename __rw_c11::__make_tuple_indices<sizeof... (_Up)>::type ()) { }
 
     // [tuple.cnstr] 18-20: from tuple<U...>&&
-    template <class... _Up, typename enable_if<
-        __convert_ok<tuple<_Up...>&&, _Up...>::value
-        && __tuple_conv_ok<tuple<_Up...>&&, _Up...>::value
-        && _Checks::template __constructible<_Up&&...>::value
+    template <class... _Up, class = typename enable_if<__convert_ok<_Up...>::value>::type,
+              class = typename enable_if<__tuple_conv_ok<tuple<_Up...>&&, _Up...>::value>::type,
+              typename enable_if<_Checks::template __constructible<_Up&&...>::value
         && _Checks::template __convertible<_Up&&...>::value, int>::type = 0>
     constexpr tuple (tuple<_Up...>&& __t)
         : tuple (std::move (__t),
                  typename __rw_c11::__make_tuple_indices<sizeof... (_Up)>::type ()) { }
 
-    template <class... _Up, typename enable_if<
-        __convert_ok<tuple<_Up...>&&, _Up...>::value
-        && __tuple_conv_ok<tuple<_Up...>&&, _Up...>::value
-        && _Checks::template __constructible<_Up&&...>::value
+    template <class... _Up, class = typename enable_if<__convert_ok<_Up...>::value>::type,
+              class = typename enable_if<__tuple_conv_ok<tuple<_Up...>&&, _Up...>::value>::type,
+              typename enable_if<_Checks::template __constructible<_Up&&...>::value
         && !_Checks::template __convertible<_Up&&...>::value, int>::type = 0>
     explicit constexpr tuple (tuple<_Up...>&& __t)
         : tuple (std::move (__t),
@@ -425,32 +423,36 @@ public:
     tuple (allocator_arg_t, const _Alloc& __a, const _Tp&... __t)
         : __impl (allocator_arg_t (), __a, __t...) { }
 
-    template <class _Alloc, class... _Up, class = typename enable_if<
-        sizeof... (_Up) == sizeof... (_Tp) && (sizeof... (_Up) > 0)
-        && _Checks::template __constructible<_Up&&...>::value>::type>
+    template <class _Alloc, class... _Up,
+              class = typename enable_if<__forward_ok<_Up...>::value>::type,
+              class = typename enable_if<_Checks::template __constructible<_Up&&...>::value>::type>
     tuple (allocator_arg_t, const _Alloc& __a, _Up&&... __u)
         : __impl (allocator_arg_t (), __a, std::forward<_Up>(__u)...) { }
 
-    template <class _Alloc>
+    template <class _Alloc, bool _Dummy = true, class = typename enable_if<
+        _Dummy && _Checks::template __constructible<const _Tp&...>::value>::type>
     tuple (allocator_arg_t, const _Alloc& __a, const tuple& __t)
         : tuple (allocator_arg_t (), __a, __t,
                  typename __rw_c11::__make_tuple_indices<sizeof... (_Tp)>::type ()) { }
 
-    template <class _Alloc>
+    template <class _Alloc, bool _Dummy = true, class = typename enable_if<
+        _Dummy && _Checks::template __constructible<_Tp&&...>::value>::type>
     tuple (allocator_arg_t, const _Alloc& __a, tuple&& __t)
         : tuple (allocator_arg_t (), __a, std::move (__t),
                  typename __rw_c11::__make_tuple_indices<sizeof... (_Tp)>::type ()) { }
 
-    template <class _Alloc, class... _Up, class = typename enable_if<
-        __convert_ok<const tuple<_Up...>&, _Up...>::value
-        && _Checks::template __constructible<const _Up&...>::value>::type>
+    template <class _Alloc, class... _Up,
+              class = typename enable_if<__convert_ok<_Up...>::value>::type,
+              class = typename enable_if<__tuple_conv_ok<const tuple<_Up...>&, _Up...>::value
+                       && _Checks::template __constructible<const _Up&...>::value>::type>
     tuple (allocator_arg_t, const _Alloc& __a, const tuple<_Up...>& __t)
         : tuple (allocator_arg_t (), __a, __t,
                  typename __rw_c11::__make_tuple_indices<sizeof... (_Up)>::type ()) { }
 
-    template <class _Alloc, class... _Up, class = typename enable_if<
-        __convert_ok<tuple<_Up...>&&, _Up...>::value
-        && _Checks::template __constructible<_Up&&...>::value>::type>
+    template <class _Alloc, class... _Up,
+              class = typename enable_if<__convert_ok<_Up...>::value>::type,
+              class = typename enable_if<__tuple_conv_ok<tuple<_Up...>&&, _Up...>::value
+                       && _Checks::template __constructible<_Up&&...>::value>::type>
     tuple (allocator_arg_t, const _Alloc& __a, tuple<_Up...>&& __t)
         : tuple (allocator_arg_t (), __a, std::move (__t),
                  typename __rw_c11::__make_tuple_indices<sizeof... (_Up)>::type ()) { }
@@ -642,7 +644,7 @@ namespace __rw_c11 {
 struct __ignore_t
 {
     template <class _Tp>
-    const __ignore_t& operator= (_Tp&&) const { return *this; }
+    constexpr const __ignore_t& operator= (_Tp&&) const noexcept { return *this; }
 };
 }
 constexpr const __rw_c11::__ignore_t ignore = __rw_c11::__ignore_t ();

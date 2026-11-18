@@ -290,6 +290,8 @@ template <class _Fp>
 inline bool __not_null (const _Fp&) { return true; }
 template <class _Rp, class... _Args>
 inline bool __not_null (_Rp (*__p)(_Args...)) { return __p != 0; }
+template <class _Rp, class... _Args>
+inline bool __not_null (_Rp (*__p)(_Args..., ...)) { return __p != 0; }
 template <class _Rp, class _Cp>
 inline bool __not_null (_Rp _Cp::* __p) { return __p != 0; }
 template <class _Rp, class... _Args>
@@ -744,17 +746,6 @@ inline __rw_bind_r<_Rp, _Fp, _BoundArgs...> bind (_Fp&& __f, _BoundArgs&&... __b
 
 // [unord.hash]
 namespace __rw_c11 {
-// FNV-1a over the bytes
-inline size_t __hash_bytes (const void* __p, size_t __n) noexcept
-{
-    const unsigned char* __c = static_cast<const unsigned char*>(__p);
-    size_t __h = sizeof (size_t) == 8 ? size_t (14695981039346656037ULL) : size_t (2166136261U);
-    const size_t __prime = sizeof (size_t) == 8 ? size_t (1099511628211ULL) : size_t (16777619U);
-    for (size_t __i = 0; __i != __n; ++__i)
-        __h = (__h ^ __c [__i]) * __prime;
-    return __h;
-}
-
 // the primary template: enums hash as their underlying type (LWG 2148);
 // other types have no hash (it can't be called)
 template <class _Tp, bool = is_enum<_Tp>::value>
@@ -826,6 +817,24 @@ _RWSTD_C11_SCALAR_HASH (unsigned long)
 _RWSTD_C11_SCALAR_HASH (long long)
 _RWSTD_C11_SCALAR_HASH (unsigned long long)
 #undef _RWSTD_C11_SCALAR_HASH
+
+#ifdef __SIZEOF_INT128__
+template <> struct hash<unsigned __int128>
+{
+    typedef unsigned __int128 argument_type;
+    typedef size_t result_type;
+    size_t operator() (argument_type __v) const noexcept
+    { return __rw_c11::__hash_bytes (&__v, sizeof (__v)); }
+};
+
+template <> struct hash<__int128>
+{
+    typedef __int128 argument_type;
+    typedef size_t result_type;
+    size_t operator() (argument_type __v) const noexcept
+    { return hash<unsigned __int128>() (static_cast<unsigned __int128>(__v)); }
+};
+#endif
 
 template <> struct hash<float> : __rw_c11::__float_hash<float> { };
 template <> struct hash<double> : __rw_c11::__float_hash<double> { };

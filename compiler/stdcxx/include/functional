@@ -53,6 +53,8 @@
 
 #ifdef _RWSTD_CXX11
 #  include <rw/_c11_functional.h>
+#  include <cstdint>
+#  include <memory>
 #endif
 
 #include <rw/_defs.h>
