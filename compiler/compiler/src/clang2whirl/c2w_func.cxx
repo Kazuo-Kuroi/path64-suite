@@ -879,8 +879,8 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
       _builder->EmitVariablyModifiedType(parm_type);
     }
 
-    TY_IDX fty_idx = _builder->TB().ConvertType(parm->getType());
     ST_IDX fst_idx = _builder->SB().ConvertSymbol(parm);
+    TY_IDX fty_idx = ST_type(fst_idx);
     _builder->DstBuilder().CreateDstForParm(parm, fst_idx);
     WN_formal(pu_tree, i) = WN_CreateIdname(0, fst_idx);
     WN *ldid = WN_Ldid(TY_mtype(fty_idx), 0, ST_ptr(fst_idx), fty_idx);
@@ -1155,7 +1155,7 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     }
     // call field's destructor
     for (const FieldDecl *Field : record_decl->fields()) {
-      if (Field->getType()->getTypeClass() != Type::Record)
+      if (!Field->getType()->isRecordType())
         continue;
       fld_decl = Field->getType()->getAsCXXRecordDecl();
       field_id = _builder->TB().GetFieldIDFromDecl(Field);

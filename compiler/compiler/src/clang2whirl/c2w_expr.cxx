@@ -1549,7 +1549,8 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv) {
   int  parm_idx = 0;
   if(impl_obj) {
     Result r = ConvertExpr(impl_obj);
-    WN *impl_node = r.GetLValue();
+    WN *impl_node = impl_obj->getType()->isPointerType()
+                        ? r.GetRValue() : r.GetLValue();
     TY_IDX ty_idx = _builder->TB().ConvertType(impl_obj->getType());
     if (TY_kind(ty_idx) != KIND_POINTER) {
       Is_True(TY_kind(ty_idx) == KIND_STRUCT, ("ty is not struct"));
@@ -1817,7 +1818,7 @@ WhirlExprBuilder::ConvertCompoundLiteralExpr(const CompoundLiteralExpr *expr, Re
 }
 
 Result
-WhirlExprBuilder::ConvertConditionalOperator(const ConditionalOperator *expr, BOOL retv) {
+WhirlExprBuilder::ConvertConditionalOperator(const ConditionalOperator *expr, Result dest, BOOL retv) {
   TRACE_FUNC();
   const Expr *cond_expr = expr->getCond();
   const Expr *true_expr = expr->getTrueExpr();
@@ -1831,6 +1832,32 @@ WhirlExprBuilder::ConvertConditionalOperator(const ConditionalOperator *expr, BO
   Is_True(cond != NULL &&
           OPCODE_is_expression(WN_opcode(cond)) &&
           MTYPE_is_integral(WN_rtype(cond)), ("bad cond"));
+
+  // A class prvalue constructs one result object in the selected branch.
+  // Sharing its destination also keeps inactive branch temporaries out of
+  // the full-expression cleanup stack.
+  if (expr->isRValue() && expr->getType()->isRecordType()) {
+    if (dest.isNone())
+      dest = Result::nwSym(ST_st_idx(Create_tmp_sym(true_ty, ".conditional", GetSrcPos())),
+                           true_ty);
+    WN *branches[2];
+    const Expr *values[2] = { true_expr, false_expr };
+    for (unsigned i = 0; i < 2; ++i) {
+      branches[i] = WhirlBlockUtil::nwBlock();
+      WN *value = ConvertToNode(values[i], dest);
+      if (value) {
+        WN *store = WN_Istore(TY_mtype(true_ty), 0, Make_Pointer_Type(true_ty),
+                              dest.GetLValue(), value);
+        WN_Set_Linenum(store, GetSrcPos());
+        WN_INSERT_BlockLast(branches[i], store);
+      }
+      WhirlBlockUtil::popCurrentBlock();
+    }
+    WN *selection = WN_CreateIf(cond, branches[0], branches[1]);
+    WN_Set_Linenum(selection, GetSrcPos());
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), selection);
+    return dest;
+  }
 
   // convert true expr
   WN *true_blk = WhirlBlockUtil::nwBlock();
@@ -2412,6 +2439,14 @@ WhirlExprBuilder::ConvertCXXConstructExpr(const CXXConstructExpr *expr,
                               num_elem);
     WN *parm[1] = { st_wn };
     call_wn = ConvertConstantArray(ele_ty, elem_wn, call_wn, parm, 1);
+  }
+
+  // Capture the live argument temporaries before the destination object
+  // enters the cleanup stack. Each constructor has its own unwind region.
+  if (emit_exceptions && OPERATOR_is_call(WN_operator(call_wn)) &&
+      !_builder->DeclBuilder().Call_nothrow(ctor_decl)) {
+    WhirlStmtBuilder stmt_builder(_builder);
+    call_wn = stmt_builder.Setup_eh_region(call_wn, spos, false);
   }
 
   WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), call_wn);
@@ -4014,8 +4049,8 @@ WhirlExprBuilder::ConvertCastExpr(const CastExpr *expr, Result dest) {
     if (WN_operator(to_wn) == OPR_INTCONST) {
       WN_set_rtype(to_wn, Mtype_comparison(TY_mtype(to_ty)));
     } else if (OPCODE_is_load(WN_opcode(to_wn)) &&
-      WN_rtype(to_wn) != TY_mtype(to_ty)) {
-      to_wn = WN_Cvt(WN_rtype(to_wn), TY_mtype(to_ty), to_wn);
+      WN_rtype(to_wn) != Mtype_comparison(TY_mtype(to_ty))) {
+      to_wn = WN_Cvt(WN_rtype(to_wn), Mtype_comparison(TY_mtype(to_ty)), to_wn);
     }
     return Result::nwNode(to_wn, to_ty);
 
@@ -6472,7 +6507,7 @@ WhirlExprBuilder::ConvertExpr(const Expr *expr, Result dest, BOOL retv) {
       r = ConvertCompoundLiteralExpr(cast<CompoundLiteralExpr>(expr), dest);
       break;
     case Expr::ConditionalOperatorClass:
-      r = ConvertConditionalOperator(cast<ConditionalOperator>(expr), retv);
+      r = ConvertConditionalOperator(cast<ConditionalOperator>(expr), dest, retv);
       break;
     case Expr::CStyleCastExprClass:
       r = ConvertCStyleCastExpr(cast<CStyleCastExpr>(expr), dest);

@@ -3,6 +3,19 @@
 #include <cassert>
 #include <initializer_list>
 
+enum class Narrow : short { negative = -7, positive = 12 };
+
+short narrow_value(Narrow value) { return static_cast<short>(value); }
+
+struct HeapObject {
+    int value;
+    explicit HeapObject(int initial) : value(initial) { }
+    void destroy() {
+        assert(value == 42);
+        delete this;
+    }
+};
+
 struct Empty { };
 
 struct EmptyBase : Empty {
@@ -31,6 +44,12 @@ struct Owner {
     ~Owner() { if (pointer) --*pointer; }
 };
 
+struct AliasMember {
+    typedef Owner Member;
+    Member owner;
+    explicit AliasMember(int* count) : owner(count) { }
+};
+
 Owner move_parameter(Owner value) {
     return static_cast<Owner&&>(value);
 }
@@ -39,9 +58,29 @@ Owner forward_parameter(Owner value) {
     return move_parameter(static_cast<Owner&&>(value));
 }
 
+struct ThrowsOnConstruction {
+    explicit ThrowsOnConstruction(const Owner&) { throw 7; }
+};
+
+Owner& static_owner() {
+    static int count = 0;
+    static Owner owner(&count);
+    return owner;
+}
+
+Owner select_owner(bool first, int* left, int* right) {
+    return first ? Owner(left) : Owner(right);
+}
+
+void consume(const Owner&) { }
+
 static std::initializer_list<int> global_values = { 9, 12 };
 
 int main() {
+    assert(*static_owner().pointer == 1);
+    (new HeapObject(42))->destroy();
+    assert(narrow_value(Narrow::negative) == -7);
+    assert(narrow_value(Narrow::positive) == 12);
     int value = 3;
     EmptyBase object(&value);
     assert(object.pointer == &value);
@@ -54,6 +93,39 @@ int main() {
         assert(second.pointer == &owners);
         assert(owners == 2);
     }
+    assert(owners == 0);
+    {
+        AliasMember object(&owners);
+        assert(owners == 1);
+    }
+    assert(owners == 0);
+    try {
+        ThrowsOnConstruction object{Owner(&owners)};
+        assert(false);
+    } catch (int value) {
+        assert(value == 7);
+        assert(owners == 0);
+    }
+    int other_owners = 0;
+    {
+        Owner selected = select_owner(true, &owners, &other_owners);
+        assert(owners == 1);
+        assert(other_owners == 0);
+    }
+    assert(owners == 0);
+    {
+        Owner selected = select_owner(false, &owners, &other_owners);
+        assert(owners == 0);
+        assert(other_owners == 1);
+    }
+    assert(other_owners == 0);
+    bool take_branch = false;
+    if (take_branch)
+        consume(Owner(&owners));
+    assert(owners == 0);
+    take_branch = true;
+    if (take_branch)
+        consume(Owner(&owners));
     assert(owners == 0);
     assert(global_values.size() == 2);
     assert(global_values.begin()[0] == 9);

@@ -86,9 +86,10 @@ TY_IDX get_field_type(TY_IDX struct_type, UINT32 field_id);
 
 FLD_HANDLE get_fld_and_offset(TY_IDX ty_idx, UINT32 field_id, UINT32& cur_field_id, UINT64& offset);
 
-WN *Emit_dtor_call(ST_IDX st_idx);
+WN *Emit_dtor_call(ST_IDX st_idx, ST_IDX object_st = ST_IDX_ZERO);
 
-WN *Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos);
+WN *Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
+                      ST_IDX object_st = ST_IDX_ZERO);
 
 WN *Gen_null_const(TY_IDX ty_idx);
 

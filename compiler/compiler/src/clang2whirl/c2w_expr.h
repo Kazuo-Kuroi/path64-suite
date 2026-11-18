@@ -133,7 +133,7 @@ private:
   
   Result ConvertCompoundLiteralExpr(const clang::CompoundLiteralExpr *expr, Result dest);
   
-  Result ConvertConditionalOperator(const clang::ConditionalOperator *expr, BOOL retv);
+  Result ConvertConditionalOperator(const clang::ConditionalOperator *expr, Result dest, BOOL retv);
   
   Result ConvertCStyleCastExpr(const clang::CStyleCastExpr *expr, Result dest);
   

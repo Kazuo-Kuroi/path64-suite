@@ -247,7 +247,8 @@ public:
 
   void Do_handlers(INT cleanups = 0);
 
-  void pop_dtor_for_copy_ctor_stack(WN *block, clang::QualType ret_ty = clang::QualType());
+  void pop_dtor_for_copy_ctor_stack(WN *block, clang::QualType ret_ty = clang::QualType(),
+                                    size_t depth = 0);
 
 };
 

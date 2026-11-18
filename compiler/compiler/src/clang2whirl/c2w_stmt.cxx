@@ -1195,14 +1195,14 @@ WhirlStmtBuilder::Setup_eh_region(WN *wn, SRCPOS spos, bool for_unwinding, bool 
   return region;
 }
 
-void WhirlStmtBuilder::pop_dtor_for_copy_ctor_stack(WN *block, QualType ty) {
-  while (!dtor_for_copy_ctor_stack.empty()) {
+void WhirlStmtBuilder::pop_dtor_for_copy_ctor_stack(WN *block, QualType ty, size_t depth) {
+  while (dtor_for_copy_ctor_stack.size() > depth) {
     QualType type = dtor_for_copy_ctor_stack.top().first;
     ST_IDX copy_st = dtor_for_copy_ctor_stack.top().second;
     dtor_for_copy_ctor_stack.pop();
 
-    const Type *ty1;
-    const Type *ty2;
+    const Type *ty1 = NULL;
+    const Type *ty2 = NULL;
     if (!type.isNull())
       ty1 = type.getCanonicalType().getTypePtr();
     if (!ty.isNull())
@@ -2296,7 +2296,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
       if (ctor != NULL)
         WN_INSERT_BlockLast(init_blk, ctor);
 
-      ret = Emit_guarded_init(str_idx, init_blk, dtor_st, spos);
+      ret = Emit_guarded_init(str_idx, init_blk, dtor_st, spos, idx);
     } else {
       // handle ldid whirle node here
       if (ret && (!OPCODE_is_stmt(WN_opcode(ret)) || OPCODE_is_scf(WN_opcode(ret)))) {
@@ -2754,6 +2754,7 @@ WN *WhirlStmtBuilder::ConvertIfStmt(const IfStmt *stmt) {
   WN *cond_wn = expr_bldr.ConvertToNode(stmt->getCond());
   Is_True(cond_wn != NULL, ("Child 0 of IF can not be NULL!"));
 
+  const size_t cleanup_depth = dtor_for_copy_ctor_stack.size();
   WN *then_block = WhirlBlockUtil::nwBlock();
   if (stmt->getThen()) {
     WN *then_stmt = ConvertStmt(stmt->getThen());
@@ -2762,6 +2763,7 @@ WN *WhirlStmtBuilder::ConvertIfStmt(const IfStmt *stmt) {
       WN_Set_Linenum(then_block, SetSrcPos(getLocation(stmt->getThen()))); 
     }
   }
+  pop_dtor_for_copy_ctor_stack(then_block, QualType(), cleanup_depth);
   WhirlBlockUtil::popCurrentBlock();
   WN *else_block = WhirlBlockUtil::nwBlock();
   if (stmt->getElse()) {
@@ -2772,6 +2774,7 @@ WN *WhirlStmtBuilder::ConvertIfStmt(const IfStmt *stmt) {
     }
   }
   WhirlBlockUtil::popCurrentBlock();
+  pop_dtor_for_copy_ctor_stack(else_block, QualType(), cleanup_depth);
   cond_wn = Handle_cond_wn(cond_wn);
   if_stmt = WN_CreateIf(cond_wn, then_block, else_block);
   WN_Set_Linenum(if_stmt, SetSrcPos(getLocation(stmt)));

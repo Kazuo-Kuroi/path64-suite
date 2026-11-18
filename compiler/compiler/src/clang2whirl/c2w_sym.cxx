@@ -343,7 +343,7 @@ WhirlSymBuilder::ConvertVar(const VarDecl *decl) {
         sclass = SCLASS_AUTO;
     } else {
       symtab = GLOBAL_SYMTAB;
-      if (decl->getStorageClass() == SC_Static) {
+      if (decl->getStorageClass() == SC_Static && !decl->isStaticDataMember()) {
         sclass = SCLASS_FSTATIC;
         eclass = EXPORT_LOCAL;
       } else {

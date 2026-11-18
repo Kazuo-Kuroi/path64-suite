@@ -255,7 +255,7 @@ Clear_call_region() {
 }
 
 WN *
-Emit_dtor_call(ST_IDX st_idx) {
+Emit_dtor_call(ST_IDX st_idx, ST_IDX object_st) {
   Is_True(st_idx != (ST_IDX)0, ("invalid symtab"));
   SRCPOS spos = ST_Srcpos(st_idx);
 
@@ -274,7 +274,12 @@ Emit_dtor_call(ST_IDX st_idx) {
   WN_kid0(atexit_call) = WGEN_CreateParm(WN_rtype(parm_1), parm_1, WN_ty(parm_1));
 
   // set second parm
-  WN *parm_2 = WN_Intconst(MTYPE_U8, 0);
+  WN *parm_2 = object_st ? WN_Lda(Pointer_Mtype, 0, ST_ptr(object_st))
+                         : WN_Intconst(Pointer_Mtype, 0);
+  if (object_st) {
+    Set_ST_addr_saved(ST_ptr(object_st));
+    Set_ST_addr_passed(ST_ptr(object_st));
+  }
   WN_kid1(atexit_call) = WGEN_CreateParm(WN_rtype(parm_2), parm_2, Make_Pointer_Type(MTYPE_To_TY(MTYPE_V)));
 
   // set third parm
@@ -345,7 +350,8 @@ Emit_cxa_guard_release(SRCPOS spos) {
 //       }
 //     }
 WN *
-Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos) {
+Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
+                  ST_IDX object_st) {
   Is_True(guard_str_idx != (STR_IDX)0,
           ("Invalid mangled name for guarded initlized st"));
 
@@ -398,13 +404,13 @@ Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos) 
   WN *block = WhirlBlockUtil::nwBlock();
   if (ctor)
     WN_INSERT_BlockLast(block, ctor);
-  WN_INSERT_BlockLast(block, call_release);
 
-  // call dtor if exist
+  // Register destruction before publishing completed initialization.
   if (dtor_st) {
-    WN *atexit_call = Emit_dtor_call(dtor_st);
+    WN *atexit_call = Emit_dtor_call(dtor_st, object_st);
     if (atexit_call) WN_INSERT_BlockLast(block, atexit_call);
   }
+  WN_INSERT_BlockLast(block, call_release);
   WhirlBlockUtil::popCurrentBlock();  // pop block
 
   // create WN
