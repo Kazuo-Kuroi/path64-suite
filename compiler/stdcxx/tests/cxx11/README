@@ -102,3 +102,11 @@ compiler-catch-cleanup.pass.cpp checks C++98/11/14 catch-by-value construction,
 handler-scope destruction, scalar/void returns, loop exits, empty handlers,
 throwing parameter destructors and default-argument lifetimes. A subprocess
 checks that failure while copying a catch parameter terminates execution.
+
+exception-handles.pass.cpp checks captured exception ownership, repeated
+cross-thread propagation and identity, catch-copy independence and handler
+exits, copy-constructor failures, and nested runtime_error propagation. Forked
+subprocesses validate required termination without ending the runner process.
+The full support.exception directory includes an unmarked C++17
+uncaught_exceptions test; use propagation and except.nested for the C++11/14
+exception-handle/nesting reference batch.

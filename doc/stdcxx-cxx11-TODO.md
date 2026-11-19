@@ -419,9 +419,23 @@ C++11 and 24 C++14 tests.
     math probe passes with GCC, psclang and host Clang at both levels.
     IRIX C++ library integration remains open: its sysroot lacks `<uchar.h>`
     and several native fenv functions return `void` rather than C99's `int`.
-- [ ] **`<exception>`:** `exception_ptr`, `current_exception`,
+- [x] (Codex) **`<exception>`:** `exception_ptr`, `current_exception`,
   `rethrow_exception`, `make_exception_ptr`, `nested_exception`,
-  `throw_with_nested`. These need libcxxrt (`language.support`).
+  `throw_with_nested`, `rethrow_if_nested`; exposes the runtime's existing
+  `get_terminate`/`get_unexpected` APIs. Exception handles own libcxxrt primary
+  references and rethrow through dependent exceptions; the runtime's rethrow
+  helper now derives the primary header from the object pointer correctly.
+  Ten propagation/nested reference tests plus two original regressions pass
+  12/12 with psclang and host Clang in C++11/14 at `-O0` and `-O2`.
+  Original checks cover lifetime/catch cleanup, cross-thread rethrows, nested
+  runtime_error propagation, throwing copies and required termination cases.
+  The full exception reference tree has 18/19 selected passes; its unmarked
+  `uncaught_exceptions` test requests C++17 and remains outside this item.
+  All original regressions pass: 27 applicable in C++11 and 28 in C++14 at
+  both optimization levels. C++98 cleanup probes pass with both compilers;
+  all eleven C++98/03 language probes remain green. Linux shared/static
+  runtimes and all 200 C++98 library objects rebuild; libcxxrt also cross-builds
+  shared/static for IRIX n32. No IRIX C++11 execution is claimed.
 - [x] (Codex) **`<new>`:** `get_new_handler` and `bad_array_new_length`.
   The six allocation-error reference tests and original handler concurrency/
   callback checks pass with psclang and host Clang in C++11/C++14 at `-O0`/`-O2`.

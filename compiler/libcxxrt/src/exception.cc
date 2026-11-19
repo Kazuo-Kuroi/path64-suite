@@ -621,7 +621,7 @@ extern "C" void __cxa_rethrow_primary_exception(void* thrown_exception)
 {
 	if (NULL == thrown_exception) { return; }
 
-	__cxa_exception *original = exceptionFromPointer(thrown_exception);
+	__cxa_exception *original = ((__cxa_exception*)thrown_exception) - 1;
 	__cxa_dependent_exception *ex = ((__cxa_dependent_exception*)__cxa_allocate_dependent_exception())-1;
 
 	ex->primaryException = thrown_exception;

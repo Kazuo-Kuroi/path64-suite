@@ -39,6 +39,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition, selection and stable sorting | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
 | `<string>` | Numeric formatting/parsing, UTF-16/32 aliases and traits, string hashes | conversions: 10/10; char.traits: 64/64 applicable |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
+| `<exception>` | Exception handles, current/make/rethrow operations, nested exceptions, handler getters | propagation/nested: 10/10; original ownership/catch checks: 2/2 |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 | `<cmath>` | C99 functions and suffixed forms, arithmetic overloads, boolean classification and comparison predicates | c.math: 3/3 |
@@ -56,7 +57,7 @@ test tools in `compiler/stdcxx/tests/cxx11`.
 1. Containers: move, `initializer_list` and `emplace` members for `list`,
    `basic_string`, `map`/`set`.
 2. Remaining algorithm dependencies (`<random>`) and list-backed insertion coverage.
-3. Exception handles, nested exceptions, streams and bitset additions.
+3. Streams and bitset additions. Exception handles and nested exceptions are implemented.
 4. New headers: `<forward_list>`, `<unordered_map>`, `<unordered_set>`,
    `<ratio>`, `<chrono>`, `<system_error>`, `<atomic>`, `<thread>`,
    `<mutex>`, `<condition_variable>`, `<random>`; later `<future>`,
@@ -387,3 +388,45 @@ This fixes a retained exception when returning an exception handle from a catch.
 copy/destruction counts, cleanup order, scalar and void returns, loop exits,
 empty handlers, throwing parameter destructors, default arguments and the
 required termination when copying a catch parameter throws.
+
+## Exception handle and nesting checkpoint
+
+`rw/_c11_exception.h` implements a pointer-sized `exception_ptr` with shared
+primary-exception ownership, nullable comparisons, assignment and swap.
+`current_exception` adopts the owned reference returned by libcxxrt;
+copying retains a reference, and destruction releases it. `rethrow_exception`
+uses the runtime's dependent-exception path, preserving object identity while
+each throw owns its own unwind state. The runtime helper previously treated
+an exception object pointer as an unwind-header pointer; it now locates the
+primary header by the actual object layout. `make_exception_ptr` captures
+failures thrown while copying the requested exception too.
+
+`nested_exception` captures the current exception, supports shared copies and
+terminates when asked to rethrow an empty handle. `throw_with_nested` wraps
+eligible class types, preserving final types and existing nested-exception
+bases. Its final-class query works in C++11 as well as C++14.
+`rethrow_if_nested` excludes inaccessible/ambiguous bases, uses `addressof`
+and checks polymorphic objects through RTTI. The header also exposes the
+runtime's existing terminate/unexpected-handler getters. Header inclusion and
+empty-handle use compile with `-fno-exceptions` in C++11/14.
+
+The ten propagation/nested reference tests and two original regressions pass
+12/12 with psclang and host Clang in C++11/14 at `-O0` and `-O2`.
+`exception-handles.pass.cpp` checks ownership beyond a handler, cross-thread
+copies/rethrows and identity, catch-copy independence, returns and loop exits,
+throwing exception copies, nesting a runtime_error and required termination
+for empty nesting or failed catch-parameter initialization. The full exception
+reference directory passes 18/19 selected tests; the remaining unmarked test
+requires the C++17 `uncaught_exceptions` counter API.
+
+All 28 original regressions pass in C++14 and all 27 applicable ones pass in
+C++11 at both optimization levels. The C++98 catch/loop/sorting checks pass
+3/3 with both compilers at both levels, and all eleven C++98/C++03 language
+probes remain green. Linux shared/static libcxxrt and all 200 C++98 stdcxx
+objects rebuild; shared/static libcxxrt cross-build for IRIX n32 also succeeds.
+These exception tests execute on Linux x86-64; no IRIX C++11 execution is claimed.
+
+The combined C++14 `-O2` foundations/strings/traits/exceptions/original-regression
+run passes 708/712 selected checks. The three vector reference compile failures
+and tuple-extension PR31384 runtime difference are unchanged, with 69 reference
+marker exclusions and one expected failure.

@@ -187,4 +187,8 @@ uncaught_exception () _THROWS (());
 
 #endif   // __HP_aCC
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_exception.h>
+#endif
+
 #endif   // _RWSTD_EXCEPTION_INCLUDED
