@@ -43,6 +43,9 @@
 #include <rw/_iosbase.h>
 #include <rw/_iosfwd.h>
 #include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#  include <memory>
+#endif
 
 #ifndef _RWSTD_NO_REDUNDANT_DEFINITIONS
 #  include <istream>
@@ -95,11 +98,37 @@ typedef basic_stringstream<wchar_t>  wstringstream;
 #endif   // _RWSTD_IOSFWD_INCLUDED
 
 
+// Original allocator storage: keep the default allocator specialization empty
+// so the existing char/wchar_t string-buffer layouts do not grow.
+template<class _Alloc> class _C_stringbuf_alloc {
+    _Alloc _C_value;
+protected:
+    _C_stringbuf_alloc() : _C_value() { }
+    explicit _C_stringbuf_alloc(const _Alloc& __a) : _C_value(__a) { }
+    _Alloc _C_allocator() const { return _C_value; }
+#ifdef _RWSTD_CXX11
+    void _C_swap_allocator(_C_stringbuf_alloc& __rhs) {
+        std::swap(_C_value, __rhs._C_value);
+    }
+#endif
+};
+template<class _T> class _C_stringbuf_alloc<allocator<_T> > {
+protected:
+    _C_stringbuf_alloc() { }
+    explicit _C_stringbuf_alloc(const allocator<_T>&) { }
+    allocator<_T> _C_allocator() const { return allocator<_T>(); }
+#ifdef _RWSTD_CXX11
+    void _C_swap_allocator(_C_stringbuf_alloc&) { }
+#endif
+};
+
 _EXPORT
 template <class _CharT, class _Traits, class _Allocator>
-class basic_stringbuf: public basic_streambuf<_CharT, _Traits>
+class basic_stringbuf: public basic_streambuf<_CharT, _Traits>,
+                       private _C_stringbuf_alloc<_Allocator>
 {
     typedef basic_string<_CharT, _Traits, _Allocator> _C_string_type;
+    typedef _C_stringbuf_alloc<_Allocator> _AllocBase;
 
 public:
 
@@ -128,16 +157,48 @@ public:
 
 #ifdef _RWSTD_CXX11
     basic_stringbuf(basic_stringbuf&& __rhs)
-        : basic_streambuf<char_type, traits_type>(__rhs._C_mode()) {
+        : basic_streambuf<char_type, traits_type>(__rhs._C_mode()),
+          _AllocBase(__rhs._C_allocator()) {
         this->_C_own_buf(true);
-        swap(__rhs);
+        this->_C_swap_buffer(__rhs);
     }
     basic_stringbuf& operator=(basic_stringbuf&& __rhs) {
-        basic_stringbuf __tmp(std::move(__rhs));
-        swap(__tmp);
+        if (this == &__rhs) return *this;
+        typedef allocator_traits<allocator_type> _AT;
+        if (!_AT::propagate_on_container_move_assignment::value &&
+            !(this->_C_allocator() == __rhs._C_allocator())) {
+            // Unequal nonpropagating allocators cannot exchange allocations.
+            const _C_string_type __source = __rhs.str();
+            const _C_string_type __copy(__source.data(), __source.size(),
+                                        this->_C_allocator());
+            basic_stringbuf __tmp(__copy, ios_base::openmode(
+                __rhs._C_state & _RWSTD_IOS_OPENMODE_MASK));
+            __tmp.pubimbue(__rhs.getloc());
+            if (__rhs._C_is_in() && __rhs.eback())
+                __tmp.setg(__tmp.eback(), __tmp.eback() +
+                    (__rhs.gptr() - __rhs.eback()), __tmp.egptr());
+            if (__rhs._C_is_out() && __rhs.pbase()) {
+                __tmp.setp(__tmp.pbase(), __tmp.epptr());
+                __tmp.pbump(__rhs.pptr() - __rhs.pbase());
+            }
+            this->_C_swap_buffer(__tmp);
+        }
+        else {
+            basic_stringbuf __tmp(std::move(__rhs));
+            this->_C_swap_buffer(__tmp);
+            if (_AT::propagate_on_container_move_assignment::value)
+                this->_C_swap_allocator(__tmp);
+        }
         return *this;
     }
-    void swap(basic_stringbuf& __rhs) { this->_C_swap_buffer(__rhs); }
+    void swap(basic_stringbuf& __rhs) {
+        typedef allocator_traits<allocator_type> _AT;
+        _RWSTD_ASSERT(_AT::propagate_on_container_swap::value ||
+                      this->_C_allocator() == __rhs._C_allocator());
+        if (_AT::propagate_on_container_swap::value)
+            this->_C_swap_allocator(__rhs);
+        this->_C_swap_buffer(__rhs);
+    }
 #endif
 
     virtual ~basic_stringbuf ();
@@ -214,7 +275,7 @@ str () const
         __last  = this->egptr ();
     }
 
-    return _C_string_type (__first, __last);
+    return _C_string_type (__first, __last, this->_C_allocator());
 }
 
 

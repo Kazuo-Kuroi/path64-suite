@@ -33,7 +33,8 @@ _RWSTD_NAMESPACE (std) {
 template<class _CharT, class _Traits, class _Allocator>
 basic_stringbuf<_CharT, _Traits, _Allocator>::
 basic_stringbuf (const _C_string_type& __str, ios_base::openmode __mode)
-    : basic_streambuf<_CharT, _Traits>(__mode)
+    : basic_streambuf<_CharT, _Traits>(__mode),
+      _AllocBase(__str.get_allocator())
 {
     str (__str);
 }
@@ -58,8 +59,8 @@ basic_stringbuf<_CharT, _Traits, _Allocator>::
 {
     typedef _RWSTD_ALLOC_TYPE (allocator_type, char_type) _ValueAlloc;
 
-    if (this->_C_own_buf ())
-        _ValueAlloc ().deallocate (this->_C_buffer, this->_C_bufsize);
+    if (this->_C_buffer && this->_C_own_buf ())
+        _ValueAlloc (this->_C_allocator()).deallocate (this->_C_buffer, this->_C_bufsize);
 }
 
 
@@ -79,7 +80,7 @@ str (const char_type *__s, _RWSTD_SIZE_T __slen)
     if (_RWSTD_SIZE_MAX == __slen)
         __slen = traits_type::length (__s);
 
-    _ValueAlloc __alloc;
+    _ValueAlloc __alloc(this->_C_allocator());
 
     // new buffer and size
     char_type        *__buf;
@@ -114,15 +115,6 @@ str (const char_type *__s, _RWSTD_SIZE_T __slen)
             : _RWSTD_MINIMUM_STRINGBUF_CAPACITY;
 
         __bufsize = __cap < __bufsize ? __bufsize : __cap;
-
-        if (__s != this->_C_buffer && this->_C_own_buf ()) {
-            // deallocate the existing buffer here only if the string
-            // is not the same as the buffer itself; otherwise, copy
-            // it to the newly allocated buffer first and deallocate
-            // it later
-            __alloc.deallocate (this->_C_buffer, this->_C_bufsize);
-            this->_C_buffer = 0;
-        }
 
         __buf = __alloc.allocate (__bufsize);
     }
@@ -370,7 +362,7 @@ setbuf (char_type* __buf, _RWSTD_STREAMSIZE __n)
 
     if (0 == __buf) {
         // allocate a new buffer of the specified size
-        __buf = _ValueAlloc ().allocate (__n);
+        __buf = _ValueAlloc (this->_C_allocator()).allocate (__n);
         this->_C_own_buf (true);
     }
     else
@@ -379,8 +371,8 @@ setbuf (char_type* __buf, _RWSTD_STREAMSIZE __n)
     // copy the contents of the existing buffer to the new one
     traits_type::copy (__buf, this->_C_buffer, __slen);
 
-    if (__own_old_buf)
-        _ValueAlloc ().deallocate (this->_C_buffer, this->_C_bufsize);
+    if (__own_old_buf && this->_C_buffer)
+        _ValueAlloc (this->_C_allocator()).deallocate (this->_C_buffer, this->_C_bufsize);
 
     this->_C_buffer  = __buf;
     this->_C_bufsize = __n;
