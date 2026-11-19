@@ -30,6 +30,21 @@ const char* bad_alloc::what() const throw()
 }
 
 
+bad_array_new_length::bad_array_new_length() throw() {}
+bad_array_new_length::bad_array_new_length(const bad_array_new_length& other) throw()
+    : bad_alloc(other) {}
+bad_array_new_length& bad_array_new_length::operator=(const bad_array_new_length& other) throw()
+{
+    bad_alloc::operator=(other);
+    return *this;
+}
+bad_array_new_length::~bad_array_new_length() throw() {}
+const char* bad_array_new_length::what() const throw()
+{
+    return "cxxrt::bad_array_new_length";
+}
+
+
 
 bad_cast::bad_cast() throw() {}
 bad_cast::~bad_cast() {}

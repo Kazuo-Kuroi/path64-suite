@@ -18,6 +18,8 @@ Original regression tests can be passed by absolute path:
   ./lcxx.py "$PWD/phase3-move-iterators.pass.cpp" "$PWD/compiler-short-circuit.pass.cpp"
   ./lcxx.py "$PWD/move-sorting.pass.cpp" "$PWD/partition-exceptions.pass.cpp"
   ./lcxx.py "$PWD/compiler-member-return.pass.cpp"
+  ./lcxx.py "$PWD/compiler-member-init-unwind.pass.cpp" "$PWD/compiler-constructor-cleanup.pass.cpp"
+  ./lcxx.py language.support/support.dynamic/alloc.errors "$PWD/new-handler.pass.cpp"
 
 Use --timeout 180 for the deque range-insertion stress test at -O0. The
 runner's default per-test runtime limit remains 30 seconds.
@@ -47,6 +49,12 @@ when moves or predicates throw. It exercises the public stable_partition API.
 compiler-member-return.pass.cpp checks calls returning trivial classes into
 members at different offsets, and side effects in scalar/trivial destruction.
 
-compiler-member-init-unwind.todo.cpp is a known failing constructor-initializer
-exception repro, not part of the passing regression set. It may be passed
-explicitly to lcxx.py; host Clang passes, while psclang currently aborts.
+compiler-member-init-unwind.pass.cpp is the formerly failing aggregate-member
+initializer unwind repro. compiler-constructor-cleanup.pass.cpp adds destruction
+order, references, base/delegating construction, inner catches and temporary
+argument checks. new-handler.pass.cpp checks synchronized get/set operations,
+callback reentrancy, throwing/nothrow allocation failure and the new error type.
+
+compiler-array-length.todo.cpp records the remaining negative array-bound
+exception-selection issue. It stays outside the .pass.cpp regression set;
+both current compiler paths over this runtime reach bad_alloc.

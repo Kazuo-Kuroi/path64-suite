@@ -213,6 +213,22 @@ _USING (::set_new_handler);
 #endif   // !_RWSTD_NO_STD_SET_NEW_HANDLER || MSVC
 
 
+#ifdef _RWSTD_CXX11
+_RWSTD_NAMESPACE (std) {
+_RWSTD_EXPORT new_handler get_new_handler () _THROWS (());
+
+class _RWSTD_EXPORT bad_array_new_length: public bad_alloc
+{
+public:
+    bad_array_new_length () _THROWS (());
+    bad_array_new_length (const bad_array_new_length&) _THROWS (());
+    bad_array_new_length& operator= (const bad_array_new_length&) _THROWS (());
+    virtual ~bad_array_new_length () _THROWS (());
+    virtual const char* what () const _THROWS (());
+};
+}   // namespace std
+#endif
+
 // 18.4.1.1 - replaceable
 void* operator new (_RWSTD_SIZE_T) _NEW_THROWS ((_RWSTD_BAD_ALLOC));
 

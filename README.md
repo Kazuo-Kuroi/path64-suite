@@ -97,7 +97,7 @@ Open work includes:
 | GCC-derived C/C++ front end | Default front end; provides the legacy C/C++ path, including C99 with `-std=c99` and C++98/03. It is not the C++11/14 development path. |
 | Clang-based C/C++ (`-fpsclang`) | Experimental, built against LLVM/Clang 4.0.1 for `x8664`. C and substantial C++11/14 functionality are exercised on x86-64 Linux. Parser support alone does not imply complete lowering or library support. |
 | C++ standard library (`stdcxx`, `libstl`) | C++98 library with C++11/14 additions selected by language mode. Type traits, utility, tuples, functions, smart pointers, array, vector and deque have substantial coverage. Remaining containers, strings, streams and new standard headers are unfinished. |
-| C++ ABI runtime and unwinder | libcxxrt and libunwind supply exception handling and ABI support; libcxxrt also supplies C++14 sized deletion. x86-64 has compiler/runtime regression coverage. IRIX has the limitations above. |
+| C++ ABI runtime and unwinder | libcxxrt and libunwind supply exception handling and ABI support; libcxxrt also supplies C++14 sized deletion, synchronized new-handler access and the C++11 allocation-error class. x86-64 has compiler/runtime regression coverage. IRIX has the limitations above. |
 | Fortran, OpenMP, profiling, optional math and debugger components | Sources and build switches remain. These components are outside the current minimal C/C++ audit configuration; historical product support is not a current validation claim. |
 
 The algorithm reference suite currently passes 115/145 runner-selected tests.
@@ -109,8 +109,10 @@ and `stable_sort` still need modernization. The iterator suite has one
 list-dependent insertion failure. These are selected suites, not a
 whole-library conformance result.
 
-A separate psclang constructor-initializer exception bug remains open, with
-a reduced reproducer in the TODO.
+The saved constructor-initializer unwind failure is fixed, with expanded
+checks for completed record members/bases, inner catches and temporary
+arguments. Invalid-bound array-new exception selection remains a separate
+compiler TODO. The `<new>` allocation-error APIs are implemented and tested.
 
 See [C++11/14 design and status](doc/stdcxx-cxx11.md),
 [the implementation TODO](doc/stdcxx-cxx11-TODO.md), and

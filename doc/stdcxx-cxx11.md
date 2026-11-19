@@ -187,5 +187,26 @@ register-returned trivial class values are evaluated and stored at the member's
 address, including nonzero offsets. Scalar pseudo-destructors and trivial
 class destructors evaluate their object expression even though no destructor
 call is needed. `compiler-member-return.pass.cpp` covers both reductions.
-The separate constructor-initializer exception issue remains open in the TODO;
-`compiler-member-init-unwind.todo.cpp` records its host/psclang comparison.
+Constructor initializer calls now have unwind regions even before the ordinary
+body scope. Each region snapshots the completed record members and bases;
+escaping exceptions destroy that prefix in reverse order. Catches within the
+constructor retain its members, references do not own their referents, and
+initializer argument temporaries survive the consuming call. Construction must
+succeed before its temporary is registered for destruction. The formerly
+failing `compiler-member-init-unwind.pass.cpp` and the expanded
+`compiler-constructor-cleanup.pass.cpp` cover these paths.
+
+`<new>` exposes `get_new_handler` and `bad_array_new_length`. libcxxrt serializes
+handler access with boolean CAS and explicit barriers, copies the callback
+under the lock, and invokes it after unlocking. This also avoids the existing
+MIPS value-CAS result bug and unsupported lock-release intrinsic. The runtime
+supplies the new exception's constructors, assignment, destructor, RTTI and
+`what()`. Invalid-bound array-new exception selection is still tracked separately
+by `compiler-array-length.todo.cpp`.
+
+The six allocation-error reference tests plus all seventeen original regressions
+pass 22/22 in C++11 and 23/23 in C++14 (sized deletion is C++14-only), with both
+compilers at `-O0` and `-O2`. The broader C++14 optimized foundations batch stays
+599/603 without original tests, with the same four reference incompatibilities.
+Shared and static libcxxrt rebuild on Linux and cross-build for big-endian
+IRIX n32/MIPS IV. No new IRIX hardware execution is claimed.

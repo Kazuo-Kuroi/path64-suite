@@ -24,6 +24,21 @@ typedef void (*new_handler)();
  * handler and a bad allocation exception is thrown if an allocation fails.
  */
 static new_handler new_handl;
+static int new_handler_lock;
+
+// Serialize both operations and copy the callback before releasing the lock.
+// In particular, never hold it while invoking a user new-handler.
+static new_handler access_new_handler(new_handler handler, bool replace)
+{
+    while (!__sync_bool_compare_and_swap(&new_handler_lock, 0, 1)) { }
+    // Both active backends support boolean CAS and explicit barriers.
+    __sync_synchronize();
+    new_handler previous = new_handl;
+    if (replace) new_handl = handler;
+    __sync_synchronize();
+    (void)__sync_bool_compare_and_swap(&new_handler_lock, 1, 0);
+    return previous;
+}
 
 namespace std
 {
@@ -33,8 +48,13 @@ namespace std
 	__attribute__((weak))
 	new_handler set_new_handler(new_handler handler)
 	{
-		return __sync_lock_test_and_set(&new_handl, handler);
+		return access_new_handler(handler, true);
 	}
+    __attribute__((weak))
+    new_handler get_new_handler() throw()
+    {
+        return access_new_handler(0, false);
+    }
 }
 
 
@@ -44,9 +64,10 @@ void* operator new(size_t size)
 	void * mem = malloc(size);
 	while (0 == mem)
 	{
-		if (0 != new_handl)
+        new_handler handler = std::get_new_handler();
+		if (0 != handler)
 		{
-			new_handl();
+			handler();
 		}
 		else
 		{
@@ -64,11 +85,12 @@ void* operator new(size_t size, const std::nothrow_t &) throw()
 	void *mem = malloc(size);
 	while (0 == mem)
 	{
-		if (0 != new_handl)
+        new_handler handler = std::get_new_handler();
+		if (0 != handler)
 		{
 			try
 			{
-				new_handl();
+				handler();
 			}
 			catch (...)
 			{

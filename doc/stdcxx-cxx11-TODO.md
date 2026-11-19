@@ -316,7 +316,7 @@ across a library boundary. Write the decision here before starting.
 
 ## Phase 3: the rest of the existing headers
 
-Current iterator/algorithm/numeric validation includes eight original library
+The iterator/algorithm/numeric checkpoint includes eight original library
 and compiler regressions: 288/319 pass in C++11 and 289/320 in C++14 with both
 psclang and host Clang at `-O0` and `-O2`. This batch has no runtime failures;
 the 31 compile failures are classified below. Reference markers exclude 25
@@ -384,7 +384,11 @@ C++11 and 24 C++14 tests.
 - [ ] **`<exception>`:** `exception_ptr`, `current_exception`,
   `rethrow_exception`, `make_exception_ptr`, `nested_exception`,
   `throw_with_nested`. These need libcxxrt (`language.support`).
-- [ ] **`<new>`:** `get_new_handler`, `bad_array_new_length`.
+- [x] (Codex) **`<new>`:** `get_new_handler` and `bad_array_new_length`.
+  The six allocation-error reference tests and original handler concurrency/
+  callback checks pass with psclang and host Clang in C++11/C++14 at `-O0`/`-O2`.
+  Shared/static libcxxrt builds on Linux x86-64 and cross-builds for IRIX n32.
+  Invalid-bound `new[]` exception selection remains separate lowering work below.
 - [ ] **`<ios>`, `<istream>`, `<ostream>`:**
   * rvalue stream insertion and extraction;
   * stream move and swap;
@@ -394,6 +398,13 @@ C++11 and 24 C++14 tests.
   * `input.output` (488 tests: try the ones for the features above).
 - [ ] **`<bitset>`:** `to_ullong`, the `unsigned long long` constructor,
   `hash<bitset>` (`utilities/template.bitset`).
+
+Allocation-error/constructor follow-up: all six reference allocation-error tests
+plus all seventeen original passing regressions give 22/22 in C++11 (one C++14
+sized-deletion test excluded) and 23/23 in C++14, with both compilers at `-O0`
+and `-O2`. The broader C++14 `-O2` foundations batch remains 599/603 without
+original tests: three raw-pointer-incompatible vector references and the tuple
+extension `PR31384` are unchanged.
 
 ## Phase 4: new headers
 
@@ -416,12 +427,20 @@ C++11 and 24 C++14 tests.
 
 ## Infrastructure
 
-- [ ] **Constructor initializer exception cleanup (psclang).** A throw from
-  a function returning a trivial aggregate into a member initializer aborts
-  instead of propagating to the caller and destroying prior members.
-  `compiler-member-init-unwind.todo.cpp` is the reduced public-language
-  reproducer: host Clang passes and psclang fails at `-O0` and `-O2`.
-  It is deliberately outside the `.pass.cpp` regression set.
+- [x] (Codex) **Constructor initializer exception cleanup (psclang).**
+  Completed record members and bases are recorded in initialization order,
+  with EH snapshots that destroy only the completed prefix in reverse order.
+  References do not own their referents. Initializer argument temporaries stay
+  alive through the call and are registered only after successful construction.
+  The saved reproducer is now `compiler-member-init-unwind.pass.cpp`.
+  `compiler-constructor-cleanup.pass.cpp` checks later initializer/body failures,
+  failed subobject construction, references, base cleanup, delegating constructors,
+  handled/nonmatching inner catches and argument-temporary lifetimes.
+- [ ] **Invalid array-bound exceptions.** `compiler-array-length.todo.cpp`
+  records a negative `new[]` bound currently reaching `bad_alloc` instead of
+  `bad_array_new_length` with both current compiler paths over this runtime.
+  The new exception class/API is implemented; array-bound/overflow lowering
+  remains open.
 
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.
