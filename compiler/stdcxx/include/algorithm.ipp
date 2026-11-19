@@ -770,25 +770,25 @@ _BidirIter __stable_partition_adaptive (_BidirIter __first, _BidirIter __last,
 // Own raw storage separately from the number of successfully moved values.
 // Both predicate failures and throwing move constructors release that prefix.
 template <class _Tp, class _Distance>
-struct __rw_c11_partition_buffer {
+struct __rw_c11_algorithm_buffer {
     pair<_Tp*, _Distance> storage;
     _Distance constructed;
-    explicit __rw_c11_partition_buffer (_Distance __n)
+    explicit __rw_c11_algorithm_buffer (_Distance __n)
         : storage (_STD::get_temporary_buffer (__n, (_Tp*)0)), constructed (0) { }
     void clear () {
         while (constructed) storage.first[--constructed].~_Tp ();
     }
-    ~__rw_c11_partition_buffer () {
+    ~__rw_c11_algorithm_buffer () {
         clear ();
         _STD::return_temporary_buffer (storage.first);
     }
-    __rw_c11_partition_buffer (const __rw_c11_partition_buffer&) = delete;
-    __rw_c11_partition_buffer& operator= (const __rw_c11_partition_buffer&) = delete;
+    __rw_c11_algorithm_buffer (const __rw_c11_algorithm_buffer&) = delete;
+    __rw_c11_algorithm_buffer& operator= (const __rw_c11_algorithm_buffer&) = delete;
 };
 
 template <class _Bidir, class _Predicate, class _Tp, class _Distance>
 _Bidir __rw_c11_partition_buffered (_Bidir __first, _Bidir __last,
-    _Predicate& __pred, _Distance __n, __rw_c11_partition_buffer<_Tp, _Distance>& __buffer)
+    _Predicate& __pred, _Distance __n, __rw_c11_algorithm_buffer<_Tp, _Distance>& __buffer)
 {
     if (__n <= __buffer.storage.second) {
         _Bidir __out = __first;
@@ -837,7 +837,7 @@ _BidirIter __stable_partition (_BidirIter __first, _BidirIter __last,
         return __last;
     
 #ifdef _RWSTD_CXX11
-    __rw_c11_partition_buffer<_TypeT, _Dist> __buffer (__dist);
+    __rw_c11_algorithm_buffer<_TypeT, _Dist> __buffer (__dist);
     if (!__buffer.storage.first)
         return __inplace_stable_partition (__first, __last, __pred, __dist);
     return __rw_c11_partition_buffered (__first, __last, __pred, __dist, __buffer);
@@ -1123,12 +1123,61 @@ void __stable_sort_adaptive (_RandomAccessIter __first,
 }
 
 
+#ifdef _RWSTD_CXX11
+template <class _Random, class _Tp, class _Dist, class _Compare>
+void __rw_c11_stable_sort (_Random __first, _Random __last, _Compare& __comp,
+                           __rw_c11_algorithm_buffer<_Tp, _Dist>& __buffer)
+{
+    const _Dist __n = __last - __first;
+    if (__n < 2) return;
+    _Random __middle = __first + __n / 2;
+    __rw_c11_stable_sort (__first, __middle, __comp, __buffer);
+    __rw_c11_stable_sort (__middle, __last, __comp, __buffer);
+    if (!__comp (*__middle, *(__middle - 1))) return;
+    if (__n / 2 > __buffer.storage.second) {
+        __merge_without_buffer (__first, __middle, __last,
+                                _Dist (__n / 2), _Dist (__n - __n / 2), __comp);
+        return;
+    }
+    // Buffer only the left run. The output stays behind the unread right run.
+    // Own each successfully constructed value even if the next move throws.
+    for (_Random __i = __first; __i != __middle; ++__i) {
+        ::new (static_cast<void*>(__buffer.storage.first + __buffer.constructed))
+            _Tp (_STD::move (*__i));
+        ++__buffer.constructed;
+    }
+    _Dist __left = 0;
+    _Random __right = __middle, __out = __first;
+    while (__left != __buffer.constructed && __right != __last) {
+        if (__comp (*__right, __buffer.storage.first[__left])) {
+            *__out = _STD::move (*__right);
+            ++__right;
+        }
+        else {
+            *__out = _STD::move (__buffer.storage.first[__left]);
+            ++__left;
+        }
+        ++__out;
+    }
+    while (__left != __buffer.constructed) {
+        *__out = _STD::move (__buffer.storage.first[__left]);
+        ++__out;
+        ++__left;
+    }
+    __buffer.clear ();
+}
+#endif
+
 _EXPORT
 template <class _RandomAccessIter, class _TypeT, class _Dist, class _Compare>
 void
 __stable_sort (_RandomAccessIter __first, _RandomAccessIter __last,
                _TypeT*, _Dist*, _Compare __comp)
 {
+#ifdef _RWSTD_CXX11
+    __rw_c11_algorithm_buffer<_TypeT, _Dist> __buffer (_Dist ((__last - __first) / 2));
+    __rw_c11_stable_sort (__first, __last, __comp, __buffer);
+#else
     // call an extension of get_temporary_buffer<>() in case partial class
     // specialization (and iterator_traits<>) isn't supported by compiler
     pair<_TypeT*, _Dist> __p =
@@ -1150,6 +1199,7 @@ __stable_sort (_RandomAccessIter __first, _RandomAccessIter __last,
 
         _STD::return_temporary_buffer (__p.first);
     }
+#endif
 }
 
 

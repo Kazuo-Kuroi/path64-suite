@@ -365,12 +365,17 @@ C++11 and 24 C++14 tests.
     partitioning to discard equal keys together. Original tests cover every
     selection position, duplicate-heavy inputs, descending comparisons,
     packed-bit proxies, identity preservation and comparison exceptions.
+  * [x] (Codex) Move-only `stable_sort`, with owned, partially constructed
+    temporary storage shared with `stable_partition`. Buffered merges preserve
+    left-run ties; undersized/failed allocations use rotation-based merging.
+    Original tests cover stable identity ordering, both comparator directions,
+    packed-bit proxies, comparison bounds and throwing moves/comparisons.
   * `algorithms` (150 tests): 115/145 runner-selected tests pass. The remaining
     30 compile failures are 28 missing `<random>` dependencies and two
     unmarked C++17 `clamp` tests. Five tests are excluded by reference markers.
-    Move-only `stable_sort` still has legacy copying helpers; its reference
-    tests and the `nth_element` reference tests require `<random>`. The overall
-    item remains open.
+    The `stable_sort` and `nth_element` reference tests require `<random>`;
+    their move-only implementations have original regression coverage. The
+    overall item remains open.
 - [x] (Codex) **`<numeric>`:** `iota`; move assignment in
   `adjacent_difference` and safe iterator increments in `inner_product`.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests

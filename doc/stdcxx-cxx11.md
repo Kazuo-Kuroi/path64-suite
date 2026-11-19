@@ -36,7 +36,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
 | `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
-| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition and selection | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
+| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition, selection and stable sorting | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
@@ -158,9 +158,16 @@ Stable partition owns raw temporary storage and its successfully constructed
 prefix, reuses partial buffers recursively and falls back to rotation when no
 buffer is available. `nth_element` keeps its pivot in the range and partitions
 less/equal/greater keys separately, supporting move-only values and packed-bit
-proxies without repeatedly scanning equal keys. `stable_sort` still has legacy
-copying helpers. Its reference suite and the selection reference suite require
-the missing `<random>` header.
+proxies without repeatedly scanning equal keys. `stable_sort` shares the owned
+raw-buffer helper, moves the left merge run into available storage, and uses
+rotation-based merging when the buffer is too small or allocation fails.
+Left-run ties preserve stable order. Successfully constructed buffered values
+are destroyed even when a move or comparison throws. Its reference suite and
+the selection reference suite require the missing `<random>` header.
+`stable-sorting.pass.cpp` supplies original coverage for both comparison
+directions, partial/failed allocations, packed bits, object identity, stable
+ordering, comparison bounds and resource cleanup on exceptions. It passes
+with both compilers in C++11/14 at `-O0` and `-O2`.
 
 The original `nth-element.pass.cpp` covers every selection position on small
 inputs, descending comparisons, duplicate-heavy inputs, object identity,
