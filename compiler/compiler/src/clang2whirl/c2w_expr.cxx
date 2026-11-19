@@ -1525,7 +1525,7 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv, Result dest) 
   bool mem_expr_is_arrow = false;
   if (cxx_call_expr) {
     const MemberExpr *mem_expr =
-      dyn_cast<MemberExpr>(cxx_call_expr->getCallee());
+      dyn_cast<MemberExpr>(cxx_call_expr->getCallee()->ignoreParenBaseCasts());
     Is_True(mem_expr, ("invalid MemberExpr"));
     if (mem_expr->isArrow())
       mem_expr_is_arrow = true;
