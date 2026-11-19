@@ -233,4 +233,8 @@ operator<< (basic_ostream<_CharT, _Traits>      &__strm,
 }   // namespace std
 
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_iomanip.h>
+#endif
+
 #endif   // _RWSTD_IOMANIP_INCLUDED

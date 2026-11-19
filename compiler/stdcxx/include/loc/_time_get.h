@@ -115,7 +115,7 @@ public:
     static _RW::__rw_facet_id id;
 
 
-#ifdef _RWSTD_NO_EXT_TIME_GET
+#if defined(_RWSTD_NO_EXT_TIME_GET) && !defined(_RWSTD_CXX11)
 
 private:
 
@@ -170,7 +170,7 @@ protected:
         return do_get (__it, __end, __fl, __err, __tmb, 'Y');
     }
 
-#ifdef _RWSTD_NO_EXT_TIME_GET
+#if defined(_RWSTD_NO_EXT_TIME_GET) && !defined(_RWSTD_CXX11)
 
 private:
 

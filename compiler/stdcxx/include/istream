@@ -51,6 +51,10 @@
 #include <rw/_traits.h>
 
 #include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_utility.h>
+#endif
+
 
 
 _RWSTD_NAMESPACE (__rw) {
@@ -637,5 +641,18 @@ _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
 #  include <rw/_stringio.h>
 #endif   // _RWSTD_STRING_EXTRACTORS_INCLUDED
 
+
+#ifdef _RWSTD_CXX11
+namespace std {
+template<class _Stream, class _Value,
+         class = typename enable_if<!is_lvalue_reference<_Stream>::value &&
+             is_convertible<typename remove_reference<_Stream>::type*, ios_base*>::value>::type,
+         class = decltype(std::declval<_Stream&>() >> std::declval<_Value&&>())>
+inline _Stream&& operator>>(_Stream&& __stream, _Value&& __value) {
+    __stream >> std::forward<_Value>(__value);
+    return std::move(__stream);
+}
+}
+#endif
 
 #endif   // _RWSTD_ISTREAM_INCLUDED

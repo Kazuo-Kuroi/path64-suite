@@ -110,3 +110,11 @@ subprocesses validate required termination without ending the runner process.
 The full support.exception directory includes an unmarked C++17
 uncaught_exceptions test; use propagation and except.nested for the C++11/14
 exception-handle/nesting reference batch.
+
+bitset-modern.pass.cpp checks constexpr construction, word boundaries, oversized
+shifts, conversion overflow, hashing and bounded arrays against a protected page.
+stream-manipulators.pass.cpp checks derived rvalue streams, narrow/wide time,
+custom money facets, facet exceptions, failed output and hexadecimal precision.
+compiler-narrow-return.pass.cpp checks poisoned upper register bits on x86-64
+bool/char/short returns. NARROW_PROVIDER_ONLY and NARROW_CONSUMER_ONLY split
+it into independently compiled objects for ABI interoperability checks.

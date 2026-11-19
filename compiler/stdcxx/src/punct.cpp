@@ -617,7 +617,7 @@ __rw_get_stdio_fmat (char buf [32], int type, unsigned fmtflags,
             *pbuf++ = '#';
 
         // follows resolution of lwg issue 231
-        if (0 <= prec) {
+        if (0 <= prec && (fmtflags & _RWSTD_IOS_FLOATFIELD) != _RWSTD_IOS_FLOATFIELD) {
 
             // 7.19.6.1, p5 of C99 specifies that, when given using the
             // asterisk, negative precision is treated the same as if
@@ -671,6 +671,10 @@ __rw_get_stdio_fmat (char buf [32], int type, unsigned fmtflags,
         switch (fmtflags & _RWSTD_IOS_FLOATFIELD) {
         case _RWSTD_IOS_FIXED:
             *pbuf++ = 'f';
+            break;
+
+        case _RWSTD_IOS_FLOATFIELD:
+            *pbuf++ = fmtflags & _RWSTD_IOS_UPPERCASE ? 'A' : 'a';
             break;
 
         case _RWSTD_IOS_SCIENTIFIC:

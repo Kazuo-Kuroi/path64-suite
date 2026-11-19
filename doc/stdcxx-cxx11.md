@@ -430,3 +430,31 @@ The combined C++14 `-O2` foundations/strings/traits/exceptions/original-regressi
 run passes 708/712 selected checks. The three vector reference compile failures
 and tuple-extension PR31384 runtime difference are unchanged, with 69 reference
 marker exclusions and one expected failure.
+
+
+### Bitset and stream checkpoint
+
+Bitset now provides the C++11 constexpr constructors, bounded character-pointer
+constructor, `to_ullong`, `all` and hashing. Empty instances and shifts at or
+beyond the logical size are handled in C++98 too. All 38 approved reference
+checks pass with host Clang and psclang at `-O0`. At psclang `-O2`, 37 pass;
+the remaining test exposes an optimized 64-bit mask-expression compiler bug
+recorded in the TODO, rather than a wrong bitset result.
+
+Streams support constrained rvalue insertion/extraction and the six money,
+time and floating-format manipulators. Six reference checks and the original
+integration test pass in C++11/14 at both optimization levels with both
+compilers. Four locale-dependent references are excluded by the runner.
+Moves/swaps and error categories remain pending. Hexadecimal floating output
+uses the existing shared formatter: both float flags select `%a`/`%A` and
+precision is ignored. This also changes that explicit flag combination for
+C++98 callers of the shared library; ordinary formats retain their behavior.
+
+This work also fixes x86-64 return-value lowering: only the low byte or word
+is defined for narrow integral returns from native callees. Sixteen mixed
+provider/consumer checks pass across GCC, host Clang and both PathScale
+frontends at `-O0`/`-O2`. The IRIX backend builds with this guarded change;
+these execution results are Linux x86-64 only. The broad C++14 `-O2` checkpoint
+has 754/759 passes, 73 unsupported and one expected failure: the known three
+vector reference incompatibilities, tuple extension mismatch, and the new
+mask-expression compiler issue account for the five failures.

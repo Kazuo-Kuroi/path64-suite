@@ -4439,6 +4439,17 @@ static WN *lower_return_ldid(WN *block, WN *tree, LOWER_ACTIONS actions)
       Fail_FmtAssertion ("Unexpected type in lower_return_ldid");
       /*NOTREACHED*/
   }
+#ifdef TARG_X8664
+  // SysV defines only the low byte/word of narrow integer returns. In
+  // particular, a native bool callee may leave arbitrary bits above %al.
+  // Preg loads otherwise look like full-register values to later passes.
+  if (Is_Target_64bit() && MTYPE_is_integral(mtype) && MTYPE_byte_size(mtype) < 4) {
+    TYPE_ID reg_type = WN_rtype(tree);
+    WN_set_desc(tree, reg_type);
+    WN_set_ty(tree, MTYPE_To_TY(reg_type));
+    return WN_CreateCvtl(OPR_CVTL, reg_type, MTYPE_V, MTYPE_bit_size(mtype), tree);
+  }
+#endif
   return tree;
 }
 

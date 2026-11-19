@@ -442,14 +442,32 @@ C++11 and 24 C++14 tests.
   Shared/static libcxxrt builds on Linux x86-64 and cross-builds for IRIX n32.
   Invalid-bound `new[]` exception selection is also implemented; see below.
 - [ ] **`<ios>`, `<istream>`, `<ostream>`:**
-  * rvalue stream insertion and extraction;
-  * stream move and swap;
-  * `io_errc`, `iostream_category`;
-  * manipulators `get_money`, `put_money`, `get_time`, `put_time`,
-    `hexfloat`, `defaultfloat`;
-  * `input.output` (488 tests: try the ones for the features above).
-- [ ] **`<bitset>`:** `to_ullong`, the `unsigned long long` constructor,
-  `hash<bitset>` (`utilities/template.bitset`).
+  * [x] (Codex) constrained rvalue insertion/extraction, preserving derived types;
+  * [ ] stream move and swap;
+  * [ ] `io_errc`, `iostream_category` (depends on `<system_error>`);
+  * [x] (Codex) `get_money`, `put_money`, `get_time`, `put_time`,
+    `hexfloat`, `defaultfloat`, including facet exceptions and output failures.
+    Six reference tests and an original integration test pass with psclang and
+    host Clang in C++11/14 at `-O0`/`-O2`. Four locale-dependent references are
+    unsupported by the runner. The shared formatter now interprets both float
+    flags as hexadecimal and ignores precision for that format.
+- [x] (Codex) **`<bitset>`:** constexpr default/unsigned-long-long constructors,
+  bounded character-pointer constructor, `to_ullong`, `all`, `hash<bitset>`.
+  Oversized shifts and empty-bitset operations are corrected in C++98 too.
+  All 38 reference tests pass with host Clang and with psclang at `-O0`;
+  psclang `-O2` passes 37/38 because of the separate mask-expression bug below.
+  Original boundary, overflow, hash and protected-page checks pass in both modes.
+- [x] (Codex) **x86-64 narrow scalar return ABI:** explicitly narrow returned
+  register values before use. Native callees may leave upper bits dirty when
+  returning bool, char or short. All sixteen mixed-object checks pass across
+  both PathScale frontends, host Clang and GCC at `-O0`/`-O2`; the IRIX backend
+  also builds (the change is x86-64 only).
+- [ ] **Optimized 64-bit mask expression:** psclang `-O2` miscompiles
+  `const bool c=true; const unsigned long long m=(1ULL<<(c?32:0))-1;`
+  to all-one bits instead of `0xffffffff`. The bitset `to_ullong` reference
+  computes its expected mask this way; the bitset value itself is correct.
+  Fix the compiler optimization and rerun the reference before declaring
+  the entire optimized bitset checkpoint clear.
 
 Allocation-error/constructor follow-up: all six reference allocation-error tests
 plus all seventeen original passing regressions give 22/22 in C++11 (one C++14

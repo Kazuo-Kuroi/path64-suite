@@ -32,6 +32,9 @@
 
 
 #include <string>
+#ifdef _RWSTD_CXX11
+#  include <functional>
+#endif
 
 #include <rw/_iosfwd.h>
 #include <rw/_error.h>
@@ -95,6 +98,29 @@ __rw_shr (unsigned long*, _RWSTD_SIZE_T, _RWSTD_SIZE_T) _THROWS (());
 }   // namespace __rw
 
 
+#ifdef _RWSTD_CXX11
+namespace std { namespace __rw_c11 {
+template<size_t... _I> struct __bitset_indices { };
+template<class _Seq, size_t _N> struct __bitset_double;
+template<size_t... _I, size_t _N>
+struct __bitset_double<__bitset_indices<_I...>, _N> {
+    typedef __bitset_indices<_I..., (_I + _N)...> type;
+};
+template<class _Seq, size_t _N> struct __bitset_append;
+template<size_t... _I, size_t _N>
+struct __bitset_append<__bitset_indices<_I...>, _N> {
+    typedef __bitset_indices<_I..., _N> type;
+};
+template<size_t _N> struct __bitset_make_indices {
+    typedef typename __bitset_make_indices<_N / 2>::type half;
+    typedef typename __bitset_double<half, _N / 2>::type even;
+    typedef typename conditional<(_N % 2 != 0),
+        typename __bitset_append<even, _N - 1>::type, even>::type type;
+};
+template<> struct __bitset_make_indices<0> { typedef __bitset_indices<> type; };
+} }
+#endif
+
 _RWSTD_NAMESPACE (std) {
 
 
@@ -108,6 +134,20 @@ class bitset
     // must have at least one element even if size is 0
     unsigned long _C_bits [_C_nelems ? _C_nelems : 1];
 
+#ifdef _RWSTD_CXX11
+    static constexpr unsigned long _C_word(unsigned long long __n, size_t __i) noexcept {
+        return __i * _C_elembits >= _Size ||
+               __i * _C_elembits >= sizeof(unsigned long long) * _RWSTD_CHAR_BIT ? 0 :
+            static_cast<unsigned long>(__n >> ((__i * _C_elembits) %
+                (sizeof(unsigned long long) * _RWSTD_CHAR_BIT))) &
+            (_RWSTD_ULONG_MAX >> (_Size - __i * _C_elembits >= _C_elembits ?
+                                 0 : _C_elembits - (_Size - __i * _C_elembits)));
+    }
+    template<size_t... _I>
+    constexpr bitset(unsigned long long __n, __rw_c11::__bitset_indices<_I...>) noexcept
+        : _C_bits{_C_word(__n, _I)...} { }
+#endif
+
     bool _C_valid_pos (_RWSTD_SIZE_T __pos) const _THROWS (()) {
         // prevent warnings if _Size == 0
         return _Size + 1 > __pos + 1;
@@ -115,6 +155,7 @@ class bitset
 
     void _C_from_ulong (unsigned long __n) _THROWS (()) {
         reset ();
+        if (!_Size) return;
         _C_bits [0] =
             __n & (_RWSTD_ULONG_MAX >> ((_Size > _C_elembits ? 0 :
                 _C_elembits - _Size % _C_elembits) % _C_elembits));
@@ -163,6 +204,11 @@ public:
         }
     };
 
+#ifdef _RWSTD_CXX11
+    constexpr bitset() noexcept: _C_bits{} { }
+    constexpr bitset(unsigned long long __n) noexcept
+        : bitset(__n, typename __rw_c11::__bitset_make_indices<_C_nelems ? _C_nelems : 1>::type()) { }
+#else
     // 23.3.5.1, p1
     bitset () _THROWS (()) {
         reset ();
@@ -172,6 +218,8 @@ public:
     bitset (unsigned long __n) _THROWS (()) {
         _C_from_ulong (__n);
     }
+
+#endif
 
 #if    !defined (_RWSTD_NO_NONDEDUCED_CONTEXT) \
     && (!defined (__SUNPRO_CC) || __SUNPRO_CC > 0x550)
@@ -241,6 +289,16 @@ public:
 #endif   // _RWSTD_NO_EXT_BITSET_CTOR_STRING
 
 
+#ifdef _RWSTD_CXX11
+    template<class _CharT>
+    explicit bitset(const _CharT* __s, size_t __n = size_t(-1),
+                    _CharT __zero = _CharT('0'), _CharT __one = _CharT('1')) {
+        // A bounded character array need not have a terminating zero.
+        const size_t __len = __n == size_t(-1) ? char_traits<_CharT>::length(__s) : __n;
+        _C_from_char(__s, __len, (const char_traits<_CharT>*)0, __zero, __one,
+                     0, __len, _RWSTD_FUNC("bitset::bitset(const charT*, size_t)"));
+    }
+#else
 #ifndef _RWSTD_NO_EXT_BITSET_CTOR_CHAR_ARRAY
 
     // extension
@@ -310,6 +368,8 @@ public:
     }
 
 #endif   // _RWSTD_NO_EXT_BITSET_CTOR_CHAR_ARRAY
+
+#endif
 
     // 23.3.5.2, p1
     bitset& operator&= (const bitset &__rhs) _THROWS (()) {
@@ -394,6 +454,20 @@ public:
 
     // 23.3.5.2, p31
     unsigned long to_ulong () const;
+#ifdef _RWSTD_CXX11
+    unsigned long long to_ullong() const {
+        unsigned long long __value = 0;
+        for (size_t __i = 0; __i != _C_nelems; ++__i) {
+            if (!_C_bits[__i]) continue;
+            _RWSTD_REQUIRES(__i < sizeof(unsigned long long) / sizeof(unsigned long),
+                (_RWSTD_ERROR_OVERFLOW_ERROR, _RWSTD_FUNC("bitset::to_ullong() const")));
+            __value |= static_cast<unsigned long long>(_C_bits[__i]) <<
+                ((__i * _C_elembits) % (sizeof(unsigned long long) * _RWSTD_CHAR_BIT));
+        }
+        return __value;
+    }
+    bool all() const noexcept { return count() == _Size; }
+#endif
 
 #if !defined (_RWSTD_NO_TEMPLATE_ON_RETURN_TYPE)
 
@@ -444,7 +518,7 @@ public:
     }
 
     // 23.3.5.2, p36
-    _RWSTD_SIZE_T size () const _THROWS (()) {
+    _RWSTD_CONSTEXPR _RWSTD_SIZE_T size () const _THROWS (()) {
         return _Size;
     }
 
@@ -501,6 +575,7 @@ template <_RWSTD_SIZE_T _Size>
 inline bitset<_Size>&
 bitset<_Size>::set () _THROWS (())
 {
+    if (!_Size) return reset();
     if (_C_nelems == 1)
         _C_bits [0] = _RWSTD_ULONG_MAX;
     else
@@ -536,6 +611,7 @@ template <_RWSTD_SIZE_T _Size>
 inline bitset<_Size>&
 bitset<_Size>::operator<<= (_RWSTD_SIZE_T __n) _THROWS (())
 {
+    if (__n >= _Size) return reset();
     if (_Size >= _C_elembits)
         _RW::__rw_shl (_C_bits, _C_nelems, __n);
     else
@@ -558,6 +634,7 @@ template <_RWSTD_SIZE_T _Size>
 inline bitset<_Size>&
 bitset<_Size>::operator>>= (_RWSTD_SIZE_T __n) _THROWS (())
 {
+    if (__n >= _Size) return reset();
     if (_Size >= _C_elembits)
         _RW::__rw_shr (_C_bits, _C_nelems, __n);
     else
@@ -572,6 +649,7 @@ template <_RWSTD_SIZE_T _Size>
 inline unsigned long
 bitset<_Size>::to_ulong () const
 {
+    if (!_Size) return 0;
     // add 1 to prevent warnings about pointless comparison with 0
     for (_RWSTD_SIZE_T __i = 1; __i + 1 < _C_nelems + 1; ++__i)
         _RWSTD_REQUIRES (!_C_bits[__i],
@@ -717,10 +795,29 @@ inline wostream& operator<< (wostream &__strm, const bitset<_Size>& __x)
     return __strm << __tmp;
 }
 
+
+
 }   // namespace std
 
 #endif   // !defined (_MSC_VER) || _MSC_VER > 1300
 
+
+#ifdef _RWSTD_CXX11
+namespace std {
+template<class _T> struct hash;
+template<size_t _N> struct hash<bitset<_N> > {
+    typedef bitset<_N> argument_type;
+    typedef size_t result_type;
+    size_t operator()(const bitset<_N>& __bits) const noexcept {
+        // Hash logical bits so padding and machine word size are irrelevant.
+        size_t __h = 0;
+        for (size_t __i = 0; __i != _N; ++__i)
+            __h = (__h ^ size_t(__bits[__i])) * size_t(16777619U);
+        return __h;
+    }
+};
+} // namespace std
+#endif
 
 #ifdef _RWSTD_NO_IMPLICIT_INCLUSION
 #  include <bitset.ipp>
