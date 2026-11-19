@@ -1558,8 +1558,10 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv, Result dest) 
         RV rv = GetRV(expr, retv);
         return EmitAssignNode(lhs, rhs, ty, rv);
       }
-      else if (cxx_callee->isTrivial() && isa<CXXDestructorDecl>(callee))
+      else if (cxx_callee->isTrivial() && isa<CXXDestructorDecl>(callee)) {
+        if (impl_obj) ConvertToNode(impl_obj, Result::nwNone(), FALSE);
         return Result::nwNone();
+      }
       Is_True(!cxx_callee->isTrivial(), ("callee is trivial"));
     }
 
@@ -1572,8 +1574,10 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv, Result dest) 
     }
 
     if (const CXXDestructorDecl *dtor = dyn_cast<CXXDestructorDecl>(callee)) {
-      if (dtor->getParent()->hasTrivialDestructor())
-        return Result::nwNone();  // do nothing for trivial dtor
+      if (dtor->getParent()->hasTrivialDestructor()) {
+        if (impl_obj) ConvertToNode(impl_obj, Result::nwNone(), FALSE);
+        return Result::nwNone();
+      }
     }
 
     GlobalDecl gd = GetGlobalDecl(callee);
@@ -5069,23 +5073,13 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
         WN_Set_Linenum(stid, spos);
       }
-      else if (WN_has_sym(tmp_wn) && WN_has_sym(lhs) &&
-          WN_st(tmp_wn) != WN_st(lhs)) {
-        WN *store = WN_Istore(TY_mtype(ty), 0, pty, lhs, tmp_wn, 0);
+      else {
+        // A member destination can be an address expression (this + offset),
+        // not a symbol. Always evaluate and store the returned value there;
+        // testing WN_has_sym on both sides discarded calls in initializers.
+        WN *store = WN_Istore(TY_mtype(ty), 0, pty, lhs, tmp_wn);
         WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), store);
         WN_Set_Linenum(store, spos);
-      }
-      else if (!WN_has_sym(tmp_wn) && WN_has_sym(lhs)) {
-        if (is_ref) {
-          WN *tmp_stid = WN_Stid(TY_mtype(ty), 0, ST_ptr(tmp_dest.Sym()), ty, tmp_wn);
-          WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), tmp_stid);
-          WN_Set_Linenum(tmp_stid, spos);
-          tmp_wn = tmp_dest.GetLValue();
-        }
-        WN *stid = WN_Stid(WN_rtype(tmp_wn), 0, WN_st(lhs),
-                           is_ref ? ST_type(WN_st(lhs)) : ty, tmp_wn);
-        WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), stid);
-        WN_Set_Linenum(stid, spos);
       }
     }
     else {
@@ -6761,7 +6755,10 @@ WhirlExprBuilder::ConvertExpr(const Expr *expr, Result dest, BOOL retv) {
       r = ConvertPredefinedExpr(cast<PredefinedExpr>(expr));
       break;
     case Expr::CXXPseudoDestructorExprClass:
-      // Do nothing
+      // Scalar destruction has no call, but its object expression still
+      // has side effects (for example buffer[--count].~value_type()).
+      ConvertToNode(cast<CXXPseudoDestructorExpr>(expr)->getBase(),
+                    Result::nwNone(), FALSE);
       break;
     case Expr::PseudoObjectExprClass:
       r = ConvertPseudoObjectExpr(cast<PseudoObjectExpr>(expr));
