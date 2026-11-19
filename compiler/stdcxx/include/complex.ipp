@@ -169,7 +169,7 @@ operator<< (basic_ostream<_CharT, _Traits >& __strm,
             const complex<_TypeT>&           __val)
 {
     basic_ostringstream<_CharT, _Traits, allocator<_CharT> > __ss;
-    __ss.flags (__strm.flags ());
+    __ss.flags (__strm._C_flags ());
     __ss.imbue (__strm.getloc ());
     __ss.precision (__strm.precision ());
     __ss << '(' << __val.real () << ',' << __val.imag () << ')';

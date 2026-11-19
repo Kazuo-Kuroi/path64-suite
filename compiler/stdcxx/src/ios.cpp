@@ -98,7 +98,9 @@ ios_base::fmtflags ios_base::flags (fmtflags fl)
     const unsigned mask =
         ~(unsigned (_RWSTD_IOS_BASEMASK) << _RWSTD_IOS_BASEOFF);
 
-    unsigned ifl = unsigned (fl);
+    // The synchronization marker belongs to the stream, not its formatting.
+    unsigned ifl = (unsigned(fl) & ~_RWSTD_IOS_SYNC_STDIO) |
+                   (_C_fmtfl & _RWSTD_IOS_SYNC_STDIO);
 
     switch (fl & basefield) {
         // if basefield is set, clear the base mask and set
@@ -137,7 +139,8 @@ ios_base::fmtflags ios_base::flags (fmtflags fl)
         ifl |= 10U << _RWSTD_IOS_BASEOFF;
     }
 
-    return fmtflags (_RWSTD_ATOMIC_IO_SWAP (_C_fmtfl, ifl, _C_mutex));
+    return fmtflags (_RWSTD_ATOMIC_IO_SWAP (_C_fmtfl, ifl, _C_mutex) &
+                     mask & ~_RWSTD_IOS_SYNC_STDIO);
 }
 
 
@@ -178,15 +181,8 @@ void ios_base::_C_init (void *sb)
     _C_prec   = 6;
     _C_except = 0;
 
-#if     defined (_RWSTD_REENTRANT)             \
-    && !defined (_RWSTD_NO_EXT_REENTRANT_IO)   \
-    && !defined (_RWSTD_NO_REENTRANT_IO_DEFAULT)
-
-    // disable locking of iostream objects and their associated buffers
-    // standard iostream objects will override in ios_base::Init::Init()
-    _C_fmtfl  |= _RW::__rw_nolock | _RW::__rw_nolockbuf;
-
-#endif   // _RWSTD_REENTRANT && !_RWSTD_NO_REENTRANT_IO && ...
+    // Ordinary streams start with exactly skipws|dec. Locking is enabled
+    // unless the caller explicitly selects the nolock/nolockbuf extensions.
 }
 
 

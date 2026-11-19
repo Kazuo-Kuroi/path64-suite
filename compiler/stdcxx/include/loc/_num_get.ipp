@@ -76,7 +76,7 @@ get (iter_type __begin, iter_type __end, ios_base &__flags,
     long __tmp = __val;
 
     __begin = do_get (__begin, __end, __flags, __err, __tmp);
-    __val = __rw_check_overflow_short (__tmp, __flags.flags (), __err);
+    __val = __rw_check_overflow_short (__tmp, __flags._C_flags (), __err);
 
     return __begin;
 }
@@ -95,7 +95,7 @@ get (iter_type __begin, iter_type __end, ios_base &__flags,
     long __tmp = long (__val);
 
     __begin = do_get (__begin, __end, __flags, __err, __tmp);
-    __val = __rw_check_overflow_int (__tmp, __flags.flags (), __err);
+    __val = __rw_check_overflow_int (__tmp, __flags._C_flags (), __err);
 
     return __begin;
 }
@@ -111,7 +111,7 @@ num_get<_CharT, _InputIter>::
 do_get (iter_type __begin, iter_type __end, ios_base &__flags,
         _RWSTD_IOSTATE &__err, bool &__val) const
 {
-    if (0 == (__flags.flags () & _RWSTD_IOS_BOOLALPHA)) {
+    if (0 == (__flags._C_flags () & _RWSTD_IOS_BOOLALPHA)) {
         // initialize to an invalid value
         long __lval = -1L;
 
@@ -179,7 +179,7 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
 {
     __err = _RW::__rw_goodbit;
 
-    const int __fl = __flags.flags ();
+    const int __fl = __flags._C_flags ();
 
     // boolalpha parsing not handled here
     _RWSTD_ASSERT (__type != _C_bool || !(__fl & _RWSTD_IOS_BOOLALPHA));

@@ -76,7 +76,7 @@ __rw_extract (_STD::basic_istream<_CharT, _Traits> &__strm,
     __rw_extract (__strm, __tmp);
 
     _STD::ios_base::iostate __err = _STD::ios_base::goodbit;
-    __val = __rw_check_overflow_short (__tmp, __strm.flags (), __err);
+    __val = __rw_check_overflow_short (__tmp, __strm._C_flags (), __err);
 
     if (_STD::ios_base::goodbit != __err)
         __strm.setstate (__err);
@@ -93,7 +93,7 @@ __rw_extract (_STD::basic_istream<_CharT, _Traits> &__strm,
     __rw_extract (__strm, __tmp);
 
     _STD::ios_base::iostate __err = _STD::ios_base::goodbit;
-    __val = __rw_check_overflow_int (__tmp, __strm.flags (), __err);
+    __val = __rw_check_overflow_int (__tmp, __strm._C_flags (), __err);
 
     if (_STD::ios_base::goodbit != __err)
         __strm.setstate (__err);

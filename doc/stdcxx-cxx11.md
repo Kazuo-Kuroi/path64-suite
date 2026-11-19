@@ -499,3 +499,39 @@ string buffers do not yet preserve. Four ifstream move/swap references use
 supplied input fixtures. Four file-buffer move/swap references cannot compile
 their support header until `<codecvt>` exists. These limits remain in the TODO;
 stream error categories depend on the forthcoming `<system_error>` header.
+
+
+### Stream compatibility follow-up
+
+The subsequent base/string/formatting reference checkpoint passes 71/71 with
+both compilers at C++14 `-O2`, with eight locale exclusions. This clears the
+allocator compile failure and twelve flag assertions recorded above.
+
+Public `flags()` and flag-setting return values omit the cached numeric radix
+and stdio synchronization marker. Numeric facets and internal manipulators
+use an explicit internal accessor. Ordinary streams now start with exactly
+`skipws|dec`, with locking enabled; callers can still explicitly request the
+existing `nolock`/`nolockbuf` extensions. The stdio synchronization marker stays
+attached to the stream when formatting is changed. C++98/C++11/C++14 tests cover
+public flag round trips, decimal/octal/hex output, automatic-base input, radix-3
+extensions and preservation of stdio synchronization.
+
+String buffers retain the allocator supplied by the initial string and use it
+for growth, destruction, external-buffer replacement and returned strings.
+Moves and swaps keep allocations paired with a compatible allocator. Moving
+between unequal nonpropagating allocators copies into destination-owned storage,
+including get/put positions and locale. Failed growth or replacement preserves
+the old contents. An empty allocator-storage specialization retains the measured
+128-byte default char/wchar string-buffer and 256-byte string-stream layouts on
+Linux x86-64. The C++98 shared/static libraries are rebuilt with these changes.
+Original tests track allocation owners/counts and require all storage to be
+released, including propagation, unequal allocator moves, narrow/wide streams,
+caller-owned buffers and allocation failures.
+
+The latest full PathScale original C++14 `-O2` run passes 38/38. New flag and
+allocator checks pass with both compilers in C++11/14 at `-O0`/`-O2`; flags and
+positioning also pass in C++98. All eleven legacy C++98/03 probes pass at both
+optimization levels. A separate numeric-facet review exposed remaining iterator
+comma, psclang constructor-expression, string-back and unsigned-overflow-state
+issues; its 2/16 result is recorded in the TODO. `<codecvt>` and the
+`<system_error>` dependency for stream error categories remain pending.

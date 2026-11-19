@@ -453,13 +453,28 @@ C++11 and 24 C++14 tests.
     affected templates so new members do not require C++11 library binaries.
     String-buffer output now starts at the beginning unless `ate`/`app` is set;
     a separate original regression passes in C++98 and C++14 with both compilers.
-  * [ ] Stream compatibility follow-ups: default `flags()` exposes legacy
-    implementation bits (12 base-stream reference assertions); string buffers
-    assume default-constructible allocators (one reference compile failure).
-    The expanded base/string reference checkpoint is 49/62 with eight excluded
-    locale tests, with the thirteen failures accounted for by those two issues.
-    Four ifstream move/swap references run with their data fixtures. Four
-    file-buffer references need the pending `<codecvt>` header via test support.
+  * [x] (Codex) Stream compatibility follow-ups: public flags omit cached
+    radix/stdio bits; internal numeric facets use the complete flags. Ordinary
+    streams start with exactly `skipws|dec`; locking is enabled unless the
+    caller explicitly selects the existing `nolock`/`nolockbuf` extensions.
+    Numeric bases, automatic detection, nonstandard radix 3 and stdio
+    synchronization remain covered. String buffers retain the input string's
+    allocator, use it for every allocation and returned string, and preserve
+    allocator ownership across moves/swaps. Unequal nonpropagating allocators
+    copy into destination storage. Failed growth retains the previous contents.
+    Empty storage for std::allocator preserves the measured default char/wchar
+    buffer/stream sizes (128/256 bytes on Linux x86-64).
+    The expanded base/string/formatting checkpoint passes 71/71 with both
+    compilers at C++14 `-O2` (eight locale exclusions). Original allocator/flag
+    tests pass in C++11/14 at `-O0`/`-O2`; flag tests also run in C++98.
+    Four file-buffer references still need `<codecvt>` through test support.
+  * [ ] Numeric-facet follow-ups found by the expanded review: avoid invoking
+    an iterator's overloaded comma in `loc/_punct.ipp`; fix psclang's assertion
+    on the num_get constructor reference; unsigned-int extraction saturates on
+    overflow without setting failbit (`src/num_get.cpp`). The negative-one
+    reference also requires string `back()`. The numeric-facet tree currently
+    gives 2/16 passes, thirteen compile failures and one range-check failure;
+    these remain distinct from the cleared 71-test stream checkpoint.
   * [ ] `io_errc`, `iostream_category` (depends on `<system_error>`);
   * [x] (Codex) `get_money`, `put_money`, `get_time`, `put_time`,
     `hexfloat`, `defaultfloat`, including facet exceptions and output failures.

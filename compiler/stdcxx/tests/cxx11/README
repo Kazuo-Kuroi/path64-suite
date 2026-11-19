@@ -135,3 +135,13 @@ directory. Other file-buffer tests include platform_support.h, which currently
 requires the pending codecvt header. Base reference flag comparisons see the
 library's existing implementation bits; string-buffer allocator support is
 still restricted to default-constructible allocators.
+
+stream-allocators.pass.cpp uses non-default-constructible tagged allocators to
+check ownership, propagation, unequal moves, narrow/wide buffers, caller-owned
+buffers and rollback after allocation failure. It asserts that all allocations
+are released by a matching allocator with the original element count.
+stream-flags.pass.cpp runs in C++98 too: public flag values, setter return values,
+radix formatting/parsing, automatic detection, explicit locking extensions and
+stdio synchronization must remain consistent with the internal flag storage.
+The base/string/fmtflags reference batch now passes 71/71 (eight locale skips).
+Separate numeric-facet reference failures are tracked in the TODO.

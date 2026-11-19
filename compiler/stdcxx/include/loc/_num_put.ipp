@@ -87,7 +87,7 @@ _C_put (iter_type __it, ios_base &__flags, char_type __fill, int __type,
     const char* const       __grp      = __grouping.c_str ();
     const _RWSTD_STREAMSIZE __prec     = __flags.precision ();
 
-    const int __f = __flags.flags ();
+    const int __f = __flags._C_flags ();
 
     // format value, ignore C++ decimal_point and thousands_sep
     _RWSTD_SIZE_T __res =

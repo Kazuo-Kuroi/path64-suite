@@ -230,25 +230,29 @@ struct _RWSTD_EXPORT ios_base: _RW::__rw_synchronized
 
     // 27.4.2.2, p1
     fmtflags flags () const {
-        return fmtflags (_C_fmtfl);
+        return fmtflags (_C_fmtfl & ~((unsigned(_RWSTD_IOS_BASEMASK) <<
+                                      _RWSTD_IOS_BASEOFF) | _RWSTD_IOS_SYNC_STDIO));
     }
+
+    // Internal consumers also need the cached numeric radix and stdio marker.
+    fmtflags _C_flags() const { return fmtflags(_C_fmtfl); }
 
     // 27.4.2.2, p2
     fmtflags flags (fmtflags);
 
     // 27.4.2.2, p4
     fmtflags setf (fmtflags __f) {
-        return flags (flags () | __f);
+        return flags (_C_flags () | __f);
     }
 
     // 27.4.2.2, p6
     fmtflags setf (fmtflags __f, fmtflags __mask) {
-        return flags (flags () & ~__mask | __f & __mask);
+        return flags (_C_flags () & ~__mask | __f & __mask);
     }
 
     // 27.4.2.2, p8
     void unsetf (fmtflags __f) {
-        flags (flags () & ~__f);
+        flags (_C_flags () & ~__f);
     }
 
     // 27.4.2.2, p9
@@ -306,7 +310,7 @@ struct _RWSTD_EXPORT ios_base: _RW::__rw_synchronized
 
     // returns a numeric base as per 22.2.2.1.2, p4
     int _C_base () const {
-        return _RWSTD_STATIC_CAST (unsigned, flags ()) >> _RWSTD_IOS_BASEOFF;
+        return _RWSTD_STATIC_CAST (unsigned, _C_flags ()) >> _RWSTD_IOS_BASEOFF;
     }
 
 protected:
