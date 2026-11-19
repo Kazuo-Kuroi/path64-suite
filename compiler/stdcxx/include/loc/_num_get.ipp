@@ -113,7 +113,7 @@ do_get (iter_type __begin, iter_type __end, ios_base &__flags,
 {
     if (0 == (__flags._C_flags () & _RWSTD_IOS_BOOLALPHA)) {
         // initialize to an invalid value
-        long __lval = -1L;
+        long __lval = 0L;
 
         // avoid calling overridden do_get() if it exists
         typedef num_get<_CharT, _InputIter> _This;
@@ -123,9 +123,8 @@ do_get (iter_type __begin, iter_type __end, ios_base &__flags,
         // testing for failbit in `err' since the bit could be set even
         // for valid `val' (e.g., when the positions of thousands_seps
         // in otherwise valid input do not match grouping)
-        if (_RWSTD_STATIC_CAST (unsigned long, __lval) < 2)
-            __val = 0L != __lval;
-        else
+        __val = 0L != __lval;
+        if (_RWSTD_STATIC_CAST (unsigned long, __lval) >= 2)
             __err |= _RW::__rw_failbit;
 
         return __begin;
@@ -158,10 +157,11 @@ do_get (iter_type __begin, iter_type __end, ios_base &__flags,
                                     sizeof __names / sizeof *__names,
                                     __inx, __errtmp, 0);
 
+    __val = _RWSTD_SIZE_MAX != __inx && !!__inx;
     if (_RWSTD_SIZE_MAX == __inx)
         __err |= _RW::__rw_failbit;
-    else
-        __val = !!__inx;
+    if (__begin == __end)
+        __err |= _RW::__rw_eofbit;
 
     __err |= _RWSTD_IOSTATE (__errtmp);
 
@@ -211,7 +211,10 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
     // buffer containing the sizes of thousands_sep-separated
     // groups of digits and a pointer to the next grouping
     char __grpbuf [sizeof __buf];
-    char *__pgrp = __grpbuf;
+    char *__grpbase = __grpbuf;
+    char *__pgrp = __grpbase;
+    _RWSTD_SIZE_T __grpcap = sizeof __grpbuf;
+    string __number_storage, __group_storage;
 
     const char *__grpbeg = 0;   // the beginning of the last group
     const char *__grpend = 0;   // the end of the last group
@@ -244,6 +247,10 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
     // any value outside the valid range [0, 36) is invalid
     _UChar __ld_sgn = _Sign;
 
+    bool __hex_float = false;
+    bool __float_exp = false;
+    const char* __special = 0;
+
     for ( ; ; ++__begin) {
 
         if (__begin == __end) {
@@ -252,24 +259,39 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
             break;
         }
 
-        if (__pcur == __buf + sizeof __buf - 1) {
-            // FIXME: handle long strings of digits
-            __err |= _RW::__rw_failbit;
-            break;
+        if (__pcur == __pbuf + __bufsize - 1) {
+            const _RWSTD_SIZE_T __used = __pcur - __pbuf;
+            const _RWSTD_PTRDIFF_T __begoff = __grpbeg ? __grpbeg-__pbuf : -1;
+            const _RWSTD_PTRDIFF_T __endoff = __grpend ? __grpend-__pbuf : -1;
+            string __new(__bufsize * 2, '\0');
+            char_traits<char>::copy(&__new[0], __pbuf, __used);
+            __number_storage.swap(__new);
+            __bufsize = __number_storage.size();
+            __pbuf = &__number_storage[0];
+            __pcur = __pbuf + __used;
+            __grpbeg = __begoff < 0 ? 0 : __pbuf + __begoff;
+            __grpend = __endoff < 0 ? 0 : __pbuf + __endoff;
+        }
+        if (__pgrp == __grpbase + __grpcap - 2) {
+            const _RWSTD_SIZE_T __used = __pgrp - __grpbase;
+            string __new(__grpcap * 2, '\0');
+            char_traits<char>::copy(&__new[0], __grpbase, __used);
+            __group_storage.swap(__new);
+            __grpcap = __group_storage.size();
+            __grpbase = &__group_storage[0];
+            __pgrp = __grpbase + __used;
         }
 
         const _CharT __wc = *__begin;
         const char   __dp = __decimal_point == __wc ? '.' : '\0';
 
         if (   __thousands_sep == __wc
-            && _RW::__rw_digit_map [_UChar (__pcur [-1])] < 36
             && (   __grpsz > 0
                 || __grpsz < 0
                 && (__grpsz = int((__grouping = __pun.grouping ()).size ())))) {
 
-            // the current character is the thousands separator,
-            // the previous character was a digit (and not a sign),
-            // and grouping (lazily initialized above) is not empty
+            // Grouping separators are consumed even when misplaced; Stage 3
+            // still stores the numeric value while reporting failbit.
 
             if (__pcur == __pbuf + 1) {
                 // 22.2.3.1, p2: thousands_sep not allowed to be first
@@ -290,10 +312,8 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
                 __pcur - __grpbeg : __pcur - __pbuf - 1 - (_HexX != __hex_x);
 
             if (0 == __len) {
-                // fatal error: thousands_sep characters must be separated
-                // by groups of one or more digits
-                __err |= _RW::__rw_failbit;                
-                return __begin;
+                // Empty groups are invalid but do not discard the number.
+                __err |= _RW::__rw_failbit;
             }
 
             *__pgrp++ = char (__len < _UChar (_RWSTD_UCHAR_MAX) ? __len : -1);
@@ -317,7 +337,33 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
 
             if (__subtype & _C_floating) {
 
-                if (__digit < 10)
+                const char __lower = __ch >= 'A' && __ch <= 'Z' ?
+                    char(__ch - 'A' + 'a') : __ch;
+                if (__special) {
+                    if (!*__special || __lower != *__special) break;
+                    *__pcur++ = *__special++;
+                }
+                else if (__pcur == __pbuf + 1 &&
+                         (__lower == 'i' || __lower == 'n')) {
+                    __special = __lower == 'i' ? "infinity" : "nan";
+                    *__pcur++ = *__special++;
+                }
+                else if (__lower == 'x' && __pcur == __pbuf + 2 &&
+                         __pbuf[1] == '0') {
+                    __hex_float = true;
+                    *__pcur++ = 'x';
+                }
+                else if (__hex_float && !__float_exp && __digit < 16)
+                    *__pcur++ = __ch;
+                else if (__hex_float && !__float_exp && __lower == 'p') {
+                    __float_exp = true;
+                    __grpend = __pcur;
+                    *__pcur++ = 'p';
+                }
+                else if (__hex_float && __float_exp && __pcur[-1] == 'p' &&
+                         _Sign == __digit)
+                    *__pcur++ = __ch;
+                else if (__digit < 10)
                     *__pcur++ = __ch;
                 else if (__pcur == __pbuf + 1) {
                     // plus or minus only permitted (but not required)
@@ -469,12 +515,9 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
             __grpend - __grpbeg : __grpend - __pbuf - 1 - (_HexX != __hex_x);
 
         if (__grpbeg && 0 == __len) {
-            // fatal error: according to the grammar in [locale.numpunct]
-            // thousands_sep characters must be separated by groups of one
-            // or more digits (i.e., valid input cannot start or end with
-            // a thousands_sep); this needs to be clarified in the text
+            // A trailing separator fails grouping validation; preserve the
+            // converted numeric prefix rather than the caller's old value.
             __err |= _RW::__rw_failbit;
-            return __begin;
         }
 
         *__pgrp++ = char (__len < _UChar (_RWSTD_UCHAR_MAX) ? __len : -1);
@@ -484,7 +527,7 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
     *__pcur = '\0';
 
     // verify that the buffers haven't overflowed
-    _RWSTD_ASSERT (__pgrp < __grpbuf + sizeof __grpbuf);
+    _RWSTD_ASSERT (__pgrp < __grpbase + __grpcap);
     _RWSTD_ASSERT (__pcur < __pbuf + __bufsize);
 
     // set the base determined above
@@ -494,10 +537,13 @@ _C_get (iter_type __begin, iter_type __end, ios_base &__flags,
             << _RWSTD_IOS_BASEOFF)
         | __base << _RWSTD_IOS_BASEOFF;
 
+    if (__grpsz < 0)
+        __grouping = __pun.grouping();
+
     // 22.2.2.1.2, p11: Stage 3
     const int __errtmp =
         _RW::__rw_get_num (__pval, __pbuf, __type, __fl2,
-                           __grpbuf, __pgrp - __grpbuf,
+                           __grpbase, __pgrp - __grpbase,
                            __grouping.data (), __grouping.size ());
 
     __err |= _RWSTD_IOSTATE (__errtmp);

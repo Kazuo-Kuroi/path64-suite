@@ -247,12 +247,18 @@ struct _RWSTD_EXPORT ios_base: _RW::__rw_synchronized
 
     // 27.4.2.2, p6
     fmtflags setf (fmtflags __f, fmtflags __mask) {
-        return flags (_C_flags () & ~__mask | __f & __mask);
+        unsigned __old = unsigned(_C_flags());
+        if (__mask & basefield)
+            __old &= ~(unsigned(_RWSTD_IOS_BASEMASK) << _RWSTD_IOS_BASEOFF);
+        return flags (fmtflags(__old & ~__mask | __f & __mask));
     }
 
     // 27.4.2.2, p8
     void unsetf (fmtflags __f) {
-        flags (_C_flags () & ~__f);
+        unsigned __old = unsigned(_C_flags());
+        if (__f & basefield)
+            __old &= ~(unsigned(_RWSTD_IOS_BASEMASK) << _RWSTD_IOS_BASEOFF);
+        flags (fmtflags(__old & ~__f));
     }
 
     // 27.4.2.2, p9

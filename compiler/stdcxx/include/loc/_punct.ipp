@@ -66,7 +66,7 @@ _InputIter __rw_match_name (_InputIter __it, _InputIter __end,
 
     _CharT __ch;
 
-    for (; (__bits || __num != __badval) && !__err; ++__it, ++__pos) {
+    for (; (__bits || __num != __badval) && !__err; (void)++__it, ++__pos) {
 
         if (__it == __end) {
             __err |= _RWSTD_IOS_EOFBIT;

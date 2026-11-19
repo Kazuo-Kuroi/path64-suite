@@ -294,6 +294,13 @@ public:
     const_reference operator[] (size_type) const;
     reference       operator[] (size_type);
 
+#ifdef _RWSTD_CXX11
+    reference front() { _RWSTD_ASSERT(!empty()); return (*this)[0]; }
+    const_reference front() const { _RWSTD_ASSERT(!empty()); return (*this)[0]; }
+    reference back() { _RWSTD_ASSERT(!empty()); return (*this)[size()-1]; }
+    const_reference back() const { _RWSTD_ASSERT(!empty()); return (*this)[size()-1]; }
+#endif
+
     const_reference at (size_type) const;
     reference       at (size_type);
 
@@ -1591,7 +1598,7 @@ __rw_new_capacity (_RWSTD_STRING_SIZE_TYPE (_STD::wstring) __size,
 
 _RWSTD_NAMESPACE (std) { 
 
-#if _RWSTD_INSTANTIATE (_BASIC_STRING, _CHAR)
+#if _RWSTD_INSTANTIATE (_BASIC_STRING, _CHAR) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_3 (class _RWSTD_TI_EXPORT
                       basic_string<char, char_traits<char>,
@@ -1599,7 +1606,7 @@ _RWSTD_INSTANTIATE_3 (class _RWSTD_TI_EXPORT
 
 #endif   // _RWSTD_INSTANTIATE (_BASIC_STRING, _CHAR)
 
-#if _RWSTD_INSTANTIATE (_BASIC_STRING, _WCHAR_T)
+#if _RWSTD_INSTANTIATE (_BASIC_STRING, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_3 (class _RWSTD_TI_EXPORT
                       basic_string<wchar_t, char_traits<wchar_t>,

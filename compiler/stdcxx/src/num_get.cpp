@@ -295,6 +295,27 @@ __rw_get_num (void *pval, const char *buf, int type, int flags,
               const char *grouping, _RWSTD_SIZE_T ngroupings)
 {
     // 22.2.2.1.2, p3: Stage 1
+    // Failed numeric conversion stores zero rather than retaining an old value.
+    switch (type) {
+    case __rw_facet::_C_bool: *static_cast<bool*>(pval) = 0; break;
+    case __rw_facet::_C_ushort: *static_cast<unsigned short*>(pval) = 0; break;
+    case __rw_facet::_C_short: *static_cast<short*>(pval) = 0; break;
+    case __rw_facet::_C_uint: *static_cast<unsigned*>(pval) = 0; break;
+    case __rw_facet::_C_int: *static_cast<int*>(pval) = 0; break;
+    case __rw_facet::_C_long: *static_cast<long*>(pval) = 0; break;
+    case __rw_facet::_C_ulong: *static_cast<unsigned long*>(pval) = 0; break;
+    case __rw_facet::_C_float: *static_cast<float*>(pval) = 0; break;
+    case __rw_facet::_C_double: *static_cast<double*>(pval) = 0; break;
+#ifdef _RWSTD_LONG_LONG
+    case __rw_facet::_C_llong: *static_cast<_RWSTD_LONG_LONG*>(pval) = 0; break;
+    case __rw_facet::_C_ullong: *static_cast<unsigned _RWSTD_LONG_LONG*>(pval) = 0; break;
+#endif
+#ifndef _RWSTD_NO_LONG_DOUBLE
+    case __rw_facet::_C_ldouble: *static_cast<long double*>(pval) = 0; break;
+#endif
+    case __rw_facet::_C_pvoid: *static_cast<void**>(pval) = 0; break;
+    }
+
     int err = 0;   // errno value, ERANGE, or 0
 
     _RWSTD_ASSERT (0 != buf);
@@ -379,6 +400,12 @@ __rw_get_num (void *pval, const char *buf, int type, int flags,
 
         if (_RWSTD_EINVAL == err)
             return _RWSTD_IOS_FAILBIT;
+        // strtoul already applies a sign at unsigned-long width. Narrow
+        // unsigned destinations must check the magnitude before negating
+        // at their own width.
+        if ('-' == *buf && err != ERANGE &&
+            (type == __rw_facet::_C_ushort || type == __rw_facet::_C_uint))
+            val.ul = 0UL - val.ul;
 
         _RWSTD_ASSERT (0 != pval);
 
@@ -438,6 +465,7 @@ __rw_get_num (void *pval, const char *buf, int type, int flags,
 
             {
                 val.ul = _RWSTD_UINT_MAX;
+                err = ERANGE;
             }
             else {
                 if ('-' == *buf)
@@ -794,7 +822,7 @@ __rw_get_num (void *pval, const char *buf, int type, int flags,
     // note that grouping is optional and parsing fails due to bad format
     // only if the positions thousands_sep's do not match those specified
     // by grouping; in such cases, the value is still stored
-    if (   *grouping && ngroups > 1
+    if (   *grouping && ngroups > 0
         && 0 > __rw_check_grouping (groups, ngroups, grouping, ngroupings)
         || !*grouping && ngroups > 1)
         err |= _RWSTD_IOS_FAILBIT;
