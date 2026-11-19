@@ -177,7 +177,7 @@ Setup_entry_for_eh(void)
 
 WN *
 WhirlFuncBuilder::EmitDestructorCall(const CXXDestructorDecl *decl,
-                                       CXXDtorType dtor, UINT32 field_id)
+                                       CXXDtorType dtor, UINT32 field_id, bool cleanup_only)
 {
   // add destructor to deferred list if not handled before
   GlobalDecl gd(decl, dtor);
@@ -208,6 +208,7 @@ WhirlFuncBuilder::EmitDestructorCall(const CXXDestructorDecl *decl,
   }
   WN_set_kid_count(ret, has_vtt ? 2 : 1);
 
+  if (cleanup_only) return ret;
   WhirlStmtBuilder stmt_bldr(_builder);
   ret = stmt_bldr.Setup_eh_region(ret, GetSrcPos(),
                                   false /* for_unwinding */,
@@ -787,6 +788,7 @@ PU_Info *
 WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   Reset_conditional_temporary_guards();
   const FunctionDecl *decl = cast<FunctionDecl>(gd.getDecl());
+  Begin_constructor_cleanups(isa<CXXConstructorDecl>(decl));
   Is_True(_builder->Scope().CurrentDecl() == decl,
           ("invalid scope"));
 //  Is_True(_builder->Lang_C(), ("TODO: C++ functions"));
@@ -1097,11 +1099,7 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
       else {
         init_wn = expr_bldr.ConvertToNode(init, dest);
       }
-      // destruct temporaries
       WhirlStmtBuilder stmt_bldr(_builder);
-      stmt_bldr.pop_dtor_for_copy_ctor_stack(blk);
-      WhirlBlockUtil::popCurrentBlock();
-
       if (init_wn && OPERATOR_is_expression(WN_operator(init_wn))) {
         init_wn = WN_Istore(mtype, 0, ptr_ty,
                             dest.GetLValue(), init_wn);
@@ -1112,7 +1110,26 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
         WN_INSERT_BlockLast(blk, init_wn);
       }
 
-      if (!WN_block_empty(blk)) WN_INSERT_BlockLast(body, blk);
+      WhirlBlockUtil::popCurrentBlock();
+      // The initializer consumes its arguments before they are destroyed;
+      // attach EH while those full-expression temporaries are still live.
+      stmt_bldr.Append_constructor_initializer(body, blk);
+
+      // Register only after successful initialization. A later initializer
+      // or an escaping body exception destroys the completed prefix.
+      QualType cleanup_type = I->isMemberInitializer()
+          ? I->getMember()->getType() : init->getType();
+      const CXXRecordDecl *subobject = cleanup_type->getAsCXXRecordDecl();
+      if (emit_exceptions && subobject && subobject->hasNonTrivialDestructor()) {
+        CXXDtorType variant = base_spec ? CXXDtorType::Dtor_Base : CXXDtorType::Dtor_Complete;
+        WN *cleanup = EmitDestructorCall(subobject->getDestructor(), variant, field_id, true);
+        ST *key = Create_tmp_sym(MTYPE_To_TY(MTYPE_I4), ".ctor.cleanup", srcpos);
+        Add_constructor_cleanup(cleanup_type, ST_st_idx(key), cleanup);
+      }
+      WN *temporary_cleanup = WN_CreateBlock();
+      stmt_bldr.pop_dtor_for_copy_ctor_stack(temporary_cleanup);
+      if (!WN_block_empty(temporary_cleanup))
+        WN_INSERT_BlockLast(body, temporary_cleanup);
     }
     // initial vtable field
     if (!handle_vtable &&
@@ -1284,7 +1301,7 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
   _builder->AddPUInfo(pu_info);
   
   Write_PU_Info(pu_info);
-  
+  Begin_constructor_cleanups(false);
   return pu_info;
 }
 

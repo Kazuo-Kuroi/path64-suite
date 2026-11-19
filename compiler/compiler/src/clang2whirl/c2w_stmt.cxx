@@ -152,6 +152,24 @@ static vector<TYPE_FILTER_ENTRY>        type_filter_vector;
 typedef std::stack<DTOR_ST_PAIR> DTOR_COPY_STACK;
 DTOR_COPY_STACK dtor_for_copy_ctor_stack;
 
+// Completed constructor subobjects have EH-only cleanup. Each region snapshots
+// the prefix that is alive at that call, never the subobject being built.
+static bool constructor_cleanup_context;
+static DTOR_ST_VECTOR constructor_cleanups;
+static std::map<ST_IDX, WN*> constructor_destructors;
+void Begin_constructor_cleanups(bool active) {
+  constructor_cleanup_context = active;
+  constructor_cleanups.clear();
+  constructor_destructors.clear();
+}
+void Add_constructor_cleanup(QualType ty, ST_IDX key, WN *call) {
+  constructor_cleanups.push_back(DTOR_ST_PAIR(ty, key));
+  constructor_destructors[key] = call;
+}
+static void Append_constructor_cleanups(DTOR_ST_VECTOR *cleanups) {
+  cleanups->insert(cleanups->end(), constructor_cleanups.rbegin(), constructor_cleanups.rend());
+}
+
 // Full-expression temporaries in a logical operand are destroyed only
 // when that operand was reached. Preserve enclosing guards for nesting.
 static std::vector<ST_IDX> conditional_temporary_guards;
@@ -819,6 +837,9 @@ WN *WhirlStmtBuilder::Emit_cxx_constructor_call(const VarDecl *decl) {
 }
 
 WN *WhirlStmtBuilder::Emit_cxx_destructor_call(QualType type, ST_IDX arg_st) {
+  std::map<ST_IDX, WN*>::const_iterator subobject = constructor_destructors.find(arg_st);
+  if (subobject != constructor_destructors.end())
+    return Setup_eh_region(WN_COPY_Tree(subobject->second), GetSrcPos(), true);
   WN *decl_wn, *call_wn = NULL;
   const CXXRecordDecl *record_decl = type->getAsCXXRecordDecl();
 
@@ -1046,11 +1067,11 @@ Optimize_cleanups(DTOR_ST_VECTOR *current, DTOR_ST_VECTOR *prev)
 
 LABEL_IDX
 WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_call) {
-  const Stmt *t;
+  const Stmt *t = NULL;
   iv = 0;
   DTOR_ST_VECTOR *cleanups = new DTOR_ST_VECTOR();
 
-  if (scope_cleanup_i == -1)
+  if (scope_cleanup_i == -1 && !constructor_cleanup_context)
   {
     iv = New_INITV();
     INITV_Set_ZERO(Initv_Table[iv], MTYPE_U4, 1);
@@ -1072,7 +1093,7 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
   int scope_index;
   LABEL_IDX goto_idx=0;
 
-  if (scope_cleanup_i != -1 && Check_dtor_call()) {
+  if ((scope_cleanup_i != -1 || constructor_cleanup_context) && Check_dtor_call()) {
     DTOR_CALL_STACK may_cleanup = dtor_call_stack;
     bool pop_current_decl = false;
     while (!may_cleanup.empty()) {
@@ -1095,13 +1116,13 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
 
   // get cleanups from dtor_for_copy_ctor_stack
   bool has_cleanup = false;
-  if (scope_cleanup_i != -1 && Check_dtor_for_copy_ctor()) {
+  if ((scope_cleanup_i != -1 || constructor_cleanup_context) && Check_dtor_for_copy_ctor()) {
     DTOR_COPY_STACK may_cleanup = dtor_for_copy_ctor_stack;
     while (!may_cleanup.empty()) {
       const DTOR_ST_PAIR& item = may_cleanup.top();
       if (item.second) {
         WN *cleanup_call = WN_operator(wn) == OPR_CALL ? wn :
-            (temporary_guards.find(item.second) != temporary_guards.end() ? FindCallWn(wn) : NULL);
+            ((constructor_cleanup_context || temporary_guards.find(item.second) != temporary_guards.end()) ? FindCallWn(wn) : NULL);
         if (cleanup_call && WN_operator(cleanup_call) == OPR_CALL &&
             strcmp(ST_name(WN_st(cleanup_call)), "__cxa_throw")) {
           cleanups->push_back(item);
@@ -1133,17 +1154,18 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
       h = cast<CXXCatchStmt>(t);
     }
   }
-  if (!isa<CXXTryStmt>(t) && h)
+  if ((!t || !isa<CXXTryStmt>(t)) && h)
     t = h;
 
-  if (isa<CXXTryStmt>(t) && scope_index >= 0) {
+  if (t && isa<CXXTryStmt>(t) && scope_index >= 0) {
         h = cast<CXXTryStmt>(t)->getHandler(0);
         iv = Create_handler_list(scope_index);
         goto_idx = scope_cleanup_stack[scope_index].cmp_idx;
   }
   else // no enclosing try block
   {
-    if (cleanups->empty() && !isa<CXXCatchStmt>(t))
+    Append_constructor_cleanups(cleanups);
+    if (cleanups->empty() && (!t || !isa<CXXCatchStmt>(t)))
     {
       iv = New_INITV();
       INITV_Set_ZERO(Initv_Table[iv], MTYPE_U4, 1);
@@ -1151,7 +1173,8 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
     }
   }
 
-  if (!try_block_seen && manual_unwinding_needed())
+  if (!constructor_cleanups.empty() ||
+      (!try_block_seen && !processing_handler && manual_unwinding_needed()))
     Set_PU_needs_manual_unwinding(Get_Current_PU());
 
   // the following 2 calls can change 'iv'.
@@ -1362,6 +1385,13 @@ WhirlStmtBuilder::Pop_scope_and_do_cleanups (void)
     }
     --scope_cleanup_i;
   }
+}
+
+void WhirlStmtBuilder::Append_constructor_initializer(WN *body, WN *block) {
+  if (emit_exceptions && FindCallWn(block))
+    SetEHRegionForCall(body, block);
+  else if (!WN_block_empty(block))
+    WN_INSERT_BlockLast(body, block);
 }
 
 // Setup EH region for wn that contains OPR_CALL/OPR_ICALL
@@ -1646,6 +1676,7 @@ Get_cleanup_info(DTOR_ST_VECTOR *cleanups, LABEL_IDX *goto_idx)
 
   if (!processing_handler)
   {
+    Append_constructor_cleanups(cleanups);
     *goto_idx = 0;
     return true;
   }

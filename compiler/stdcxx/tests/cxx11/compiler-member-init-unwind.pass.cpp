@@ -1,7 +1,4 @@
-// Open compiler regression: exceptions from a register-returned aggregate
-// member initializer must propagate and destroy previously built members.
-// Host Clang passes; psclang currently aborts during unwinding. Kept outside
-// the .pass.cpp suite until constructor-initializer EH coverage is fixed.
+// Regression: unwind completed members when a register-returned initializer throws.
 #include <cassert>
 struct guard {
     static int alive;

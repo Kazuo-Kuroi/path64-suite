@@ -4957,6 +4957,7 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
   BOOL is_dest_none = dest.isNone();
   SRCPOS spos = SetSrcPos(getLocation(expr));
 
+  bool needs_cleanup = false;
   Result tmp_dest = dest;
   if (is_dest_none || is_ref) {
     // generate a temp in memory is dest is NULL or dest is a ref
@@ -4981,17 +4982,11 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
               EXPORT_LOCAL, ty);
     }
     tmp_dest = Result::nwSym(ST_st_idx(tmp_st), ty);
-    // check if we need destruct materialize temporary obj
-    if (pre_st)
-      ;   // destroyed at exit by its __tcf
-    else if (expr->getType()->isRecordType()) {
+    // Register only after construction; a throwing constructor must not
+    // destroy its own incomplete result object.
+    if (!pre_st && expr->getType()->isRecordType()) {
       const CXXRecordDecl *record_decl = expr->getType()->getAsCXXRecordDecl();
-      if (record_decl && !record_decl->hasTrivialDestructor()) {
-        if (decl && isa<VarDecl>(decl))
-          Push_dtor_call_stack(expr->getType(), ST_st_idx(tmp_st));
-        else
-          Push_dtor_for_copy_ctor(expr->getType(), ST_st_idx(tmp_st));
-      }
+      needs_cleanup = record_decl && !record_decl->hasTrivialDestructor();
     }
   }
 
@@ -5013,6 +5008,12 @@ WhirlExprBuilder::ConvertMaterializeTemporaryExpr(const MaterializeTemporaryExpr
   }
 
   Result ret = ConvertExpr(getSubExpr(expr), tmp_dest);
+  if (needs_cleanup) {
+    if (decl && isa<VarDecl>(decl))
+      Push_dtor_call_stack(expr->getType(), tmp_dest.Sym());
+    else
+      Push_dtor_for_copy_ctor(expr->getType(), tmp_dest.Sym());
+  }
   if (expr->getType()->isRecordType() && tmp_dest.isSym())
     Mark_conditional_temporary_constructed(tmp_dest.Sym());
 

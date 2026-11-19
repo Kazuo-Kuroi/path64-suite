@@ -65,7 +65,7 @@ private:
   void EmitVTableFieldInitialization(WN *blk, const clang::CXXRecordDecl *record_decl);
 
   WN  *EmitDestructorCall(const clang::CXXDestructorDecl *decl,
-                          clang::CXXDtorType dtor, UINT32 field_id);
+                          clang::CXXDtorType dtor, UINT32 field_id, bool cleanup_only = false);
 
   SRCPOS  SetSrcPos(clang::SourceLocation sl) { return _builder->SetSrcPos(sl); }
   SRCPOS  GetSrcPos(void)                     { return _builder->GetSrcPos(); }

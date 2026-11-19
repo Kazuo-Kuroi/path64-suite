@@ -113,6 +113,8 @@ static HANDLER_INFO *handler_info_stack =
     (HANDLER_INFO *) malloc (sizeof(HANDLER_INFO) * handler_info_max);;
 
 void Push_dtor_for_copy_ctor(clang::QualType ty, ST_IDX st);
+void Begin_constructor_cleanups(bool active);
+void Add_constructor_cleanup(clang::QualType ty, ST_IDX key, WN *call);
 void Reset_conditional_temporary_guards();
 void Push_conditional_temporary_guard(ST_IDX guard);
 void Pop_conditional_temporary_guard();
@@ -247,6 +249,7 @@ public:
 
   void Build_eh_type_info();
 
+  void Append_constructor_initializer(WN *body, WN *block);
   WN *Setup_eh_region(WN *wn, SRCPOS spos, bool for_unwinding, bool is_dtor_or_ctor_call = FALSE);
 
   void Do_handlers(INT cleanups = 0);
