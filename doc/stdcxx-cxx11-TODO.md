@@ -454,20 +454,18 @@ C++11 and 24 C++14 tests.
 - [x] (Codex) **`<bitset>`:** constexpr default/unsigned-long-long constructors,
   bounded character-pointer constructor, `to_ullong`, `all`, `hash<bitset>`.
   Oversized shifts and empty-bitset operations are corrected in C++98 too.
-  All 38 reference tests pass with host Clang and with psclang at `-O0`;
-  psclang `-O2` passes 37/38 because of the separate mask-expression bug below.
+  All 38 reference tests pass with host Clang and with psclang at `-O0`/`-O2`.
   Original boundary, overflow, hash and protected-page checks pass in both modes.
 - [x] (Codex) **x86-64 narrow scalar return ABI:** explicitly narrow returned
   register values before use. Native callees may leave upper bits dirty when
   returning bool, char or short. All sixteen mixed-object checks pass across
   both PathScale frontends, host Clang and GCC at `-O0`/`-O2`; the IRIX backend
   also builds (the change is x86-64 only).
-- [ ] **Optimized 64-bit mask expression:** psclang `-O2` miscompiles
-  `const bool c=true; const unsigned long long m=(1ULL<<(c?32:0))-1;`
-  to all-one bits instead of `0xffffffff`. The bitset `to_ullong` reference
-  computes its expected mask this way; the bitset value itself is correct.
-  Fix the compiler optimization and rerun the reference before declaring
-  the entire optimized bitset checkpoint clear.
+- [x] (Codex) **Optimized 64-bit mask expression:** restrict the legacy
+  signed-constant normalization to 32-bit operations. A canonical U4 constant
+  may represent the correct result of a 64-bit operation; sign-extending it
+  changed `0xffffffff` into `-1`. The original regression covers mask widths
+  31/32/33/63/64 and unsigned arithmetic in C++98/11/14 at `-O0`/`-O2`/`-O3`.
 
 Allocation-error/constructor follow-up: all six reference allocation-error tests
 plus all seventeen original passing regressions give 22/22 in C++11 (one C++14

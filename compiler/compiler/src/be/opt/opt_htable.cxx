@@ -1899,7 +1899,10 @@ CODEMAP::Add_bin_node_and_fold(OPCODE op,
     }
     else {
 #if defined( KEY) // bug 4518
-      if (crtmp->Kind() == CK_CONST && crtmp->Dtyp() == MTYPE_U4 && 
+      // Canonical constants can use U4 even for a 64-bit expression.
+      // Sign-extending those results changes 0x80000000..0xffffffff.
+      if (MTYPE_byte_size(OPCODE_rtype(op)) == 4 &&
+          crtmp->Kind() == CK_CONST && crtmp->Dtyp() == MTYPE_U4 &&
 	  (MTYPE_signed(kid0->Dtyp()) || MTYPE_signed(kid1->Dtyp()))) 
 	return Add_const(MTYPE_I4, crtmp->Const_val());
 #endif

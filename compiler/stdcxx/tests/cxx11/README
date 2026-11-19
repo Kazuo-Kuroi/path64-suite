@@ -118,3 +118,6 @@ custom money facets, facet exceptions, failed output and hexadecimal precision.
 compiler-narrow-return.pass.cpp checks poisoned upper register bits on x86-64
 bool/char/short returns. NARROW_PROVIDER_ONLY and NARROW_CONSUMER_ONLY split
 it into independently compiled objects for ABI interoperability checks.
+
+compiler-wide-mask.pass.cpp checks 64-bit unsigned mask arithmetic around the
+32-bit boundary, including conditional shift counts and canonical constants.

@@ -437,9 +437,9 @@ marker exclusions and one expected failure.
 Bitset now provides the C++11 constexpr constructors, bounded character-pointer
 constructor, `to_ullong`, `all` and hashing. Empty instances and shifts at or
 beyond the logical size are handled in C++98 too. All 38 approved reference
-checks pass with host Clang and psclang at `-O0`. At psclang `-O2`, 37 pass;
-the remaining test exposes an optimized 64-bit mask-expression compiler bug
-recorded in the TODO, rather than a wrong bitset result.
+checks pass with host Clang and psclang at `-O0`/`-O2`. The optimized mask
+regression is fixed by limiting legacy signed-constant normalization to
+32-bit operations; canonical constants also represent 64-bit results.
 
 Streams support constrained rvalue insertion/extraction and the six money,
 time and floating-format manipulators. Six reference checks and the original
@@ -458,3 +458,7 @@ these execution results are Linux x86-64 only. The broad C++14 `-O2` checkpoint
 has 754/759 passes, 73 unsupported and one expected failure: the known three
 vector reference incompatibilities, tuple extension mismatch, and the new
 mask-expression compiler issue account for the five failures.
+
+The subsequent wide-mask fix clears the fifth failure above: all 38 bitset
+references now pass at psclang `-O2`. `compiler-wide-mask.pass.cpp` covers
+the isolated optimizer regression in C++98/11/14 at three optimization levels.
