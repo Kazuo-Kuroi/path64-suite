@@ -63,3 +63,7 @@ other compiler frontends can select different exceptions over this runtime.
 compiler-loop-cleanup.pass.cpp checks destruction on break and continue,
 including nested loop/switch targets, fallthrough, enclosing objects, and
 reverse construction order. It also runs in C++98 (excluding range-for).
+
+nth-element.pass.cpp checks move-only selection at every position, ascending
+and descending comparisons, duplicate-heavy linear scans, packed-bit proxies,
+object identities and resource cleanup after comparison exceptions.

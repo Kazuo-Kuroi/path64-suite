@@ -361,11 +361,16 @@ C++11 and 24 C++14 tests.
     partial-buffer recursion, allocation-failure fallback and exception cleanup.
     Original regressions exercise throwing moves/predicates, bounded buffers,
     stable order, identity preservation, comparison bounds and packed bits.
+  * [x] (Codex) Move-only `nth_element`, with an in-range pivot and three-way
+    partitioning to discard equal keys together. Original tests cover every
+    selection position, duplicate-heavy inputs, descending comparisons,
+    packed-bit proxies, identity preservation and comparison exceptions.
   * `algorithms` (150 tests): 115/145 runner-selected tests pass. The remaining
     30 compile failures are 28 missing `<random>` dependencies and two
     unmarked C++17 `clamp` tests. Five tests are excluded by reference markers.
-    Move-only `nth_element` and `stable_sort` still have legacy copying helpers;
-    their reference tests require `<random>`. The overall item remains open.
+    Move-only `stable_sort` still has legacy copying helpers; its reference
+    tests and the `nth_element` reference tests require `<random>`. The overall
+    item remains open.
 - [x] (Codex) **`<numeric>`:** `iota`; move assignment in
   `adjacent_difference` and safe iterator increments in `inner_product`.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests

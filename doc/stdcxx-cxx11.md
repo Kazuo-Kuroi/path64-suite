@@ -36,7 +36,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
 | `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
-| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort and stable partition | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
+| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition and selection | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
@@ -156,8 +156,29 @@ heap values use iterator value types rather than proxy aliases. `iter_swap`
 finds ADL swaps for proxy references and otherwise preserves a value.
 Stable partition owns raw temporary storage and its successfully constructed
 prefix, reuses partial buffers recursively and falls back to rotation when no
-buffer is available. Move-only `nth_element` and `stable_sort` still need work;
-their reference suites currently require the missing `<random>` header.
+buffer is available. `nth_element` keeps its pivot in the range and partitions
+less/equal/greater keys separately, supporting move-only values and packed-bit
+proxies without repeatedly scanning equal keys. `stable_sort` still has legacy
+copying helpers. Its reference suite and the selection reference suite require
+the missing `<random>` header.
+
+The original `nth-element.pass.cpp` covers every selection position on small
+inputs, descending comparisons, duplicate-heavy inputs, object identity,
+packed-bit proxies and cleanup after comparison exceptions. It also exposed
+psclang skipping loop-body destructors on `continue`. psclang now emits the
+exited scopes' destructors before both `break` and `continue`, preserving
+fallthrough paths and enclosing objects. `compiler-loop-cleanup.pass.cpp`
+checks reverse destruction order across nested blocks, loops, switches and
+range-for. Both new tests pass with psclang and the host compiler in C++11 and
+C++14 at `-O0` and `-O2`.
+
+The updated iterator/algorithm/numeric batch plus all original regressions
+passes 299/330 selected tests in C++11 at `-O0` and 301/332 in C++14 at `-O2`.
+There are no runtime failures: the same 31 compile failures remain (28 missing
+`<random>`, two unmarked C++17 clamp tests and one list move-insertion test).
+All original regressions pass at both levels: 19 applicable in C++11 and 20
+in C++14. The loop cleanup regression and legacy sorting/partition probe also
+pass in C++98 at `-O0` and `-O2`.
 
 psclang keeps materialization statements inside each short-circuit operand.
 Conditional class temporaries have guards for operand selection and successful

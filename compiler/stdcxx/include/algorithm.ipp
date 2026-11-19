@@ -1271,6 +1271,41 @@ void __nth_element (_RandomAccessIter __first, _RandomAccessIter __nth,
 {
     _RWSTD_ASSERT_IN_RANGE (__nth, __first, __last);
 
+#ifdef _RWSTD_CXX11
+    if (__nth == __last)
+        return;
+    while (__last - __first > 3) {
+        // Keep the pivot in the range. Comparisons never observe a value
+        // after it has been moved from, and proxy references retain no aliases.
+        _RandomAccessIter __middle = __first + (__last - __first) / 2;
+        _RandomAccessIter __pivot = __last - 1;
+        if (__comp (*__middle, *__first)) _STD::iter_swap (__middle, __first);
+        if (__comp (*__pivot, *__middle)) _STD::iter_swap (__pivot, __middle);
+        if (__comp (*__middle, *__first)) _STD::iter_swap (__middle, __first);
+        _STD::iter_swap (__middle, __pivot);
+        _RandomAccessIter __less = __first, __scan = __first, __greater = __pivot;
+        while (__scan != __greater) {
+            if (__comp (*__scan, *__pivot)) {
+                if (__scan != __less) _STD::iter_swap (__scan, __less);
+                ++__scan;
+                ++__less;
+            }
+            else if (__comp (*__pivot, *__scan)) {
+                --__greater;
+                if (__scan != __greater) _STD::iter_swap (__scan, __greater);
+            }
+            else
+                ++__scan;
+        }
+        if (__greater != __pivot) _STD::iter_swap (__greater, __pivot);
+        if (__nth < __less)
+            __last = __less;
+        else if (__greater < __nth)
+            __first = __greater + 1;
+        else
+            return;
+    }
+#else
     while (__last - __first > 3) {
         const _RandomAccessIter __cut =
             __unguarded_partition (__first, __last,
@@ -1285,6 +1320,7 @@ void __nth_element (_RandomAccessIter __first, _RandomAccessIter __nth,
         else
             __last = __cut;
     }
+#endif
     __insertion_sort (__first, __last, __comp);
 }
 
