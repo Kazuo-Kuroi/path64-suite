@@ -370,3 +370,20 @@ The combined C++14 `-O2` foundations/strings/traits/original-regression batch
 passes 696/700 selected checks, with the same three raw-pointer-incompatible
 vector compile failures and tuple-extension `PR31384` runtime difference.
 There are 69 reference-marker exclusions and one expected failure.
+
+## Catch-parameter and handler-exit checkpoint
+
+psclang now invokes a nontrivial catch parameter's copy constructor instead
+of copying its bytes. The parameter belongs to the handler's compound scope,
+including empty handlers, and is destroyed after body locals. Temporary default
+arguments to the copy constructor finish before the handler body begins. A
+failure during parameter initialization enters a termination cleanup rather
+than propagating to another handler.
+
+Return, break and continue now end the catches they leave, interleaved with
+lexical object destruction. Return values are evaluated before that cleanup.
+This fixes a retained exception when returning an exception handle from a catch.
+`compiler-catch-cleanup.pass.cpp` is an original C++98/11/14 regression for
+copy/destruction counts, cleanup order, scalar and void returns, loop exits,
+empty handlers, throwing parameter destructors, default arguments and the
+required termination when copying a catch parameter throws.

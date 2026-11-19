@@ -498,6 +498,15 @@ extension `PR31384` are unchanged.
   shared C linkage, static members, guarded locals and template-local values.
   Provider/consumer modes allow host-Clang/GCC object interoperability checks.
 
+- [x] (Codex) **Catch parameters and handler-exit cleanup (psclang).**
+  Nontrivial catch-by-value parameters invoke their copy constructors and own
+  their handler-scope lifetimes, including empty handlers. Copy-initialization
+  failures terminate; default-argument temporaries finish before the body.
+  Return, break and continue interleave object destruction with end-catch
+  calls for the scopes they leave. `compiler-catch-cleanup.pass.cpp` checks
+  C++98/11/14 copy counts, destruction order, value/void returns, loop exits,
+  empty handlers, throwing parameter destructors and termination on copy failure.
+
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.
 - [ ] **`-std=c++14` and `-O2` across the board.** Completed batches record

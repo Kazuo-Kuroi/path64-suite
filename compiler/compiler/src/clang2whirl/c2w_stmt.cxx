@@ -55,6 +55,9 @@ DTOR_CALL_STACK dtor_call_stack;
 static const CompoundStmt *try_stmt;
 BOOL in_catch_stmt = FALSE;
 #define END_CATCH_CLEANUP ((ST_IDX) 1)
+#define TERMINATE_CLEANUP ((ST_IDX) 2)
+static const VarDecl *pending_catch_parameter;
+static bool catch_parameter_initialization;
 
 HANDLER_INFO current_handler; // formed from handler_info_stack in Do_handlers
 
@@ -250,6 +253,7 @@ bool Maybe_do_eh_cleanups() {
 }
 
 namespace wgen {
+void Emit_end_catch(SRCPOS spos);
 
 HANDLER_LABEL_MAP handler_label_map;
 LABEL_IDX& HANDLER_LABEL(const CXXCatchStmt *t)    { return handler_label_map[t]; }
@@ -684,16 +688,21 @@ WN *WhirlStmtBuilder::ConvertAttributedStmt(const AttributedStmt *stmt) {
 
 // A jump leaves only the scopes entered after its loop/switch was recorded.
 // Copy the cleanup stack: fallthrough and other branches still need its entries.
-static void Emit_jump_destructors(WhirlStmtBuilder *builder, size_t depth, SRCPOS spos) {
+static void Emit_jump_destructors(WhirlStmtBuilder *builder, size_t depth,
+                                  int scope_level, SRCPOS spos) {
   DTOR_CALL_STACK cleanups = dtor_call_stack;
-  while (cleanups.size() > depth) {
-    const DTOR_CALL_ITEM &item = cleanups.top();
-    if (item.second.second) {
-      WN *call = builder->Emit_cxx_destructor_call(item.second.first, item.second.second);
-      WN_Set_Linenum(call, spos);
-      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), call);
+  for (int i = scope_cleanup_i; i > scope_level; --i) {
+    const Stmt *scope = scope_cleanup_stack[i].stmt;
+    while (cleanups.size() > depth && cleanups.top().first == scope) {
+      const DTOR_CALL_ITEM item = cleanups.top();
+      cleanups.pop();
+      if (item.second.second) {
+        WN *call = builder->Emit_cxx_destructor_call(item.second.first, item.second.second);
+        WN_Set_Linenum(call, spos);
+        WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), call);
+      }
     }
-    cleanups.pop();
+    if (isa<CXXCatchStmt>(scope)) Emit_end_catch(spos);
   }
 }
 
@@ -712,7 +721,8 @@ WN *WhirlStmtBuilder::ConvertBreakStmt(const BreakStmt *stmt) {
 
   WN *wn = WN_CreateGoto((ST_IDX)NULL, label_idx);
   WN_Set_Linenum(wn, SetSrcPos(getLocation(stmt)));
-  Emit_jump_destructors(this, break_continue_info_stack[i].dtor_depth, GetSrcPos());
+  Emit_jump_destructors(this, break_continue_info_stack[i].dtor_depth,
+                        break_continue_info_stack[i].scope_level, GetSrcPos());
   return With_dealloca(Vla_dealloca(break_continue_info_stack[i].scope_level), wn);
 }
 
@@ -1088,6 +1098,13 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
   iv = 0;
   DTOR_ST_VECTOR *cleanups = new DTOR_ST_VECTOR();
 
+  if (catch_parameter_initialization) {
+    cleanups->push_back(DTOR_ST_PAIR(QualType(), TERMINATE_CLEANUP));
+    iv = New_INITV();
+    INITV_Set_ZERO(Initv_Table[iv], MTYPE_U4, 1);
+    return New_eh_cleanup_entry(NULL, cleanups, 0);
+  }
+
   if (scope_cleanup_i == -1 && !constructor_cleanup_context)
   {
     iv = New_INITV();
@@ -1310,18 +1327,17 @@ void WhirlStmtBuilder::pop_dtor_for_copy_ctor_stack(WN *block, QualType ty, size
 // generate destructor_call from dtor_call_stack for ReturnStmt
 void WhirlStmtBuilder::pop_dtor_call_for_return(WN *block) {
   DTOR_CALL_STACK may_cleanup = dtor_call_stack;
-
-  while (!may_cleanup.empty()) {
-    const DTOR_CALL_ITEM &item = may_cleanup.top();
-    if (item.second.second) {
-      QualType type = item.second.first;
-      ST_IDX var_st = item.second.second;
-      Is_True(var_st, ("bad var st"));
-      WN *call_wn = Emit_cxx_destructor_call(type, var_st);
-      Is_True((call_wn != NULL), ("Invalid wn for destructor function"));
-      WN_INSERT_BlockAfter(block, WN_last(block), call_wn);
+  for (int i = scope_cleanup_i; i >= 0; --i) {
+    const Stmt *scope = scope_cleanup_stack[i].stmt;
+    while (!may_cleanup.empty() && may_cleanup.top().first == scope) {
+      const DTOR_CALL_ITEM item = may_cleanup.top();
+      may_cleanup.pop();
+      if (item.second.second) {
+        WN *call = Emit_cxx_destructor_call(item.second.first, item.second.second);
+        WN_INSERT_BlockLast(block, call);
+      }
     }
-    may_cleanup.pop();
+    if (isa<CXXCatchStmt>(scope)) Emit_end_catch(GetSrcPos());
   }
 }
 
@@ -1514,22 +1530,28 @@ void WhirlStmtBuilder::SetEHRegionForCall(WN *blk, WN *wn) {
 
 WN *WhirlStmtBuilder::ConvertCompoundStmt(const CompoundStmt *stmt, ST_IDX st_idx) {
   TRACE_FUNC();
-  if (stmt->body_empty())
+  if (stmt->body_empty() && !pending_catch_parameter)
     return NULL;
   ScopeHelper<const CompoundStmt*> shlp(_builder->Scope(), stmt);
   WN *block = WhirlBlockUtil::nwBlock();
   const CompoundStmt *orig_stmt = current_stmt;
   current_stmt = stmt;
   Push_dtor_call_stack(QualType(), ST_IDX_ZERO);
+  if (pending_catch_parameter) {
+    QualType ty = pending_catch_parameter->getType();
+    if (ty.isDestructedType() == QualType::DK_cxx_destructor)
+      Push_dtor_call_stack(ty, _builder->Get_var_st(pending_catch_parameter));
+    pending_catch_parameter = NULL;
+  }
 
   Push_scope_cleanup(stmt);
 
   // get last stmt
-  const Stmt *last_stmt = stmt->body_back();
-  while (const LabelStmt *label_stmt = dyn_cast<LabelStmt>(last_stmt)) {
+  const Stmt *last_stmt = stmt->body_empty() ? NULL : stmt->body_back();
+  while (const LabelStmt *label_stmt = dyn_cast_or_null<LabelStmt>(last_stmt)) {
     last_stmt = label_stmt->getSubStmt();
   }
-  Is_True(last_stmt, ("invalid last stmt for CompoundStmt"));
+  Is_True(last_stmt || stmt->body_empty(), ("invalid last stmt for CompoundStmt"));
 
   const Stmt *handle_stmt = NULL;
   for (CompoundStmt::const_body_iterator it = stmt->body_begin();
@@ -1612,10 +1634,10 @@ WN *WhirlStmtBuilder::ConvertCompoundStmt(const CompoundStmt *stmt, ST_IDX st_id
   }
 #endif
 
-  pop_dtor_call_stack(block, isa<ReturnStmt>(handle_stmt)? false : true);
+  pop_dtor_call_stack(block, handle_stmt && isa<ReturnStmt>(handle_stmt) ? false : true);
   if (scope_cleanup_stack[scope_cleanup_i].stmt == stmt &&
       scope_cleanup_stack[scope_cleanup_i].vla.has_alloca &&
-      !isa<ReturnStmt>(handle_stmt)) {
+      !(handle_stmt && isa<ReturnStmt>(handle_stmt))) {
     WN *dealloca = Vla_dealloca(scope_cleanup_i - 1);
     WN_Set_Linenum(dealloca, SetSrcPos(stmt->getRBracLoc()));
     WN_INSERT_BlockLast(block, dealloca);
@@ -1649,7 +1671,8 @@ WN *WhirlStmtBuilder::ConvertContinueStmt(const ContinueStmt *stmt) {
   Is_True(label_idx, ("null continue label idx"));
   WN *wn = WN_CreateGoto((ST_IDX)NULL, label_idx);
   WN_Set_Linenum(wn, SetSrcPos(getLocation(stmt)));
-  Emit_jump_destructors(this, break_continue_info_stack[i].dtor_depth, GetSrcPos());
+  Emit_jump_destructors(this, break_continue_info_stack[i].dtor_depth,
+                        break_continue_info_stack[i].scope_level, GetSrcPos());
   return With_dealloca(Vla_dealloca(break_continue_info_stack[i].scope_level), wn);
 }
 
@@ -1767,6 +1790,16 @@ Emit_end_catch(SRCPOS spos) {
 
 void
 WhirlStmtBuilder::Emit_cleanup(const QualType type, ST_IDX st_idx, bool need_region) {
+  if (st_idx == TERMINATE_CLEANUP) {
+    static ST *terminate_st = Create_function("_ZSt9terminatev", MTYPE_To_TY(MTYPE_V), TY_IDX_ZERO);
+    WN *call = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, 0);
+    WN_st_idx(call) = ST_st_idx(terminate_st);
+    WN_Set_Call_Default_Flags(call);
+    WN_Set_Call_Never_Return(call);
+    WN_Set_Linenum(call, GetSrcPos());
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), call);
+    return;
+  }
   // emit __cxa_end_catch
   if (st_idx == END_CATCH_CLEANUP) {
     Emit_end_catch(GetSrcPos());
@@ -2020,13 +2053,6 @@ WhirlStmtBuilder::Emit_begin_catch(const CXXCatchStmt *stmt) {
     ret_ty = Make_Pointer_Type(catch_ty);
     need_iload = true;
   }
-  if (caught_ty->isRecordType()) {
-    const CXXRecordDecl *record_decl = caught_ty->getAsCXXRecordDecl();
-    if (record_decl && !record_decl->hasTrivialDestructor()) {
-      ST_IDX var_st = _builder->SB().ConvertSymbol(CatchParam);
-      Push_dtor_for_copy_ctor(caught_ty, var_st);
-    }
-  }
 
   SRCPOS spos = SetSrcPos(getLocation(stmt));
   WN *blk = WN_CreateBlock();
@@ -2042,6 +2068,39 @@ WhirlStmtBuilder::Emit_begin_catch(const CXXCatchStmt *stmt) {
   WN_Set_Linenum(st_wn, spos);
 
   WN *ldid = WN_Ldid(TY_mtype(ret_ty), WN_offset(st_wn), WN_st(st_wn), ret_ty);
+  if (const CXXConstructExpr *init = dyn_cast_or_null<CXXConstructExpr>(CatchParam->getInit())) {
+    if (!init->getConstructor()->isTrivial()) {
+      ST_IDX parameter = _builder->SB().ConvertSymbol(CatchParam);
+      WhirlExprBuilder expr_builder(_builder);
+      const size_t cleanup_depth = dtor_for_copy_ctor_stack.size();
+      catch_parameter_initialization = true;
+      WN *copy_block = WhirlBlockUtil::nwBlock();
+      WN_VECTOR args;
+      args.push_back(std::make_pair(ldid, Make_Pointer_Type(catch_ty)));
+      for (unsigned i = 1; i < init->getNumArgs(); ++i) {
+        const Expr *arg = init->getArg(i);
+        TY_IDX ty = _builder->TB().ConvertType(arg->getType());
+        WN *value;
+        if (WhirlTypeBuilder::IsIndirectArgument(arg->getType()) && !arg->isGLValue()) {
+          value = expr_builder.ConvertExpr(arg).GetLValue();
+          ty = Make_Pointer_Type(ty);
+        } else {
+          value = expr_builder.ConvertToNode(arg);
+          if (arg->isGLValue()) ty = Make_Pointer_Type(ty);
+        }
+        args.push_back(std::make_pair(value, ty));
+      }
+      WN *copy = expr_builder.EmitCXXConstructCall(init->getConstructor(),
+        Result::nwSym(parameter, catch_ty), Ctor_Complete, args);
+      WN_INSERT_BlockLast(copy_block, copy);
+      pop_dtor_for_copy_ctor_stack(copy_block, QualType(), cleanup_depth);
+      WhirlBlockUtil::popCurrentBlock();
+      WN *region = Setup_eh_region(copy_block, spos, false);
+      catch_parameter_initialization = false;
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), region);
+      return;
+    }
+  }
   if (need_iload)
     ldid = WN_Iload(TY_mtype(catch_ty), 0, catch_ty, ldid);
   ST_IDX parm_st = _builder->SB().ConvertSymbol(CatchParam);
@@ -2088,7 +2147,9 @@ WN *WhirlStmtBuilder::ConvertCXXCatchStmt(const CXXCatchStmt *stmt) {
   Emit_begin_catch(stmt);
 
   in_catch_stmt = TRUE;
+  pending_catch_parameter = stmt->getExceptionDecl();
   WN *ret = ConvertStmt(stmt->getHandlerBlock());
+  pending_catch_parameter = NULL;
   in_catch_stmt = FALSE;
   if (ret)
     WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ret);
@@ -2930,6 +2991,9 @@ WN *WhirlStmtBuilder::ConvertReturnStmt(const ReturnStmt *stmt) {
   WN *ret = NULL;
   const Expr *retv = stmt->getRetValue();
   if (retv == NULL) {
+    WN *block = WhirlBlockUtil::getCurrentBlock();
+    pop_dtor_for_copy_ctor_stack(block);
+    pop_dtor_call_for_return(block);
     return WGEN_CreateReturn(GetSrcPos());
   } else {
     ST_IDX result_symbol = _builder->Scope().Get_return_object();
