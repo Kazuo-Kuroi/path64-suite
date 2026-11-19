@@ -436,11 +436,12 @@ extension `PR31384` are unchanged.
   `compiler-constructor-cleanup.pass.cpp` checks later initializer/body failures,
   failed subobject construction, references, base cleanup, delegating constructors,
   handled/nonmatching inner catches and argument-temporary lifetimes.
-- [ ] **Invalid array-bound exceptions.** `compiler-array-length.todo.cpp`
-  records a negative `new[]` bound currently reaching `bad_alloc` instead of
-  `bad_array_new_length` with both current compiler paths over this runtime.
-  The new exception class/API is implemented; array-bound/overflow lowering
-  remains open.
+- [x] (Codex) **Invalid array-bound exceptions (psclang).** C++11 `new[]`
+  checks negative bounds, payload/cookie size limits and initializer-list counts
+  before allocation, using a saved bound. Throwing allocation selects
+  `bad_array_new_length` through libcxxrt's ABI helper; nonthrowing allocation
+  returns null. Null results skip cookie stores and initialization.
+  `compiler-array-length.pass.cpp` covers these paths and ordinary `bad_alloc`.
 
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.

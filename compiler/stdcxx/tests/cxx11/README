@@ -55,6 +55,7 @@ order, references, base/delegating construction, inner catches and temporary
 argument checks. new-handler.pass.cpp checks synchronized get/set operations,
 callback reentrancy, throwing/nothrow allocation failure and the new error type.
 
-compiler-array-length.todo.cpp records the remaining negative array-bound
-exception-selection issue. It stays outside the .pass.cpp regression set;
-both current compiler paths over this runtime reach bad_alloc.
+compiler-array-length.pass.cpp checks invalid new[] bounds, payload/cookie
+limits, initializer counts, one-time bound evaluation, nonthrowing null results
+and ordinary allocation failure. This exercises psclang's own bound lowering;
+other compiler frontends can select different exceptions over this runtime.

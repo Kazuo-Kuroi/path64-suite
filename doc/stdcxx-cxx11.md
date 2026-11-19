@@ -201,8 +201,14 @@ handler access with boolean CAS and explicit barriers, copies the callback
 under the lock, and invokes it after unlocking. This also avoids the existing
 MIPS value-CAS result bug and unsupported lock-release intrinsic. The runtime
 supplies the new exception's constructors, assignment, destructor, RTTI and
-`what()`. Invalid-bound array-new exception selection is still tracked separately
-by `compiler-array-length.todo.cpp`.
+`what()`. psclang now checks C++11 array bounds before allocation, including
+payload/cookie limits and initializer-list counts. Invalid bounds select
+`bad_array_new_length` for throwing allocation, or null for nonthrowing
+allocation. Null allocation results skip cookie writes and initialization.
+The new `compiler-array-length.pass.cpp` checks these paths, bound evaluation,
+valid allocations and ordinary allocation failure. All eighteen original
+regressions pass with psclang in C++14 at `-O0` and `-O2`; seventeen apply in
+C++11 and pass at both levels. The runtime helper also cross-builds for IRIX.
 
 The six allocation-error reference tests plus all seventeen original regressions
 pass 22/22 in C++11 and 23/23 in C++14 (sized deletion is C++14-only), with both

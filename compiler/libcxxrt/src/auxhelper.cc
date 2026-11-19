@@ -39,3 +39,9 @@ extern "C" void __cxa_pure_virtual()
     abort();
 }
 
+
+// Itanium ABI helper used when a new[] bound cannot describe an object.
+extern "C" void __cxa_throw_bad_array_new_length()
+{
+    throw std::bad_array_new_length();
+}

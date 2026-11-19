@@ -2190,48 +2190,122 @@ WhirlExprBuilder::ConvertConstantArray(TY_IDX ty_ele, WN *bound, WN* stmt, WN **
   return block;
 }
 
+// Keep allocation and initialization side effects inside their selected branch,
+// including full-expression cleanups registered while lowering that branch.
+class NewExprBranch {
+  WN *_test, *_failure, *_body;
+  SRCPOS _spos;
+public:
+  NewExprBranch(WN *test, WN *failure, SRCPOS spos)
+    : _test(test), _failure(failure), _body(NULL), _spos(spos) {
+    if (!_test) return;
+    ST *guard = Create_tmp_sym(MTYPE_To_TY(MTYPE_I4), ".new.reached", spos);
+    WN *init = WN_Stid(MTYPE_I4, 0, guard, ST_type(guard), WN_Intconst(MTYPE_I4, 0));
+    WN_Set_Linenum(init, spos);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), init);
+    Push_conditional_temporary_guard(ST_st_idx(guard));
+    _body = WhirlBlockUtil::nwBlock();
+    WN *reached = WN_Stid(MTYPE_I4, 0, guard, ST_type(guard), WN_Intconst(MTYPE_I4, 1));
+    WN_Set_Linenum(reached, spos);
+    WN_INSERT_BlockLast(_body, reached);
+  }
+  ~NewExprBranch() {
+    if (!_test) return;
+    WhirlBlockUtil::popCurrentBlock();
+    Pop_conditional_temporary_guard();
+    WN *branch = WN_CreateIf(_test, _failure, _body);
+    WN_Set_Linenum(branch, _spos);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), branch);
+  }
+private:
+  NewExprBranch(const NewExprBranch&);
+  NewExprBranch& operator=(const NewExprBranch&);
+};
+
 Result
 WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
   QualType type = expr->getAllocatedType();
   TY_IDX arr_ty = _builder->TB().ConvertType(type);
   SRCPOS spos = SetSrcPos(getLocation(expr));
 
-  // calculate size to be allocated
+  FunctionDecl *nw_func = expr->getOperatorNew();
+  const bool nonthrowing = _builder->DeclBuilder().Call_nothrow(nw_func);
+  bool need_cookie = false;
+  if (expr->isArray() && !nw_func->isReservedGlobalPlacementOperator()) {
+    QualType elem = _builder->Context()->getBaseElementType(type);
+    need_cookie = expr->doesUsualArrayDeleteWantSize() ||
+                  elem.isDestructedType() == QualType::DK_cxx_destructor;
+  }
+  TY_IDX ty_idx = _builder->TB().ConvertType(expr->getType());
+  Is_True(TY_kind(ty_idx) == KIND_POINTER, ("not ptr type"));
+  ST *tmp_st = Create_tmp_sym(Make_Pointer_Type(arr_ty), ".nwm.mptr", spos);
+  WN *invalid = NULL;
   WN *elem_count = NULL;
   WN *size_wn = NULL;
   TYPE_ID machine_uint_ty = _builder->TB().GetUIntPtrMType();
   if (!expr->isArray()) {
     INT64 type_size = _builder->Context()->getTypeSizeInChars(type).getQuantity();
-    if (type_size == 0)
-      type_size = 1; // change size to 1 if it's 0
-    size_wn = WN_Intconst(machine_uint_ty, type_size);
+    size_wn = WN_Intconst(machine_uint_ty, type_size ? type_size : 1);
   } else {
-    elem_count = ConvertToNode(getArraySize(expr));
-    Is_True(elem_count, ("wrong array size"));
-    TYPE_ID rtype = WN_rtype(elem_count);
-    TY_IDX  sz_ty = MTYPE_To_TY(rtype);
-    Is_True(OPERATOR_is_expression(WN_operator(elem_count)),
-            ("not expr"));
-    elem_count = Handle_expr_for_copy(WhirlBlockUtil::getCurrentBlock(),
-                                      elem_count, sz_ty, spos, ".nam.size");
-    size_wn = WN_COPY_Tree(elem_count);
-    Is_True(TY_kind(arr_ty) == KIND_SCALAR ||
-            TY_kind(arr_ty) == KIND_ARRAY ||
-            TY_kind(arr_ty) == KIND_STRUCT ||
-            TY_kind(arr_ty) == KIND_POINTER,
-            ("unsupported arr_ty"));
-    // change size to 1 if it's 0
-    INT64 ty_size = TY_size(arr_ty) ? TY_size(arr_ty) : 1;
-    size_wn = WN_Mpy(rtype, size_wn,
-                     WN_Intconst(rtype, ty_size));
-    WN *st_wn = WGEN_StidTemp(sz_ty, size_wn, ".anon.");
-    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), st_wn);
-    WN_Set_Linenum(st_wn, spos);
-    size_wn = WN_Ldid(rtype, WN_offset(st_wn), WN_st(st_wn), sz_ty);
+    const Expr *bound = getArraySize(expr);
+    // Preserve the original signedness and width before conversion to size_t.
+    while (const ImplicitCastExpr *cast = dyn_cast<ImplicitCastExpr>(bound)) {
+      if (cast->getCastKind() != CK_IntegralCast) break;
+      bound = cast->getSubExpr();
+    }
+    WN *raw = ConvertToNode(bound);
+    TYPE_ID raw_ty = WN_rtype(raw);
+    WN *saved = WGEN_StidTemp(MTYPE_To_TY(raw_ty), raw, ".new.count");
+    WN_Set_Linenum(saved, spos);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), saved);
+    raw = WN_Ldid(raw_ty, WN_offset(saved), WN_st(saved), MTYPE_To_TY(raw_ty));
+    const INT64 element_size = TY_size(arr_ty) ? TY_size(arr_ty) : 1;
+    if (_builder->Context()->getLangOpts().CPlusPlus11) {
+      TYPE_ID check_ty = MTYPE_byte_size(raw_ty) > MTYPE_byte_size(machine_uint_ty)
+                           ? MTYPE_U8 : machine_uint_ty;
+      const UINT64 maximum = (((UINT64)1 << (MTYPE_byte_size(machine_uint_ty) * 8 - 1)) - 1
+                              - (need_cookie ? MTYPE_byte_size(Pointer_Mtype) : 0)) / element_size;
+      invalid = WN_GT(check_ty, WN_Type_Conversion(WN_COPY_Tree(raw), check_ty),
+                       WN_Intconst(check_ty, maximum));
+      if (expr->hasInitializer()) {
+        if (const InitListExpr *list = dyn_cast<InitListExpr>(expr->getInitializer())) {
+          WN *too_short = WN_LT(check_ty,
+            WN_Type_Conversion(WN_COPY_Tree(raw), check_ty),
+            WN_Intconst(check_ty, list->getNumInits()));
+          invalid = WN_Binary(OPR_LIOR, MTYPE_I4, invalid, too_short);
+        }
+      }
+    }
+    elem_count = WN_Type_Conversion(raw, machine_uint_ty);
+    size_wn = WN_Mpy(machine_uint_ty, WN_COPY_Tree(elem_count),
+                      WN_Intconst(machine_uint_ty, element_size));
+    WN *saved_size = WGEN_StidTemp(MTYPE_To_TY(machine_uint_ty), size_wn, ".new.bytes");
+    WN_Set_Linenum(saved_size, spos);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), saved_size);
+    size_wn = WN_Ldid(machine_uint_ty, WN_offset(saved_size), WN_st(saved_size),
+                       MTYPE_To_TY(machine_uint_ty));
   }
+  WN *failure = WN_CreateBlock();
+  if (invalid) {
+    if (nonthrowing) {
+      WN_INSERT_BlockLast(failure, WN_Stid(TY_mtype(ty_idx), 0, tmp_st, ty_idx,
+                                          WN_Intconst(Pointer_Mtype, 0)));
+    } else {
+      static ST *bad_length;
+      if (!bad_length)
+        bad_length = Create_function("__cxa_throw_bad_array_new_length",
+                                      MTYPE_To_TY(MTYPE_V), TY_IDX_ZERO);
+      WN *call = WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, 0);
+      WN_st_idx(call) = ST_st_idx(bad_length);
+      WN_Set_Call_Default_Flags(call);
+      Mark_call_region(call);
+      WN_Set_Linenum(call, spos);
+      WN_INSERT_BlockLast(failure, call);
+    }
+  }
+  NewExprBranch allocation_branch(invalid, failure, spos);
 
   // convert operator new
-  FunctionDecl *nw_func = expr->getOperatorNew();
   ST_IDX func_sym_idx = _builder->Get_func_st(nw_func);
   Is_True(func_sym_idx, ("bad func st"));
 
@@ -2262,10 +2336,6 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
   WN *ret = WN_Ldid(TY_mtype(ret_ty_idx), -1, Return_Val_Preg, ret_ty_idx);
   WN *comma = WGEN_CreateComma(WN_rtype(ret), call_blk, ret);
 
-  // create a tmp for return value
-  TY_IDX ty_idx = _builder->TB().ConvertType(expr->getType());
-  Is_True(TY_kind(ty_idx) == KIND_POINTER, ("not ptr type"));
-  ST *tmp_st = Create_tmp_sym(Make_Pointer_Type(arr_ty), ".nwm.mptr", spos);
   WN *st_wn = WN_Stid(TY_mtype(ty_idx), 0, tmp_st, ty_idx, comma);
   WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), st_wn);
   WN_Set_Linenum(st_wn, spos);
@@ -2273,12 +2343,9 @@ WhirlExprBuilder::ConvertCXXNewExpr(const clang::CXXNewExpr *expr) {
   // The array cookie (Itanium C++ ABI 2.7): the element count before the
   // array when delete[] must destroy the elements or pass the size;
   // never for placement new[]. delete[] reads it back.
-  bool need_cookie = false;
-  if (expr->isArray() && !nw_func->isReservedGlobalPlacementOperator()) {
-    QualType elem = _builder->Context()->getBaseElementType(type);
-    need_cookie = expr->doesUsualArrayDeleteWantSize() ||
-                  elem.isDestructedType() == QualType::DK_cxx_destructor;
-  }
+  WN *is_null = nonthrowing ? WN_EQ(Pointer_Mtype,
+    WN_Ldid(TY_mtype(ty_idx), 0, tmp_st, ty_idx), WN_Intconst(Pointer_Mtype, 0)) : NULL;
+  NewExprBranch initialization_branch(is_null, WN_CreateBlock(), spos);
   if (need_cookie) {
     WN *blk = WhirlBlockUtil::getCurrentBlock();
     INT offset = MTYPE_byte_size(Pointer_Mtype);
