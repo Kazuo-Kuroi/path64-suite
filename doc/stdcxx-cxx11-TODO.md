@@ -401,6 +401,7 @@ C++11 and 24 C++14 tests.
     Unicode regression, 75/75 pass with both compilers in C++11/14 at `-O0`/`-O2`.
     Original checks include guard-page search bounds, overlapping moves,
     surrogate/code-point storage, mutation/copies, modifiers, hashes and constants.
+    C++11 `front()`/`back()` are also implemented, including COW detachment.
     Phase 2 basic_string move/emplacement modernization remains separate.
 - [x] (Codex) **C library headers (Linux x86-64):**
   * `<cmath>`: C++11 C99 functions, float/long-double and integral/mixed
@@ -467,14 +468,16 @@ C++11 and 24 C++14 tests.
     The expanded base/string/formatting checkpoint passes 71/71 with both
     compilers at C++14 `-O2` (eight locale exclusions). Original allocator/flag
     tests pass in C++11/14 at `-O0`/`-O2`; flag tests also run in C++98.
-    Four file-buffer references still need `<codecvt>` through test support.
-  * [ ] Numeric-facet follow-ups found by the expanded review: avoid invoking
-    an iterator's overloaded comma in `loc/_punct.ipp`; fix psclang's assertion
-    on the num_get constructor reference; unsigned-int extraction saturates on
-    overflow without setting failbit (`src/num_get.cpp`). The negative-one
-    reference also requires string `back()`. The numeric-facet tree currently
-    gives 2/16 passes, thirteen compile failures and one range-check failure;
-    these remain distinct from the cleared 71-test stream checkpoint.
+    The file-buffer reference support dependency is now supplied by `<codecvt>`.
+  * [x] (Codex) Numeric-facet follow-ups: avoid overloaded iterator comma,
+    normalize parenthesized member callees in psclang, set range failure for
+    unsigned int, apply narrow unsigned negation once, and store zero on failed
+    numeric conversion. Clearing the base field also clears its cached radix.
+    Bool values/failure/EOF state, hexadecimal floats and infinity/NaN tokens,
+    grouping errors with retained values, and dynamically grown digit/group
+    buffers now have coverage. All 16 numeric-facet references pass with both
+    compilers at C++14 `-O2`. String `front()`/`back()` preserve COW detachment;
+    modern callers instantiate the new members from headers.
   * [ ] `io_errc`, `iostream_category` (depends on `<system_error>`);
   * [x] (Codex) `get_money`, `put_money`, `get_time`, `put_time`,
     `hexfloat`, `defaultfloat`, including facet exceptions and output failures.
@@ -505,6 +508,15 @@ and `-O2`. The broader C++14 `-O2` foundations batch remains 599/603 without
 original tests: three raw-pointer-incompatible vector references and the tuple
 extension `PR31384` are unchanged.
 
+The numeric/Unicode/file-stream checkpoint passes 55/55 with both compilers
+at C++14 `-O2`: 16 numeric references, 24 codecvt references, 12 file-stream
+move/swap references and three original regressions. All original regressions
+pass with PathScale in C++11/14 at `-O0`/`-O2` (40/41, sized-delete exclusion in
+C++11). New regressions pass with both compilers across that matrix. C++98
+parenthesized-member and stream-flag checks pass at both levels; eleven legacy
+C++98/03 probes remain clear. Unicode/file execution is Linux x86-64; IRIX
+remains a WIP port.
+
 ## Phase 4: new headers
 
 | Header | libc++ tests | Notes |
@@ -521,7 +533,7 @@ extension `PR31384` are unchanged.
 | `<regex>` | `re` (167) | large; needs locale `regex_traits` |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
-| `<codecvt>` | `localization/locale.stdcvt` (24) | `codecvt_utf8` and friends |
+| `<codecvt>` | `localization/locale.stdcvt` (24) | Implemented: original `codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`; 24/24 references pass with both compilers. |
 | `<cuchar>` | | |
 
 ## Infrastructure

@@ -39,6 +39,9 @@
 #endif   // gcc >= 3
 
 #include <streambuf>
+#ifdef _RWSTD_CXX11
+#  include <string>
+#endif
 
 #include <loc/_codecvt.h>
 
@@ -180,6 +183,12 @@ public:
 
     // 27.8.1.3, p2 (last optional argument is an extension)
     basic_filebuf* open (const char*, ios_base::openmode, long = 0666);
+#ifdef _RWSTD_CXX11
+    basic_filebuf* open(const string& __name, ios_base::openmode __mode) {
+        return open(__name.c_str(), __mode);
+    }
+#endif
+
     
 #ifndef _RWSTD_NO_EXT_FILEBUF
 
@@ -388,6 +397,12 @@ public:
     typedef typename traits_type::off_type off_type;
 
 #ifdef _RWSTD_CXX11
+    explicit basic_ifstream(const string& __name, ios_base::openmode __mode = ios_base::in)
+        : basic_ifstream(__name.c_str(), __mode) { }
+    void open(const string& __name, ios_base::openmode __mode = ios_base::in) {
+        open(__name.c_str(), __mode);
+    }
+
     basic_ifstream(basic_ifstream&& __rhs)
         : basic_istream<char_type, traits_type>(std::move(__rhs)),
           _C_filebuf(std::move(__rhs._C_filebuf)) { this->set_rdbuf(&_C_filebuf); }
@@ -506,6 +521,12 @@ public:
     typedef typename traits_type::off_type off_type;
 
 #ifdef _RWSTD_CXX11
+    explicit basic_ofstream(const string& __name, ios_base::openmode __mode = ios_base::out)
+        : basic_ofstream(__name.c_str(), __mode) { }
+    void open(const string& __name, ios_base::openmode __mode = ios_base::out) {
+        open(__name.c_str(), __mode);
+    }
+
     basic_ofstream(basic_ofstream&& __rhs)
         : basic_ostream<char_type, traits_type>(std::move(__rhs)),
           _C_filebuf(std::move(__rhs._C_filebuf)) { this->set_rdbuf(&_C_filebuf); }
@@ -623,6 +644,12 @@ public:
     typedef typename traits_type::off_type off_type;
 
 #ifdef _RWSTD_CXX11
+    explicit basic_fstream(const string& __name, ios_base::openmode __mode = _RW::__rw_in_out)
+        : basic_fstream(__name.c_str(), __mode) { }
+    void open(const string& __name, ios_base::openmode __mode = _RW::__rw_in_out) {
+        open(__name.c_str(), __mode);
+    }
+
     basic_fstream(basic_fstream&& __rhs)
         : basic_iostream<char_type, traits_type>(std::move(__rhs)),
           _C_filebuf(std::move(__rhs._C_filebuf)) { this->set_rdbuf(&_C_filebuf); }

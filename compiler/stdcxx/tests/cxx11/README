@@ -131,10 +131,9 @@ destination, moved-from reuse and caller-owned buffers using unique temp files.
 stream-buffer-position.pass.cpp is also runnable in C++98 and verifies that
 input mode does not imply output-at-end; ate still starts output at the end.
 ifstream reference move/swap tests require test.dat and test2.dat in the working
-directory. Other file-buffer tests include platform_support.h, which currently
-requires the pending codecvt header. Base reference flag comparisons see the
-library's existing implementation bits; string-buffer allocator support is
-still restricted to default-constructible allocators.
+directory. Other file-buffer tests include platform_support.h and now use the original
+codecvt header. The public flag and string-buffer allocator restrictions are
+cleared by the 71-test compatibility checkpoint below.
 
 stream-allocators.pass.cpp uses non-default-constructible tagged allocators to
 check ownership, propagation, unequal moves, narrow/wide buffers, caller-owned
@@ -144,4 +143,13 @@ stream-flags.pass.cpp runs in C++98 too: public flag values, setter return value
 radix formatting/parsing, automatic detection, explicit locking extensions and
 stdio synchronization must remain consistent with the internal flag storage.
 The base/string/fmtflags reference batch now passes 71/71 (eight locale skips).
-Separate numeric-facet reference failures are tracked in the TODO.
+All sixteen numeric-facet references now pass as well.
+
+numeric-facets.pass.cpp checks generic input iterators with deleted comma,
+unsigned overflow/negative input, failed-conversion values, bool state, float
+forms, long tokens, grouping failures and COW string front/back mutation.
+compiler-parenthesized-member.pass.cpp is C++98-compatible and checks direct,
+indirect-object and const calls through parenthesized member expressions.
+codecvt-unicode.pass.cpp checks Unicode scalar boundaries, malformed UTF-8,
+partial buffers, UTF-16 units, BOM modes, byte order, filename overloads and
+wide-file integration. The approved locale.stdcvt references pass 24/24.

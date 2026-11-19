@@ -535,3 +535,42 @@ optimization levels. A separate numeric-facet review exposed remaining iterator
 comma, psclang constructor-expression, string-back and unsigned-overflow-state
 issues; its 2/16 result is recorded in the TODO. `<codecvt>` and the
 `<system_error>` dependency for stream error categories remain pending.
+
+
+### Numeric facets and Unicode conversion
+
+All sixteen numeric-facet references now pass with both compilers at C++14
+`-O2`. The iterator loop uses builtin comma; psclang normalizes parenthesized
+member callees consistently before lowering. Narrow unsigned extraction checks
+the magnitude before applying negation at destination width and reports range
+failure on saturation. Failed conversions store zero. Numeric bool conversion
+sets a value on failure, and named booleans report EOF consistently. Clearing
+basefield bits also invalidates the cached radix used for autodetection.
+
+Floating input accepts hexadecimal exponents and infinity/NaN forms. Digit and
+grouping buffers grow beyond their old fixed limits; grouping errors consume
+the token and retain the converted value while setting failbit. The original
+regression covers generic iterators with deleted comma, integer boundaries,
+malformed grouping, long tokens, bool errors, float forms and string COW
+endpoint mutation. These shared parsing fixes apply to C++98 callers too.
+C++11 string `front()`/`back()` use the existing detaching element access.
+
+The new original `<codecvt>` supplies UTF-8/UCS, UTF-16-byte/UCS, and
+UTF-8/UTF-16-code-unit facets, with Maxcode limits, BOM modes, byte order,
+surrogate validation, partial input/output, length and unshift. Complete scalars
+are committed together; truncated or invalid input leaves the scalar's first
+byte unconsumed. All 24 approved codecvt references pass with both compilers.
+Original checks cover scalar boundaries, malformed/overlong UTF-8, partial
+buffers, surrogate units, little-endian BOMs and a wide-file UTF-8 round trip.
+
+The header also clears the file-buffer test-support dependency. File buffers
+and owning file streams accept C++11 std::string filenames; all twelve selected
+file-buffer/ofstream/fstream move/swap references pass. Together with numeric
+and codecvt references and three originals, the checkpoint is 55/55 with both
+compilers at C++14 `-O2`. New originals pass in C++11/14 at `-O0`/`-O2`; the
+PathScale original suite passes 40 tests in C++11 and 41 in C++14. Parenthesized
+calls and stream flags also pass in C++98, and the eleven legacy probes pass
+at both levels. Libraries and the frontend have been rebuilt. IRIX backend
+builds; Unicode/file execution is checked only on Linux x86-64.
+
+`<system_error>` and its stream error-category integration remain pending.

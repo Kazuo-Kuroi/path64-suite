@@ -1,0 +1,194 @@
+// Original Path64 C++11 Unicode conversion facets.
+#ifndef _RWSTD_CODECVT_INCLUDED
+#define _RWSTD_CODECVT_INCLUDED
+#include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#include <locale>
+#include <cstddef>
+#include <climits>
+
+namespace std {
+enum codecvt_mode { little_endian=1, generate_header=2, consume_header=4 };
+namespace __rw_c11 {
+// Each decoder commits only complete, valid Unicode scalars. A short input
+// leaves its first byte unconsumed, allowing callers to supply it again.
+inline codecvt_base::result __utf8_scalar(const char* p,const char* end,
+                                         unsigned long& value,size_t& bytes) {
+    if (p==end) return codecvt_base::partial;
+    unsigned lead=static_cast<unsigned char>(*p);
+    if (lead<0x80) { value=lead; bytes=1; return codecvt_base::ok; }
+    unsigned count;
+    unsigned long minimum;
+    if (lead>=0xc2 && lead<=0xdf) { count=2; value=lead&31; minimum=0x80; }
+    else if (lead>=0xe0 && lead<=0xef) { count=3; value=lead&15; minimum=0x800; }
+    else if (lead>=0xf0 && lead<=0xf4) { count=4; value=lead&7; minimum=0x10000; }
+    else return codecvt_base::error;
+    for (unsigned i=1;i<count;++i) {
+        if (p+i==end) return codecvt_base::partial;
+        unsigned next=static_cast<unsigned char>(p[i]);
+        if ((next&0xc0)!=0x80) return codecvt_base::error;
+        // Reject invalid prefixes as soon as their second byte is available.
+        if (i==1 && ((lead==0xe0 && next<0xa0) || (lead==0xed && next>=0xa0) ||
+                     (lead==0xf0 && next<0x90) || (lead==0xf4 && next>=0x90)))
+            return codecvt_base::error;
+        value=(value<<6)|(next&63);
+    }
+    if (value<minimum || value>0x10ffff || (value>=0xd800 && value<=0xdfff))
+        return codecvt_base::error;
+    bytes=count; return codecvt_base::ok;
+}
+inline unsigned __utf16_word(const char* p,bool little) {
+    unsigned a=static_cast<unsigned char>(p[0]), b=static_cast<unsigned char>(p[1]);
+    return little ? a|(b<<8) : (a<<8)|b;
+}
+inline codecvt_base::result __utf16_scalar(const char* p,const char* end,bool little,
+                                          unsigned long& value,size_t& bytes) {
+    if (end-p<2) return codecvt_base::partial;
+    unsigned first=__utf16_word(p,little);
+    if (first>=0xdc00 && first<=0xdfff) return codecvt_base::error;
+    value=first; bytes=2;
+    if (first>=0xd800 && first<=0xdbff) {
+        if (end-p<4) return codecvt_base::partial;
+        unsigned second=__utf16_word(p+2,little);
+        if (second<0xdc00 || second>0xdfff) return codecvt_base::error;
+        value=0x10000UL+((first-0xd800UL)<<10)+(second-0xdc00);
+        bytes=4;
+    }
+    return codecvt_base::ok;
+}
+inline size_t __write_utf8(unsigned long value,char* to) {
+    if (value<0x80) { to[0]=char(value); return 1; }
+    unsigned count=value<0x800?2:value<0x10000?3:4;
+    for (unsigned i=count-1;i;i--) { to[i]=char(0x80|(value&63)); value>>=6; }
+    to[0]=char((count==2?0xc0:count==3?0xe0:0xf0)|value);
+    return count;
+}
+inline void __write_utf16_word(unsigned word,char* to,bool little) {
+    to[little?0:1]=char(word); to[little?1:0]=char(word>>8);
+}
+// Kind 0: UTF-8/UCS; 1: UTF-16 bytes/UCS; 2: UTF-8/UTF-16 code units.
+template<class E,unsigned long Maximum,codecvt_mode Mode,int Kind>
+class __unicode_codecvt : public codecvt<E,char,mbstate_t> {
+    typedef codecvt<E,char,mbstate_t> Base;
+public:
+    typedef typename Base::result result;
+private:
+    static unsigned long limit() { return Maximum<0x10ffffUL?Maximum:0x10ffffUL; }
+    static size_t units(unsigned long cp) { return Kind==2 && cp>0xffff?2:1; }
+    static bool fits(unsigned long cp) {
+        return cp<=limit() && !(Kind!=2 && sizeof(E)==2 && cp>0xffff);
+    }
+    static result decode(const char* p,const char* end,bool little,
+                         unsigned long& cp,size_t& bytes) {
+        return Kind==1?__utf16_scalar(p,end,little,cp,bytes):__utf8_scalar(p,end,cp,bytes);
+    }
+    static void header(const char*& p,const char* end,bool& little) {
+        if (!(Mode&consume_header)) return;
+        if (Kind==1) {
+            if (end-p>=2) {
+                unsigned word=__utf16_word(p,false);
+                if (word==0xfeff || word==0xfffe) { little=word==0xfffe; p+=2; }
+            }
+        } else if (end-p>=3 && static_cast<unsigned char>(p[0])==0xef &&
+                   static_cast<unsigned char>(p[1])==0xbb &&
+                   static_cast<unsigned char>(p[2])==0xbf) p+=3;
+    }
+protected:
+    result do_in(mbstate_t&,const char* from,const char* end,const char*& next,
+                  E* to,E* stop,E*& out) const override {
+        next=from; out=to;
+        bool little=(Mode&little_endian)!=0;
+        header(next,end,little);
+        while (next!=end) {
+            if (out==stop) return Base::partial;
+            unsigned long cp=0; size_t bytes=0;
+            result r=decode(next,end,little,cp,bytes);
+            if (r!=Base::ok) return r;
+            if (!fits(cp)) return Base::error;
+            if (size_t(stop-out)<units(cp)) return Base::partial;
+            if (units(cp)==2) {
+                *out++=E(0xd800+((cp-0x10000)>>10));
+                *out++=E(0xdc00+((cp-0x10000)&1023));
+            } else *out++=E(cp);
+            next+=bytes;
+        }
+        return Base::ok;
+    }
+    result do_out(mbstate_t&,const E* from,const E* end,const E*& next,
+                   char* to,char* stop,char*& out) const override {
+        next=from; out=to;
+        const bool little=(Mode&little_endian)!=0;
+        if (Mode&generate_header) {
+            const size_t size=Kind==1?2:3;
+            if (size_t(stop-out)<size) return Base::partial;
+            if (Kind==1) __write_utf16_word(0xfeff,out,little);
+            else { out[0]=char(0xef); out[1]=char(0xbb); out[2]=char(0xbf); }
+            out+=size;
+        }
+        while (next!=end) {
+            unsigned long cp=static_cast<unsigned long>(*next);
+            size_t taken=1;
+            if (Kind==2 && cp>=0xd800 && cp<=0xdbff) {
+                if (end-next<2) return Base::partial;
+                unsigned long low=static_cast<unsigned long>(next[1]);
+                if (low<0xdc00 || low>0xdfff) return Base::error;
+                cp=0x10000+((cp-0xd800)<<10)+(low-0xdc00); taken=2;
+            } else if (cp>=0xd800 && cp<=0xdfff) return Base::error;
+            if (!fits(cp) || (Kind==2 && taken==1 && cp>0xffff)) return Base::error;
+            char bytes[4]; size_t count;
+            if (Kind==1) {
+                count=cp>0xffff?4:2;
+                if (count==4) {
+                    __write_utf16_word(unsigned(0xd800+((cp-0x10000)>>10)),bytes,little);
+                    __write_utf16_word(unsigned(0xdc00+((cp-0x10000)&1023)),bytes+2,little);
+                } else __write_utf16_word(unsigned(cp),bytes,little);
+            } else count=__write_utf8(cp,bytes);
+            if (size_t(stop-out)<count) return Base::partial;
+            for (size_t i=0;i<count;++i) *out++=bytes[i];
+            next+=taken;
+        }
+        return Base::ok;
+    }
+    result do_unshift(mbstate_t&,char* to,char*,char*& out) const override {
+        out=to; return Base::noconv;
+    }
+    int do_encoding() const noexcept override { return 0; }
+    bool do_always_noconv() const noexcept override { return false; }
+    int do_max_length() const noexcept override {
+        return (sizeof(E)==2 && Kind!=2?(Kind==1?2:3):4)+
+               ((Mode&consume_header)?(Kind==1?2:3):0);
+    }
+    int do_length(mbstate_t&,const char* from,const char* end,size_t max) const override {
+        const char* p=from;
+        bool little=(Mode&little_endian)!=0;
+        header(p,end,little);
+        while (p!=end && max) {
+            unsigned long cp=0; size_t bytes=0;
+            if (decode(p,end,little,cp,bytes)!=Base::ok || !fits(cp) || units(cp)>max) break;
+            if (size_t(p-from)+bytes>size_t(INT_MAX)) break;
+            p+=bytes; max-=units(cp);
+        }
+        return int(p-from);
+    }
+public:
+    explicit __unicode_codecvt(size_t refs=0) : Base(refs) {}
+};
+}
+template<class Elem,unsigned long Maxcode=0x10ffff,codecvt_mode Mode=codecvt_mode(0)>
+class codecvt_utf8 : public __rw_c11::__unicode_codecvt<Elem,Maxcode,Mode,0> {
+public:
+    explicit codecvt_utf8(size_t refs=0) : __rw_c11::__unicode_codecvt<Elem,Maxcode,Mode,0>(refs) {}
+};
+template<class Elem,unsigned long Maxcode=0x10ffff,codecvt_mode Mode=codecvt_mode(0)>
+class codecvt_utf16 : public __rw_c11::__unicode_codecvt<Elem,Maxcode,Mode,1> {
+public:
+    explicit codecvt_utf16(size_t refs=0) : __rw_c11::__unicode_codecvt<Elem,Maxcode,Mode,1>(refs) {}
+};
+template<class Elem,unsigned long Maxcode=0x10ffff,codecvt_mode Mode=codecvt_mode(0)>
+class codecvt_utf8_utf16 : public __rw_c11::__unicode_codecvt<Elem,Maxcode,Mode,2> {
+public:
+    explicit codecvt_utf8_utf16(size_t refs=0) : __rw_c11::__unicode_codecvt<Elem,Maxcode,Mode,2>(refs) {}
+};
+}
+#endif // C++11
+#endif
