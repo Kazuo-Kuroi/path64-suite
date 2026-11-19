@@ -48,6 +48,16 @@
 #  endif
 #endif
 
+// Use move semantics in shared algorithms while retaining C++98 copies.
+#ifdef _RWSTD_CXX11
+#  define _RWSTD_MOVE(__x) _STD::move (__x)
+#  define _RWSTD_MOVE_VALUE(_Iterator, __it) \
+       typename _STD::iterator_traits<_Iterator>::value_type (_STD::move (*(__it)))
+#else
+#  define _RWSTD_MOVE(__x) (__x)
+#  define _RWSTD_MOVE_VALUE(_Iterator, __it) (*(__it))
+#endif
+
 #if defined (_RWSTD_CXX11) && __cplusplus >= 201402L
 #  define _RWSTD_CONSTEXPR14 constexpr
 #else

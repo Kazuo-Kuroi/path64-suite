@@ -201,8 +201,8 @@ inline void __rw_swap (_TypeT& __a, _TypeU& __b)
 }
 
 #ifdef _RWSTD_CXX11
-// iter_swap: swap (*a, *b), user swaps found by ADL; *a that is not a
-// reference (vector<bool>::reference) swaps as before
+// iter_swap: find user swaps by ADL, including proxy references.
+// A proxy without an ADL swap falls back to moving the actual value.
 template <class _FwdIter1, class _FwdIter2>
 inline void __rw_iter_swap (_FwdIter1 __a, _FwdIter2 __b, _STD::true_type)
 {
@@ -210,11 +210,25 @@ inline void __rw_iter_swap (_FwdIter1 __a, _FwdIter2 __b, _STD::true_type)
     swap (*__a, *__b);
 }
 template <class _FwdIter1, class _FwdIter2>
+inline auto __rw_proxy_iter_swap (_FwdIter1 __a, _FwdIter2 __b, int)
+    -> decltype (swap (*__a, *__b), void ())
+{
+    using _STD::swap;
+    swap (*__a, *__b);
+}
+template <class _FwdIter1, class _FwdIter2>
+inline void __rw_proxy_iter_swap (_FwdIter1 __a, _FwdIter2 __b, long)
+{
+    // A proxy copy can still alias the bit being overwritten. Preserve
+    // the iterator's value_type when no ADL swap accepts the proxies.
+    typename _STD::iterator_traits<_FwdIter1>::value_type __tmp = _STD::move (*__a);
+    *__a = _STD::move (*__b);
+    *__b = _STD::move (__tmp);
+}
+template <class _FwdIter1, class _FwdIter2>
 inline void __rw_iter_swap (_FwdIter1 __a, _FwdIter2 __b, _STD::false_type)
 {
-    typename _STD::iterator_traits<_FwdIter1>::reference __ref1 (*__a);
-    typename _STD::iterator_traits<_FwdIter2>::reference __ref2 (*__b);
-    __rw_swap (__ref1, __ref2);
+    __rw_proxy_iter_swap (__a, __b, 0);
 }
 #endif   // _RWSTD_CXX11
 

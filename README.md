@@ -100,12 +100,17 @@ Open work includes:
 | C++ ABI runtime and unwinder | libcxxrt and libunwind supply exception handling and ABI support; libcxxrt also supplies C++14 sized deletion. x86-64 has compiler/runtime regression coverage. IRIX has the limitations above. |
 | Fortran, OpenMP, profiling, optional math and debugger components | Sources and build switches remain. These components are outside the current minimal C/C++ audit configuration; historical product support is not a current validation claim. |
 
-The current iterator/algorithm/numeric batch passes 283/316 tests in C++11 and
-284/317 in C++14 with both psclang and host Clang at `-O0` and `-O2`, with no
-runtime failures. Its remaining compile failures include missing `<random>`,
-move-only sorting/stable partition, a list-dependent insertion test and
-unmarked C++17 tests. These are selected suites, not a whole-library
-conformance result.
+The algorithm reference suite currently passes 115/145 runner-selected tests.
+Its remaining compile failures are 28 missing-`<random>` dependencies and two
+unmarked C++17 tests. Move-only `sort`, heap operations, `partial_sort` and
+`stable_partition` are covered by original tests, including packed-bit
+iterators and temporary-buffer exception cleanup. Move-only `nth_element`
+and `stable_sort` still need modernization. The iterator suite has one
+list-dependent insertion failure. These are selected suites, not a
+whole-library conformance result.
+
+A separate psclang constructor-initializer exception bug remains open, with
+a reduced reproducer in the TODO.
 
 See [C++11/14 design and status](doc/stdcxx-cxx11.md),
 [the implementation TODO](doc/stdcxx-cxx11-TODO.md), and

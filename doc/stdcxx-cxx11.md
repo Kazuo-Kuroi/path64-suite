@@ -36,7 +36,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
 | `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
-| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction and rotation | 113/145; 28 missing-random dependencies, 2 C++17 clamp tests, move-only sort and stable partition remain |
+| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort and stable partition | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
@@ -150,7 +150,14 @@ corrected. The remaining insertion test depends on unfinished C++11 `list`
 support. `remove`, `remove_if`, `unique` and `rotate` accept move-only values;
 `rotate` returns the required iterator. Transform, replacement, swap, lexical
 comparison and permutation loops avoid user-defined comma operators.
-Sorting and stable partition still need move-only value support.
+Sorting, heap operations and partial sorting move values through their helpers;
+the sort pivot remains in the range until partitioning completes. Temporary
+heap values use iterator value types rather than proxy aliases. `iter_swap`
+finds ADL swaps for proxy references and otherwise preserves a value.
+Stable partition owns raw temporary storage and its successfully constructed
+prefix, reuses partial buffers recursively and falls back to rotation when no
+buffer is available. Move-only `nth_element` and `stable_sort` still need work;
+their reference suites currently require the missing `<random>` header.
 
 psclang keeps materialization statements inside each short-circuit operand.
 Conditional class temporaries have guards for operand selection and successful
@@ -163,12 +170,22 @@ deque elements and the C++11 rotate return iterator. `<cstdio>` stops importing
 `gets` in C++14, where the C library declaration is removed.
 
 Phase 3 validation runs the full iterator, algorithm and numeric-operation
-reference directories, the two original Phase 3 regressions, and three compiler
-lifetime/cleanup regressions. Both psclang and host Clang pass 283/316 in
-C++11 and 284/317 in C++14 at `-O0` and `-O2`, with no runtime failures.
-The 33 compile failures are the list-dependent insertion test and the 32
-algorithm cases classified in the TODO. Reference markers exclude 25 C++11
-and 24 C++14 tests. The C++14 optimized foundations run remains 601/605 with its four
-previously recorded reference incompatibilities. Shared and static C++98 library
+reference directories and eight original library/compiler regressions.
+Both compilers pass 288/319 in C++11 and 289/320 in C++14 at `-O0` and
+`-O2`, with no runtime failures in this batch. The 31 compile failures are
+classified in the TODO. The broader C++14 `-O2` foundations
+run, including all fourteen original passing regressions, passes 613/617:
+three vector tests assume class iterators and the tuple extension test
+`PR31384` differs from stdcxx and the system library. The packed-bool and move
+iterator follow-up passes 74/74 at `-O2`. Shared and static C++98 library
 objects rebuild, and all 11 legacy C++98/C++03 probes pass at both optimization
 levels.
+
+
+The sorting work also fixes psclang materialization into member addresses:
+register-returned trivial class values are evaluated and stored at the member's
+address, including nonzero offsets. Scalar pseudo-destructors and trivial
+class destructors evaluate their object expression even though no destructor
+call is needed. `compiler-member-return.pass.cpp` covers both reductions.
+The separate constructor-initializer exception issue remains open in the TODO;
+`compiler-member-init-unwind.todo.cpp` records its host/psclang comparison.

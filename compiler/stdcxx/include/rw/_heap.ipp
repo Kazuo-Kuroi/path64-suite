@@ -53,10 +53,10 @@ void __push_heap (_RandomAccessIter __first, _Dist __holeIndex,
             __holeIndex > __topIndex
          && !(__comp (*(__first + __parent), __val) == false);
          __parent = ((__holeIndex = __parent) - 1) / 2) {
-        *(__first + __holeIndex) = *(__first + __parent);
+        *(__first + __holeIndex) = _RWSTD_MOVE (*(__first + __parent));
     }
 
-    *(__first + __holeIndex) = __val;
+    *(__first + __holeIndex) = _RWSTD_MOVE (__val);
 }
 
 
@@ -73,16 +73,16 @@ void __adjust_heap (_RandomAccessIter __first, _Dist __holeIndex,
         if (__comp (*(__first + __2ndChild), *(__first + (__2ndChild - 1))))
             --__2ndChild;
 
-        *(__first + __holeIndex) = *(__first + __2ndChild);
+        *(__first + __holeIndex) = _RWSTD_MOVE (*(__first + __2ndChild));
         __holeIndex = __2ndChild;
     }
 
     if (__2ndChild == __dist) {
-        *(__first + __holeIndex) = *(__first + (__2ndChild - 1));
+        *(__first + __holeIndex) = _RWSTD_MOVE (*(__first + (__2ndChild - 1)));
         __holeIndex = __2ndChild - 1;
     }
 
-    __push_heap (__first, __holeIndex, __topIndex, __val, __comp);
+    __push_heap (__first, __holeIndex, __topIndex, _RWSTD_MOVE (__val), __comp);
 }
 
 
@@ -97,7 +97,7 @@ void __make_heap (_RandomAccessIter __first, _RandomAccessIter __last,
 
     for (_Dist __parent = __dist / 2; 0 < __parent; ) {
         --__parent;
-        __adjust_heap (__first, __parent, __dist, *(__first + __parent),
+        __adjust_heap (__first, __parent, __dist, _RWSTD_MOVE_VALUE (_RandomAccessIter, __first + __parent),
                        __comp);
     }
 }

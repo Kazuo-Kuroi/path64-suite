@@ -16,6 +16,8 @@ Original regression tests can be passed by absolute path:
   ./lcxx.py -std c++14 "$PWD/sized-delete.pass.cpp"
   ./lcxx.py "$PWD/phase3-algorithms.pass.cpp"
   ./lcxx.py "$PWD/phase3-move-iterators.pass.cpp" "$PWD/compiler-short-circuit.pass.cpp"
+  ./lcxx.py "$PWD/move-sorting.pass.cpp" "$PWD/partition-exceptions.pass.cpp"
+  ./lcxx.py "$PWD/compiler-member-return.pass.cpp"
 
 Use --timeout 180 for the deque range-insertion stress test at -O0. The
 runner's default per-test runtime limit remains 30 seconds.
@@ -36,3 +38,15 @@ deque elements and the rotated sequence/return iterator. The reference front
 insertion test uses list, whose move insertion is a separate container TODO.
 compiler-short-circuit.pass.cpp checks conditional reference materialization,
 null pointers, nested operands, exceptions and class temporary destruction.
+
+move-sorting.pass.cpp checks move-only sort, heap and partial-sort contracts,
+identity preservation, comparison bounds and packed-bit proxy iterators.
+partition-exceptions.pass.cpp substitutes the raw temporary-buffer provider to
+check full, partial and failed allocations, stable order and resource cleanup
+when moves or predicates throw. It exercises the public stable_partition API.
+compiler-member-return.pass.cpp checks calls returning trivial classes into
+members at different offsets, and side effects in scalar/trivial destruction.
+
+compiler-member-init-unwind.todo.cpp is a known failing constructor-initializer
+exception repro, not part of the passing regression set. It may be passed
+explicitly to lcxx.py; host Clang passes, while psclang currently aborts.

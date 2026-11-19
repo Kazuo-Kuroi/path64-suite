@@ -766,6 +766,64 @@ _BidirIter __stable_partition_adaptive (_BidirIter __first, _BidirIter __last,
 }
 
 
+#ifdef _RWSTD_CXX11
+// Own raw storage separately from the number of successfully moved values.
+// Both predicate failures and throwing move constructors release that prefix.
+template <class _Tp, class _Distance>
+struct __rw_c11_partition_buffer {
+    pair<_Tp*, _Distance> storage;
+    _Distance constructed;
+    explicit __rw_c11_partition_buffer (_Distance __n)
+        : storage (_STD::get_temporary_buffer (__n, (_Tp*)0)), constructed (0) { }
+    void clear () {
+        while (constructed) storage.first[--constructed].~_Tp ();
+    }
+    ~__rw_c11_partition_buffer () {
+        clear ();
+        _STD::return_temporary_buffer (storage.first);
+    }
+    __rw_c11_partition_buffer (const __rw_c11_partition_buffer&) = delete;
+    __rw_c11_partition_buffer& operator= (const __rw_c11_partition_buffer&) = delete;
+};
+
+template <class _Bidir, class _Predicate, class _Tp, class _Distance>
+_Bidir __rw_c11_partition_buffered (_Bidir __first, _Bidir __last,
+    _Predicate& __pred, _Distance __n, __rw_c11_partition_buffer<_Tp, _Distance>& __buffer)
+{
+    if (__n <= __buffer.storage.second) {
+        _Bidir __out = __first;
+        for (_Bidir __i = __first; __i != __last; ++__i) {
+            if (__pred (*__i)) {
+                if (__out != __i) *__out = _STD::move (*__i);
+                ++__out;
+            }
+            else {
+                ::new (static_cast<void*>(__buffer.storage.first + __buffer.constructed))
+                    _Tp (_STD::move (*__i));
+                ++__buffer.constructed;
+            }
+        }
+        _Bidir __boundary = __out;
+        for (_Distance __i = 0; __i != __buffer.constructed; ++__i) {
+            *__out = _STD::move (__buffer.storage.first[__i]);
+            ++__out;
+        }
+        __buffer.clear ();
+        return __boundary;
+    }
+    _Bidir __middle = __first;
+    _STD::advance (__middle, __n / 2);
+    _Bidir __left = __rw_c11_partition_buffered (__first, __middle, __pred,
+                                                 _Distance (__n / 2), __buffer);
+    _Bidir __right = __rw_c11_partition_buffered (__middle, __last, __pred,
+                                                 _Distance (__n - __n / 2), __buffer);
+    _Distance __true_right = _STD::distance (__middle, __right);
+    _STD::rotate (__left, __middle, __right);
+    _STD::advance (__left, __true_right);
+    return __left;
+}
+#endif
+
 _EXPORT
 template <class _BidirIter, class _Predicate, class _TypeT, class _Dist>
 _BidirIter __stable_partition (_BidirIter __first, _BidirIter __last,
@@ -778,6 +836,12 @@ _BidirIter __stable_partition (_BidirIter __first, _BidirIter __last,
     if (!__dist)
         return __last;
     
+#ifdef _RWSTD_CXX11
+    __rw_c11_partition_buffer<_TypeT, _Dist> __buffer (__dist);
+    if (!__buffer.storage.first)
+        return __inplace_stable_partition (__first, __last, __pred, __dist);
+    return __rw_c11_partition_buffered (__first, __last, __pred, __dist, __buffer);
+#else
     // call an extension of get_temporary_buffer<>() in case partial class
     // specialization (and iterator_traits<>) isn't supported by compiler
     pair<_TypeT*, _Dist> __pair =
@@ -799,6 +863,7 @@ _BidirIter __stable_partition (_BidirIter __first, _BidirIter __last,
     _STD::return_temporary_buffer (__pair.first);
 
     return __res;
+#endif
 }
 
 //
@@ -873,14 +938,22 @@ template <class _RandomAccessIter, class _TypeT>
 inline void __linear_insert (_RandomAccessIter __first, 
                              _RandomAccessIter __last, _TypeT*)
 {
+#ifdef _RWSTD_CXX11
+    _TypeT __val = std::move (*__last);
+#else
     const _TypeT __val = *__last;
+#endif
 
     if (__val < *__first) {
+#ifdef _RWSTD_CXX11
+        _STD::move_backward (__first, __last, __last + 1);
+#else
         _STD::copy_backward (__first, __last, __last + 1);
-        *__first = __val;
+#endif
+        *__first = _RWSTD_MOVE (__val);
     }
     else
-        __unguarded_linear_insert (__last, __val);
+        __unguarded_linear_insert (__last, _RWSTD_MOVE (__val));
 }
 
 
@@ -889,14 +962,22 @@ inline void
 __linear_insert (_RandomAccessIter __first, _RandomAccessIter __last, _TypeT*,
                  _Compare __comp)
 {
+#ifdef _RWSTD_CXX11
+    _TypeT __val = std::move (*__last);
+#else
     const _TypeT __val = *__last;
+#endif
 
     if (__comp (__val, *__first)) {
+#ifdef _RWSTD_CXX11
+        _STD::move_backward (__first, __last, __last + 1);
+#else
         _STD::copy_backward (__first, __last, __last + 1);
-        *__first = __val;
+#endif
+        *__first = _RWSTD_MOVE (__val);
     }
     else
-        __unguarded_linear_insert (__last, __val, __comp);
+        __unguarded_linear_insert (__last, _RWSTD_MOVE (__val), __comp);
 }
 
 
@@ -919,10 +1000,10 @@ void __unguarded_linear_insert (_RandomAccessIter __last, _TypeT __val,
                                 _Compare __comp)
 {
     for (_RandomAccessIter __next = __last; __comp (__val, *--__next); ) {
-        *__last = *__next;
+        *__last = _RWSTD_MOVE (*__next);
         __last = __next;
     }
-    *__last = __val;
+    *__last = _RWSTD_MOVE (__val);
 }
 
 
@@ -1079,11 +1160,14 @@ void __partial_sort (_RandomAccessIter __first, _RandomAccessIter __middle,
 {
     _RWSTD_ASSERT_IN_RANGE (__middle, __first, __last);
 
+#ifdef _RWSTD_CXX11
+    if (__first == __middle) return;
+#endif
     _STD::make_heap (__first, __middle, __comp);
 
     for (_RandomAccessIter __i = __middle; __i < __last; ++__i)
         if (__comp (*__i, *__first))
-            __pop_heap (__first, __middle, __i, *__i, __comp,
+            __pop_heap (__first, __middle, __i, _RWSTD_MOVE_VALUE (_RandomAccessIter, __i), __comp,
                         _RWSTD_DIFFERENCE_TYPE (_RandomAccessIter));
 
     _STD::sort_heap (__first, __middle, __comp);
@@ -1125,6 +1209,27 @@ _RandomAccessIter __partial_sort_copy (_InputIter __first,
 }
 
 
+#ifdef _RWSTD_CXX11
+template <class _Random, class _Compare>
+_Random __rw_c11_partition_pivot (_Random __first, _Random __last, _Compare __comp)
+{
+    _Random __middle = __first + (__last - __first) / 2;
+    _Random __pivot = __last - 1;
+    if (__comp (*__middle, *__first)) _STD::iter_swap (__middle, __first);
+    if (__comp (*__pivot, *__middle)) _STD::iter_swap (__pivot, __middle);
+    if (__comp (*__middle, *__first)) _STD::iter_swap (__middle, __first);
+    _STD::iter_swap (__middle, __pivot);
+    _Random __cut = __first;
+    for (_Random __i = __first; __i != __pivot; ++__i)
+        if (__comp (*__i, *__pivot)) {
+            if (__i != __cut) _STD::iter_swap (__i, __cut);
+            ++__cut;
+        }
+    if (__cut != __pivot) _STD::iter_swap (__cut, __pivot);
+    return __cut;
+}
+#endif
+
 // David R. Musser's Introspective Sorting algorithm
 // (see www.cs.rpi.edu/~musser/gp/introsort.ps)
 // O(N * log (N)) worst case complexity
@@ -1140,6 +1245,10 @@ void __introsort_loop (_RandomAccessIter __first, _RandomAccessIter __last,
             break;
         }
 
+#ifdef _RWSTD_CXX11
+        _RandomAccessIter __cut = __rw_c11_partition_pivot (__first, __last, __comp);
+        __introsort_loop (__cut + 1, __last, __max_depth /= 2, __comp);
+#else
         _RandomAccessIter __cut =
             __unguarded_partition (__first, __last,
                                    __median (*__first,
@@ -1149,6 +1258,7 @@ void __introsort_loop (_RandomAccessIter __first, _RandomAccessIter __last,
         // limit the depth of the recursion tree to log2 (last - first)
         // where first and last are the initial values passed in from sort()
         __introsort_loop (__cut, __last, __max_depth /= 2, __comp);
+#endif
         __last = __cut;
     }
 }

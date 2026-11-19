@@ -316,11 +316,11 @@ across a library boundary. Write the decision here before starting.
 
 ## Phase 3: the rest of the existing headers
 
-Current iterator/algorithm/numeric validation (including five original library
-and compiler regressions) passes 283/316 in C++11 and 284/317 in C++14 with both
-psclang and host Clang at `-O0` and `-O2`. There are no runtime failures in this
-batch; the 33 remaining compile failures are classified below. Reference markers
-exclude 25 C++11 and 24 C++14 tests.
+Current iterator/algorithm/numeric validation includes eight original library
+and compiler regressions: 288/319 pass in C++11 and 289/320 in C++14 with both
+psclang and host Clang at `-O0` and `-O2`. This batch has no runtime failures;
+the 31 compile failures are classified below. Reference markers exclude 25
+C++11 and 24 C++14 tests.
 
 - [ ] **`<iterator>`:**
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
@@ -353,10 +353,19 @@ exclude 25 C++11 and 24 C++14 tests.
     replacement copies, range swaps, lexical comparisons and permutations.
   * `shuffle` (pending `<random>`);
   * [x] (Codex) C++14 `equal`/`mismatch` with four iterators;
-  * `algorithms` (150 tests): 113/145 applicable tests pass. The remaining
-    32 compile failures are 28 missing `<random>` dependencies, move-only
-    sorting and stable partition, and two unmarked C++17 `clamp` tests.
-    Five tests are excluded by reference markers. The overall item remains open.
+  * [x] (Codex) Move-only `sort`, heap operations and `partial_sort`;
+    pivot partitioning avoids copying or comparing moved-from values.
+    Heap temporaries hold iterator values, not packed-bit proxy aliases;
+    proxy `iter_swap` finds ADL swaps or saves a value for its fallback.
+  * [x] (Codex) Move-only `stable_partition`, with owned temporary storage,
+    partial-buffer recursion, allocation-failure fallback and exception cleanup.
+    Original regressions exercise throwing moves/predicates, bounded buffers,
+    stable order, identity preservation, comparison bounds and packed bits.
+  * `algorithms` (150 tests): 115/145 runner-selected tests pass. The remaining
+    30 compile failures are 28 missing `<random>` dependencies and two
+    unmarked C++17 `clamp` tests. Five tests are excluded by reference markers.
+    Move-only `nth_element` and `stable_sort` still have legacy copying helpers;
+    their reference tests require `<random>`. The overall item remains open.
 - [x] (Codex) **`<numeric>`:** `iota`; move assignment in
   `adjacent_difference` and safe iterator increments in `inner_product`.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests
@@ -407,10 +416,17 @@ exclude 25 C++11 and 24 C++14 tests.
 
 ## Infrastructure
 
+- [ ] **Constructor initializer exception cleanup (psclang).** A throw from
+  a function returning a trivial aggregate into a member initializer aborts
+  instead of propagating to the caller and destroying prior members.
+  `compiler-member-init-unwind.todo.cpp` is the reduced public-language
+  reproducer: host Clang passes and psclang fails at `-O0` and `-O2`.
+  It is deliberately outside the `.pass.cpp` regression set.
+
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.
-- [ ] **`-std=c++14` and `-O2` across the board.** The numbers above
-  are C++11 at `-O0`.
+- [ ] **`-std=c++14` and `-O2` across the board.** Completed batches record
+  their C++11/C++14 optimization matrix above; extend it to the remaining work.
 - [ ] **IRIX (n32, big-endian).** The C++11 headers are untested there.
   The IRIX psclang target is still to come.
 - [ ] **A C++11 `libstl`?** Whether something must go into a C++11-built

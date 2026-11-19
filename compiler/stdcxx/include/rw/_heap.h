@@ -73,7 +73,7 @@ inline void
 __push_heap (_RandomAccessIter __first, _RandomAccessIter __last,
              _Dist*, _Compare __comp)
 {
-    __push_heap (__first, _Dist (__last - __first), _Dist (), *__last, __comp);
+    __push_heap (__first, _Dist (__last - __first), _Dist (), _RWSTD_MOVE_VALUE (_RandomAccessIter, __last), __comp);
 }
 
 // 25.3.6.1
@@ -109,8 +109,8 @@ inline void
 __pop_heap (_RandomAccessIter __first, _RandomAccessIter __last,
             _RandomAccessIter __res, _TypeT __val, _Compare __cmp, _Dist*)
 {
-    *__res = *__first;
-    __adjust_heap (__first, _Dist (), _Dist (__last - __first), __val, __cmp);
+    *__res = _RWSTD_MOVE (*__first);
+    __adjust_heap (__first, _Dist (), _Dist (__last - __first), _RWSTD_MOVE (__val), __cmp);
 }
 
 
@@ -121,9 +121,13 @@ pop_heap (_RandomAccessIter __first, _RandomAccessIter __last, _Compare __comp)
 {
     _RWSTD_ASSERT_RANGE (__first, __last);
 
-    if (!(__first == __last)) {
+    if (!(__first == __last)
+#ifdef _RWSTD_CXX11
+        && __last - __first > 1
+#endif
+       ) {
         --__last;
-        __pop_heap (__first, __last, __last, *__last, __comp,
+        __pop_heap (__first, __last, __last, _RWSTD_MOVE_VALUE (_RandomAccessIter, __last), __comp,
                     _RWSTD_DIFFERENCE_TYPE (_RandomAccessIter));
     }
 }

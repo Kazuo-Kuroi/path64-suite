@@ -783,7 +783,7 @@ __unguarded_insertion_sort (_RandomAccessIter __first, _RandomAccessIter __last,
     _RWSTD_ASSERT_RANGE (__first, __last);
 
     for (_RandomAccessIter __i = __first; !(__i == __last); ++__i)
-        __unguarded_linear_insert (__i, *__i, __comp);
+        __unguarded_linear_insert (__i, _RWSTD_MOVE_VALUE (_RandomAccessIter, __i), __comp);
 }
 
 
