@@ -79,3 +79,9 @@ classification/rounding/exception flags, and stateful UTF-16/32 conversion.
 The supplementary Unicode checks need C.UTF-8; ASCII checks always run.
 compiler-limits-constants.todo.cpp saves the separate psclang linkage failure
 for __rw's numeric-limits constants; host Clang over the same runtime passes.
+
+string-conversions.pass.cpp checks narrow/wide numeric conversion boundaries,
+base prefixes, partial input, embedded NULs, invalid/range exceptions, consumed
+positions and errno restoration. Formatting checks include signed zero and
+maximum double/long-double output beyond the initial buffer. It also checks
+the C++11 stdio and stdlib numeric exports used by this work.

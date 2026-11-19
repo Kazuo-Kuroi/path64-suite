@@ -381,8 +381,16 @@ C++11 and 24 C++14 tests.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests
   excluded in C++11/14.
 - [ ] **`<string>`:**
-  * `to_string`, `to_wstring`, `stoi`/`stol`/`stoul`/`stoll`/`stoull`/
-    `stof`/`stod`/`stold` (`strings/string.conversions`, 10 tests);
+  * [x] (Codex) `to_string`, `to_wstring`, `stoi`/`stol`/`stoul`/`stoll`/
+    `stoull`/`stof`/`stod`/`stold`, for narrow and wide strings.
+    Parsing preserves errno, checks both libc and narrower `int` ranges,
+    and updates the consumed position only on success. Formatting grows
+    storage for large fixed-point results. Ten reference tests plus the
+    original boundary/formatting regression pass 11/11 with both compilers
+    in C++11/14 at `-O0` and `-O2`.
+    The same work adds the C++11 stdio formatting/scanning names and stdlib
+    numeric-conversion, long-long division and `_Exit` names in `std`.
+    Both reference header checks pass with both compilers across that matrix;
   * `hash<string>` and `hash<wstring>` are implemented.
   * `u16string`/`u32string`, `char_traits<char16_t>`
     and `char_traits<char32_t>` (`strings/char.traits`, 79 tests).

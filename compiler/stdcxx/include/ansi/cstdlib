@@ -252,6 +252,19 @@ namespace std {
     using ::wcstombs;
     using ::wctomb;
 
+#ifdef _RWSTD_CXX11
+    using ::_Exit;
+    using ::atoll;
+    using ::strtoll;
+    using ::strtoull;
+    using ::strtof;
+    using ::strtold;
+    using ::llabs;
+    using ::lldiv;
+    using ::lldiv_t;
+    inline lldiv_t div(long long __x, long long __y) { return ::lldiv(__x, __y); }
+#endif
+
 }   // namespace std
 
 #endif   // !_RWSTD_NO_NAMESPACE && !_RWSTD_NO_HONOR_STD && !_RWSTD_NO_USING_LIBC_IN_STD

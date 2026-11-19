@@ -1639,4 +1639,8 @@ template <> struct hash<wstring> : __rw_c11::__string_hash<wstring> { };
 #endif   // _RWSTD_DEFINE_TEMPLATE_LAST (_BASIC_STRING)
 
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_string_conversions.h>
+#endif
+
 #endif   // _RWSTD_STRING_INCLUDED

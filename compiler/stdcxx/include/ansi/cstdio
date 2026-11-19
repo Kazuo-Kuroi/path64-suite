@@ -254,6 +254,14 @@ namespace std {
     using ::vsprintf;
 #endif   // _RWSTD_NO_VSPRINTF
 
+#ifdef _RWSTD_CXX11
+    using ::snprintf;
+    using ::vsnprintf;
+    using ::vfscanf;
+    using ::vscanf;
+    using ::vsscanf;
+#endif
+
 }   // std
 
 

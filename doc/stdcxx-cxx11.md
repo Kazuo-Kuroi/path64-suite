@@ -37,6 +37,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
 | `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
 | `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition, selection and stable sorting | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
+| `<string>` | Numeric formatting/parsing for narrow/wide strings, string hashes; Unicode strings/traits remain open | string.conversions: 10/10 |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
@@ -56,7 +57,7 @@ test tools in `compiler/stdcxx/tests/cxx11`.
    `basic_string`, `map`/`set`.
 2. Remaining `<iterator>` additions (including `make_reverse_iterator`),
    `<algorithm>` and `<numeric>` additions.
-3. String conversions (`to_string`, `stoi`, ...) and Unicode string types.
+3. Unicode string types and character traits. Numeric string conversions are implemented.
 4. New headers: `<forward_list>`, `<unordered_map>`, `<unordered_set>`,
    `<ratio>`, `<chrono>`, `<system_error>`, `<atomic>`, `<thread>`,
    `<mutex>`, `<condition_variable>`, `<random>`; later `<future>`,
@@ -284,3 +285,35 @@ namespaced external numeric-limits constants. The saved
 `compiler-limits-constants.todo.cpp` fails to link with psclang, while host Clang
 over the same runtime passes. It remains an explicit compiler follow-up;
 C math `nan` and `nextafter` work independently of those constants.
+
+## Numeric string conversion checkpoint
+
+`rw/_c11_string_conversions.h` supplies all nine `to_string`/`to_wstring`
+overloads and the narrow/wide `stoi`, `stol`, `stoul`, `stoll`, `stoull`,
+`stof`, `stod` and `stold` interfaces. Parsing uses the matching libc function,
+checks `ERANGE` and any narrower `int` range, and distinguishes invalid input
+from out-of-range values. A scope guard restores the caller's errno on success
+or exception; consumed positions change only after successful conversion.
+Integer bases, locale rules, floating special values and signed zero follow libc.
+
+Formatting uses the specified printf conversion forms, starts with a small
+buffer and grows storage when necessary. The wide path handles libc returning
+a negative value rather than the required size for an undersized buffer.
+Maximum double and long-double fixed-point output is checked against libc.
+The string and C-header additions are selected only in C++11/14 mode.
+
+The ten reference conversion tests and `string-conversions.pass.cpp` pass 11/11
+with psclang and host Clang in C++11 and C++14 at `-O0` and `-O2`. The original
+checks cover signed/unsigned limits, range errors, unchanged error positions,
+errno restoration, bases, embedded NULs, infinities, NaNs, signed zero and
+large narrow/wide output. The follow-up `<cstdio>`/`<cstdlib>` exports also
+pass both reference header tests across that matrix: bounded and variadic
+formatting/scanning, C numeric conversions, long-long absolute value/division,
+and `_Exit`. Unicode string aliases/traits remain the next string TODO.
+
+The combined C++14 `-O2` foundations/conversion/original-regression run is
+629/633: three raw-pointer-incompatible vector reference tests still fail to
+compile, and the unchanged tuple extension `PR31384` differs at runtime. All
+23 original regressions pass in C++14 at both levels; 22 apply in C++11 and
+pass at both levels. The eleven C++98/C++03 language probes remain green at
+`-O0` and `-O2`.
