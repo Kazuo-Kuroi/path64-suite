@@ -41,6 +41,7 @@
 #include "c2w_map.h"
 
 typedef struct break_continue_info_t {
+  size_t            dtor_depth;
   clang::Stmt::StmtClass       tree_code;
   LABEL_IDX break_label_idx;
   LABEL_IDX continue_label_idx;

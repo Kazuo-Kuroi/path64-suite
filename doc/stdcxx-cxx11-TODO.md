@@ -443,6 +443,14 @@ extension `PR31384` are unchanged.
   returns null. Null results skip cookie stores and initialization.
   `compiler-array-length.pass.cpp` covers these paths and ordinary `bad_alloc`.
 
+- [x] (Codex) **Loop/switch body jump cleanup (psclang).** `break` and
+  `continue` destroy live automatic objects in the scopes they leave, in
+  reverse construction order, preserving objects belonging to enclosing
+  scopes. Cleanup snapshots leave fallthrough paths intact. The original
+  `compiler-loop-cleanup.pass.cpp` checks nested blocks, switches, for/while/do
+  loops and C++11 range-for; `nth-element.pass.cpp` also exercises a vector
+  destroyed by `continue`.
+
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.
 - [ ] **`-std=c++14` and `-O2` across the board.** Completed batches record

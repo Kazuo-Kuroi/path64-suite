@@ -59,3 +59,7 @@ compiler-array-length.pass.cpp checks invalid new[] bounds, payload/cookie
 limits, initializer counts, one-time bound evaluation, nonthrowing null results
 and ordinary allocation failure. This exercises psclang's own bound lowering;
 other compiler frontends can select different exceptions over this runtime.
+
+compiler-loop-cleanup.pass.cpp checks destruction on break and continue,
+including nested loop/switch targets, fallthrough, enclosing objects, and
+reverse construction order. It also runs in C++98 (excluding range-for).

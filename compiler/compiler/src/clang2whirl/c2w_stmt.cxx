@@ -488,6 +488,7 @@ Record_Loop_Switch(const Stmt::StmtClass stmt, LABEL_IDX break_label_idx, LABEL_
                                        sizeof (BREAK_CONTINUE_INFO));
   }
 
+  break_continue_info_stack[break_continue_info_i].dtor_depth = dtor_call_stack.size();
   break_continue_info_stack
     [break_continue_info_i].scope_level        = scope_cleanup_i;
   break_continue_info_stack
@@ -681,6 +682,21 @@ WN *WhirlStmtBuilder::ConvertAttributedStmt(const AttributedStmt *stmt) {
   return NULL;
 }
 
+// A jump leaves only the scopes entered after its loop/switch was recorded.
+// Copy the cleanup stack: fallthrough and other branches still need its entries.
+static void Emit_jump_destructors(WhirlStmtBuilder *builder, size_t depth, SRCPOS spos) {
+  DTOR_CALL_STACK cleanups = dtor_call_stack;
+  while (cleanups.size() > depth) {
+    const DTOR_CALL_ITEM &item = cleanups.top();
+    if (item.second.second) {
+      WN *call = builder->Emit_cxx_destructor_call(item.second.first, item.second.second);
+      WN_Set_Linenum(call, spos);
+      WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), call);
+    }
+    cleanups.pop();
+  }
+}
+
 WN *WhirlStmtBuilder::ConvertBreakStmt(const BreakStmt *stmt) {
   TRACE_FUNC();
   Is_True(break_continue_info_i >= 0, ("No break/continue info"));
@@ -696,6 +712,7 @@ WN *WhirlStmtBuilder::ConvertBreakStmt(const BreakStmt *stmt) {
 
   WN *wn = WN_CreateGoto((ST_IDX)NULL, label_idx);
   WN_Set_Linenum(wn, SetSrcPos(getLocation(stmt)));
+  Emit_jump_destructors(this, break_continue_info_stack[i].dtor_depth, GetSrcPos());
   return With_dealloca(Vla_dealloca(break_continue_info_stack[i].scope_level), wn);
 }
 
@@ -1632,6 +1649,7 @@ WN *WhirlStmtBuilder::ConvertContinueStmt(const ContinueStmt *stmt) {
   Is_True(label_idx, ("null continue label idx"));
   WN *wn = WN_CreateGoto((ST_IDX)NULL, label_idx);
   WN_Set_Linenum(wn, SetSrcPos(getLocation(stmt)));
+  Emit_jump_destructors(this, break_continue_info_stack[i].dtor_depth, GetSrcPos());
   return With_dealloca(Vla_dealloca(break_continue_info_stack[i].scope_level), wn);
 }
 
