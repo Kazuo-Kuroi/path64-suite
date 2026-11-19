@@ -443,7 +443,23 @@ C++11 and 24 C++14 tests.
   Invalid-bound `new[]` exception selection is also implemented; see below.
 - [ ] **`<ios>`, `<istream>`, `<ostream>`:**
   * [x] (Codex) constrained rvalue insertion/extraction, preserving derived types;
-  * [ ] stream move and swap;
+  * [x] (Codex) protected stream-base moves/swaps, stream-buffer copy/swap,
+    and string/file buffer and stream moves, assignments and nonmember swaps.
+    Stream state moves once across the shared virtual base; buffer pointers
+    stay attached to each owning stream. Buffered positions, callback storage,
+    user data, external buffers, old-file closure and moved-from reuse have
+    original narrow/wide coverage with both compilers in C++11/14 at `-O0`/`-O2`.
+    The C++98 shared/static libraries are rebuilt; C++11 callers instantiate the
+    affected templates so new members do not require C++11 library binaries.
+    String-buffer output now starts at the beginning unless `ate`/`app` is set;
+    a separate original regression passes in C++98 and C++14 with both compilers.
+  * [ ] Stream compatibility follow-ups: default `flags()` exposes legacy
+    implementation bits (12 base-stream reference assertions); string buffers
+    assume default-constructible allocators (one reference compile failure).
+    The expanded base/string reference checkpoint is 49/62 with eight excluded
+    locale tests, with the thirteen failures accounted for by those two issues.
+    Four ifstream move/swap references run with their data fixtures. Four
+    file-buffer references need the pending `<codecvt>` header via test support.
   * [ ] `io_errc`, `iostream_category` (depends on `<system_error>`);
   * [x] (Codex) `get_money`, `put_money`, `get_time`, `put_time`,
     `hexfloat`, `defaultfloat`, including facet exceptions and output failures.

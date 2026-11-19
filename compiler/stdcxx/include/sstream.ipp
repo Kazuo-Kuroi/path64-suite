@@ -174,9 +174,8 @@ str (const char_type *__s, _RWSTD_SIZE_T __slen)
             // restore the pptr
             this->pbump (__off);
         }
-        else if (   this->_C_state & ios_base::in
-                 || this->_C_state & (ios_base::app | ios_base::ate)) {
-            // in input or append/ate modes seek to end
+        else if (this->_C_state & (ios_base::app | ios_base::ate)) {
+            // Only append/ate modes start output at the end
             // (see also lwg issue 562 for clarification)
             this->pbump (__slen);
         }

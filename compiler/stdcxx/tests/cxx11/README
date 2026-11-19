@@ -121,3 +121,17 @@ it into independently compiled objects for ABI interoperability checks.
 
 compiler-wide-mask.pass.cpp checks 64-bit unsigned mask arithmetic around the
 32-bit boundary, including conditional shift counts and canonical constants.
+
+stream-moves.pass.cpp checks narrow/wide string-buffer ownership, get/put
+positions, formatting/user storage/callback transfer, swaps and moved-from reuse.
+stream-base-moves.pass.cpp exercises protected base moves/swaps and stream-buffer
+copy/swap without optional locales; a virtual basic_ios must be moved once.
+file-stream-moves.pass.cpp checks buffered input and output, replacing an open
+destination, moved-from reuse and caller-owned buffers using unique temp files.
+stream-buffer-position.pass.cpp is also runnable in C++98 and verifies that
+input mode does not imply output-at-end; ate still starts output at the end.
+ifstream reference move/swap tests require test.dat and test2.dat in the working
+directory. Other file-buffer tests include platform_support.h, which currently
+requires the pending codecvt header. Base reference flag comparisons see the
+library's existing implementation bits; string-buffer allocator support is
+still restricted to default-constructible allocators.

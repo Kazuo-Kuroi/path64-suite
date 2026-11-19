@@ -161,6 +161,33 @@ protected:
     // 27.5.2.1, p1: default mode argument is a convenience extension
     basic_streambuf (ios_base::openmode = ios_base::in | ios_base::out);
 
+#ifdef _RWSTD_CXX11
+    basic_streambuf(const basic_streambuf& __rhs)
+        : _C_buffer(0), _C_bufsize(0), _C_state(__rhs._C_state),
+          _C_eback(__rhs._C_eback), _C_gptr(__rhs._C_gptr), _C_egptr(__rhs._C_egptr),
+          _C_pbase(__rhs._C_pbase), _C_pptr(__rhs._C_pptr), _C_epptr(__rhs._C_epptr),
+          _C_locale(__rhs._C_locale) { }
+    basic_streambuf& operator=(const basic_streambuf& __rhs) {
+        _C_eback = __rhs._C_eback; _C_gptr = __rhs._C_gptr; _C_egptr = __rhs._C_egptr;
+        _C_pbase = __rhs._C_pbase; _C_pptr = __rhs._C_pptr; _C_epptr = __rhs._C_epptr;
+        _C_locale = __rhs._C_locale;
+        return *this;
+    }
+    void swap(basic_streambuf& __rhs) {
+        std::swap(_C_eback, __rhs._C_eback); std::swap(_C_gptr, __rhs._C_gptr);
+        std::swap(_C_egptr, __rhs._C_egptr); std::swap(_C_pbase, __rhs._C_pbase);
+        std::swap(_C_pptr, __rhs._C_pptr); std::swap(_C_epptr, __rhs._C_epptr);
+        std::swap(_C_locale, __rhs._C_locale);
+    }
+    // Derived owning buffers transfer this implementation's allocation too.
+    void _C_swap_buffer(basic_streambuf& __rhs) {
+        swap(__rhs);
+        std::swap(_C_buffer, __rhs._C_buffer);
+        std::swap(_C_bufsize, __rhs._C_bufsize);
+        std::swap(_C_state, __rhs._C_state);
+    }
+#endif
+
     // 27.5.2.3.1, p1
     char_type* eback () const {
         return _C_eback;
@@ -539,13 +566,14 @@ _C_is_valid () const
 
 _RWSTD_NAMESPACE (std) {
 
-#if _RWSTD_INSTANTIATE (_BASIC_STREAMBUF, _CHAR)
+// C++11 members are instantiated by the caller; the shared library is C++98.
+#if _RWSTD_INSTANTIATE (_BASIC_STREAMBUF, _CHAR) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_1 (class _RWSTD_TI_EXPORT basic_streambuf<char>);
 
 #endif   // _RWSTD_INSTANTIATE (_BASIC_STREAMBUF, _CHAR)
 
-#if _RWSTD_INSTANTIATE (_BASIC_STREAMBUF, _WCHAR_T)
+#if _RWSTD_INSTANTIATE (_BASIC_STREAMBUF, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_1 (class _RWSTD_TI_EXPORT basic_streambuf<wchar_t>);
 

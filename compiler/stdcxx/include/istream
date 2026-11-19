@@ -363,6 +363,21 @@ public:
 
 private:
 
+#ifdef _RWSTD_CXX11
+protected:
+    basic_istream() : _C_gcount(0) { this->init(0); }
+    basic_istream(basic_istream&& __rhs) : _C_gcount(__rhs._C_gcount) {
+        this->move(__rhs);
+        __rhs._C_gcount = 0;
+    }
+    basic_istream& operator=(basic_istream&& __rhs) { swap(__rhs); return *this; }
+    void swap(basic_istream& __rhs) {
+        basic_ios<char_type, traits_type>::swap(__rhs);
+        std::swap(_C_gcount, __rhs._C_gcount);
+    }
+private:
+#endif
+
     basic_istream& _C_get (basic_streambuf<char_type, traits_type>&, int_type);
 
     streamsize _C_gcount;   // number of chars extracted
@@ -589,6 +604,20 @@ public:
         : basic_istream<_CharT, _Traits>(__sb), 
           basic_ostream<_CharT, _Traits>(__sb)
         { /* 27.6.1.5.1, p1 */ }
+#ifdef _RWSTD_CXX11
+protected:
+    basic_iostream() { }
+    basic_iostream(basic_iostream&& __rhs)
+        : basic_istream<_CharT, _Traits>(std::move(__rhs)),
+          basic_ostream<_CharT, _Traits>(__rhs, 0) {
+        // Both bases share basic_ios. Move its state exactly once.
+    }
+    basic_iostream& operator=(basic_iostream&& __rhs) { swap(__rhs); return *this; }
+    void swap(basic_iostream& __rhs) {
+        basic_istream<_CharT, _Traits>::swap(__rhs);
+    }
+#endif
+
 };
 
 }   // namespace std
@@ -609,14 +638,15 @@ public:
 
 _RWSTD_NAMESPACE (std) {
 
-#if _RWSTD_INSTANTIATE (_BASIC_ISTREAM, _CHAR)
+// C++11 members are instantiated by the caller; the shared library is C++98.
+#if _RWSTD_INSTANTIATE (_BASIC_ISTREAM, _CHAR) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_istream<char, char_traits<char> >);
 
 #endif   // _RWSTD_INSTANTIATE (_BASIC_ISTREAM, _CHAR)
 
-#if _RWSTD_INSTANTIATE (_BASIC_ISTREAM, _WCHAR_T)
+#if _RWSTD_INSTANTIATE (_BASIC_ISTREAM, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_istream<wchar_t, char_traits<wchar_t> >);

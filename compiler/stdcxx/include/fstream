@@ -107,6 +107,21 @@ public:
     typedef typename traits_type::pos_type pos_type;
     typedef typename traits_type::off_type off_type;
 
+#ifdef _RWSTD_CXX11
+    basic_filebuf(basic_filebuf&& __rhs) : basic_filebuf() { swap(__rhs); }
+    basic_filebuf& operator=(basic_filebuf&& __rhs) {
+        if (this != &__rhs) { close(); swap(__rhs); }
+        return *this;
+    }
+    void swap(basic_filebuf& __rhs) {
+        this->_C_swap_buffer(__rhs);
+        std::swap(_C_file, __rhs._C_file);
+        std::swap(_C_cur_pos, __rhs._C_cur_pos);
+        std::swap(_C_beg_pos, __rhs._C_beg_pos);
+        std::swap(_C_pbacksize, __rhs._C_pbacksize);
+    }
+#endif
+
     // 27.8.1.2, p1
     basic_filebuf ()
         : _Streambuf(), _C_file (0),
@@ -372,6 +387,23 @@ public:
     typedef typename traits_type::pos_type pos_type;
     typedef typename traits_type::off_type off_type;
 
+#ifdef _RWSTD_CXX11
+    basic_ifstream(basic_ifstream&& __rhs)
+        : basic_istream<char_type, traits_type>(std::move(__rhs)),
+          _C_filebuf(std::move(__rhs._C_filebuf)) { this->set_rdbuf(&_C_filebuf); }
+    basic_ifstream& operator=(basic_ifstream&& __rhs) {
+        if (this != &__rhs) {
+            basic_istream<char_type, traits_type>::operator=(std::move(__rhs));
+            _C_filebuf = std::move(__rhs._C_filebuf);
+        }
+        return *this;
+    }
+    void swap(basic_ifstream& __rhs) {
+        basic_istream<char_type, traits_type>::swap(__rhs);
+        _C_filebuf.swap(__rhs._C_filebuf);
+    }
+#endif
+
     // NOTE: the ctors below pass the address of an unitialized
     //       member variable, _C_filebuf, to a base class ctor
     // the variable will be initialized only *after* the base
@@ -473,6 +505,23 @@ public:
     typedef typename traits_type::pos_type pos_type;
     typedef typename traits_type::off_type off_type;
 
+#ifdef _RWSTD_CXX11
+    basic_ofstream(basic_ofstream&& __rhs)
+        : basic_ostream<char_type, traits_type>(std::move(__rhs)),
+          _C_filebuf(std::move(__rhs._C_filebuf)) { this->set_rdbuf(&_C_filebuf); }
+    basic_ofstream& operator=(basic_ofstream&& __rhs) {
+        if (this != &__rhs) {
+            basic_ostream<char_type, traits_type>::operator=(std::move(__rhs));
+            _C_filebuf = std::move(__rhs._C_filebuf);
+        }
+        return *this;
+    }
+    void swap(basic_ofstream& __rhs) {
+        basic_ostream<char_type, traits_type>::swap(__rhs);
+        _C_filebuf.swap(__rhs._C_filebuf);
+    }
+#endif
+
     // NOTE: the ctors below pass the address of an unitialized
     //       member variable, _C_filebuf, to a base class ctor
     // the variable will be initialized only *after* the base
@@ -573,6 +622,23 @@ public:
     typedef typename traits_type::pos_type pos_type;
     typedef typename traits_type::off_type off_type;
 
+#ifdef _RWSTD_CXX11
+    basic_fstream(basic_fstream&& __rhs)
+        : basic_iostream<char_type, traits_type>(std::move(__rhs)),
+          _C_filebuf(std::move(__rhs._C_filebuf)) { this->set_rdbuf(&_C_filebuf); }
+    basic_fstream& operator=(basic_fstream&& __rhs) {
+        if (this != &__rhs) {
+            basic_iostream<char_type, traits_type>::operator=(std::move(__rhs));
+            _C_filebuf = std::move(__rhs._C_filebuf);
+        }
+        return *this;
+    }
+    void swap(basic_fstream& __rhs) {
+        basic_iostream<char_type, traits_type>::swap(__rhs);
+        _C_filebuf.swap(__rhs._C_filebuf);
+    }
+#endif
+
     // NOTE: the ctors below pass the address of an unitialized
     //       member variable, _C_filebuf, to a base class ctor
     // the variable will be initialized only *after* the base
@@ -663,6 +729,17 @@ private:
 };
 
 
+#ifdef _RWSTD_CXX11
+template<class _C, class _T>
+inline void swap(basic_filebuf<_C, _T>& __a, basic_filebuf<_C, _T>& __b) { __a.swap(__b); }
+template<class _C, class _T>
+inline void swap(basic_ifstream<_C, _T>& __a, basic_ifstream<_C, _T>& __b) { __a.swap(__b); }
+template<class _C, class _T>
+inline void swap(basic_ofstream<_C, _T>& __a, basic_ofstream<_C, _T>& __b) { __a.swap(__b); }
+template<class _C, class _T>
+inline void swap(basic_fstream<_C, _T>& __a, basic_fstream<_C, _T>& __b) { __a.swap(__b); }
+#endif
+
 }   // namespace std
 
 
@@ -679,7 +756,7 @@ private:
 
 _RWSTD_NAMESPACE (std) { 
 
-#if _RWSTD_INSTANTIATE (_BASIC_FILEBUF, _CHAR)
+#if _RWSTD_INSTANTIATE (_BASIC_FILEBUF, _CHAR) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_filebuf<char, char_traits<char> >);
@@ -687,7 +764,7 @@ _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
 #endif   // _RWSTD_INSTANTIATE (_BASIC_FILEBUF, _CHAR)
 
 
-#if _RWSTD_INSTANTIATE (_BASIC_FILEBUF, _WCHAR_T)
+#if _RWSTD_INSTANTIATE (_BASIC_FILEBUF, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_filebuf<wchar_t, char_traits<wchar_t> >);

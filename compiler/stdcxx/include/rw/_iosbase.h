@@ -48,6 +48,10 @@
 #endif   // _RWSTD_RW_TRAITS_H_INCLUDED
 
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_utility.h>
+#endif
+
 _RWSTD_NAMESPACE (std) {
 
 
@@ -309,6 +313,20 @@ protected:
 
     // 27.4.2.7, p1
     ios_base ();
+
+#ifdef _RWSTD_CXX11
+    // Exchange formatting and user storage without firing callbacks or moving
+    // the associated buffer or synchronization object.
+    void _C_swap(ios_base& __rhs) noexcept {
+        std::swap(_C_prec, __rhs._C_prec);
+        std::swap(_C_wide, __rhs._C_wide);
+        std::swap(_C_fmtfl, __rhs._C_fmtfl);
+        std::swap(_C_state, __rhs._C_state);
+        std::swap(_C_except, __rhs._C_except);
+        std::swap(_C_usr, __rhs._C_usr);
+        std::swap(_C_loc, __rhs._C_loc);
+    }
+#endif
 
     // implements basic_ios<T>::init()
     void _C_init (void*);

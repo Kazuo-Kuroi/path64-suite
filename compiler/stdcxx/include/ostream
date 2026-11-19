@@ -83,6 +83,16 @@ public:
         this->init (__sb);
     }
 
+#ifdef _RWSTD_CXX11
+protected:
+    basic_ostream() { this->init(0); }
+    basic_ostream(basic_ostream&, int) { }
+    basic_ostream(basic_ostream&& __rhs) { this->move(__rhs); }
+    basic_ostream& operator=(basic_ostream&& __rhs) { swap(__rhs); return *this; }
+    void swap(basic_ostream& __rhs) { ios_type::swap(__rhs); }
+public:
+#endif
+
     // implements sentry ctor
     basic_ostream& _C_opfx ();
 
@@ -248,7 +258,8 @@ public:
 
 
 #if defined (_MSC_VER) && _MSC_VER < 1310
-#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _CHAR)
+// C++11 members are instantiated by the caller; the shared library is C++98.
+#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _CHAR) && !defined (_RWSTD_CXX11)
 
 // explicit instantiation followed by explicit specialization is illegal
 // according to 14.6.4.1, p7 but MSVC allows it (linker errors otherwise)
@@ -258,7 +269,7 @@ _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
 
 #  endif   // _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _CHAR)
 
-#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _WCHAR_T)
+#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_ostream<wchar_t, char_traits<wchar_t> >);
@@ -570,14 +581,14 @@ inline wostream& flush (wostream& __strm)
 #  endif   // _RWSTD_MSVC
 
 
-#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _CHAR)
+#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _CHAR) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_ostream<char, char_traits<char> >);
 
 #  endif   // _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _CHAR)
 
-#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _WCHAR_T)
+#  if _RWSTD_INSTANTIATE (_BASIC_OSTREAM, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_ostream<wchar_t, char_traits<wchar_t> >);

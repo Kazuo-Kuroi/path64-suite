@@ -234,6 +234,21 @@ protected:
     // 27.4.4.1, p3
     void init (streambuf_type*);
 
+#ifdef _RWSTD_CXX11
+    void move(basic_ios& __rhs) {
+        if (this == &__rhs) return;
+        init(0);
+        swap(__rhs);
+        __rhs.tie(0);
+    }
+    void move(basic_ios&& __rhs) { move(__rhs); }
+    void swap(basic_ios& __rhs) noexcept {
+        this->_C_swap(__rhs);
+        std::swap(_C_fill, __rhs._C_fill);
+    }
+    void set_rdbuf(streambuf_type* __sb) { this->_C_rdbuf = __sb; }
+#endif
+
     // (conditionally) returns a pointer to a mutex in the associated
     // basic_streambuf object
     _RW::__rw_mutex* _C_bufmutex () const;
@@ -348,14 +363,15 @@ basic_ios<_CharT, _Traits>::_C_bufmutex () const
 
 _RWSTD_NAMESPACE (std) { 
 
-#if _RWSTD_INSTANTIATE (_BASIC_IOS, _CHAR)
+// C++11 members are instantiated by the caller; the shared library is C++98.
+#if _RWSTD_INSTANTIATE (_BASIC_IOS, _CHAR) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_ios<char, char_traits<char> >);
 
 #endif   // _RWSTD_INSTANTIATE (_BASIC_IOS, _CHAR)
 
-#if _RWSTD_INSTANTIATE (_BASIC_IOS, _WCHAR_T)
+#if _RWSTD_INSTANTIATE (_BASIC_IOS, _WCHAR_T) && !defined (_RWSTD_CXX11)
 
 _RWSTD_INSTANTIATE_2 (class _RWSTD_TI_EXPORT
                       basic_ios<wchar_t, char_traits<wchar_t> >);

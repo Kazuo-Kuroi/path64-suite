@@ -445,7 +445,7 @@ Streams support constrained rvalue insertion/extraction and the six money,
 time and floating-format manipulators. Six reference checks and the original
 integration test pass in C++11/14 at both optimization levels with both
 compilers. Four locale-dependent references are excluded by the runner.
-Moves/swaps and error categories remain pending. Hexadecimal floating output
+Error categories remain pending; the subsequent move/swap checkpoint is below. Hexadecimal floating output
 uses the existing shared formatter: both float flags select `%a`/`%A` and
 precision is ignored. This also changes that explicit flag combination for
 C++98 callers of the shared library; ordinary formats retain their behavior.
@@ -462,3 +462,40 @@ mask-expression compiler issue account for the five failures.
 The subsequent wide-mask fix clears the fifth failure above: all 38 bitset
 references now pass at psclang `-O2`. `compiler-wide-mask.pass.cpp` covers
 the isolated optimizer regression in C++98/11/14 at three optimization levels.
+
+
+### Stream move and swap checkpoint
+
+Protected moves and swaps now cover `basic_ios`, input/output streams and the
+shared virtual base of `basic_iostream`. Formatting, state, exception masks,
+fill, ties, callbacks and user storage transfer without invoking callbacks.
+Stream buffers expose protected copying and swapping. String/file buffers and
+all six owning stream classes provide move construction, move assignment and
+member/nonmember swap. Buffer allocations, get/put positions, file positions,
+conversion state and caller-owned buffers travel with the resource; each
+stream retains its own `rdbuf()` object. File-buffer assignment closes the
+previous destination file before transferring ownership.
+
+C++11 callers instantiate the affected classes instead of using the C++98
+`extern template` declarations, which otherwise suppress emission of new
+members absent from the shared library. Class layouts are unchanged. Both
+C++98 shared/static libraries have been rebuilt. The older read/write
+string-buffer constructor also incorrectly placed output at the end without
+`ate`/`app`; the corrected positioning has C++98/C++14 narrow/wide checks.
+
+The three original move suites and wide-mask regression pass with psclang and
+host Clang in C++11/C++14 at `-O0`/`-O2`. The latest complete PathScale C++14
+`-O2` original suite passes 35/35; the additional positioning regression passes
+separately in both compiler modes. Eleven legacy C++98/03 probes still pass at
+both optimization levels, and the IRIX backend builds with the mask fix.
+The full host-original suite retains its compiler-array-length incompatibility;
+its new stream tests pass.
+
+Expanded base/string references give 49/62 passes with both compilers at
+C++14 `-O2`, plus eight locale exclusions. Twelve assertions assume default
+`flags()` contains no implementation bits; this library exposes extra legacy
+bits. One allocator test needs a non-default-constructible allocator, which
+string buffers do not yet preserve. Four ifstream move/swap references use
+supplied input fixtures. Four file-buffer move/swap references cannot compile
+their support header until `<codecvt>` exists. These limits remain in the TODO;
+stream error categories depend on the forthcoming `<system_error>` header.
