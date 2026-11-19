@@ -77,8 +77,8 @@ c-library.pass.cpp checks the C++11 C-header interfaces together: native integer
 type identity and macros, formatting/parsing, math overloads and ADL, floating
 classification/rounding/exception flags, and stateful UTF-16/32 conversion.
 The supplementary Unicode checks need C.UTF-8; ASCII checks always run.
-compiler-limits-constants.todo.cpp saves the separate psclang linkage failure
-for __rw's numeric-limits constants; host Clang over the same runtime passes.
+compiler-limits-constants.pass.cpp is the promoted psclang regression for
+__rw's numeric-limits constants, now referenced with their proper ABI names.
 
 string-conversions.pass.cpp checks narrow/wide numeric conversion boundaries,
 base prefixes, partial input, embedded NULs, invalid/range exceptions, consumed
@@ -91,3 +91,9 @@ operations (including narrow/wide traits), bounded searches against a protected
 memory page, overlapping moves, string aliases, copies/mutation, modifiers,
 embedded NULs and noncharacters, surrogate/code-point storage, and hashes.
 The protected-page checks use the Linux mmap/mprotect interfaces.
+
+compiler-variable-linkage.pass.cpp checks namespace variables inside explicit
+C++ linkage blocks, shared C linkage, static members, guarded locals and template
+locals. Compile it with LINKAGE_PROVIDER_ONLY to produce the definitions object;
+compile with LINKAGE_CONSUMER_ONLY and link that object to check a second
+compiler against it. Default mode provides the usual single-file regression.

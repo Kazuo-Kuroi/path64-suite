@@ -1,5 +1,4 @@
-// Open compiler/runtime ABI issue: psclang refers to an unmangled constant,
-// while the GCC-built library and host Clang use its __rw namespace name.
+// Original psclang ABI regression: reference the library's namespaced constants.
 #include <limits>
 int main() {
     volatile double nan = std::numeric_limits<double>::quiet_NaN();

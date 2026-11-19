@@ -115,8 +115,8 @@ checks for completed record members/bases, inner catches and temporary
 arguments. Invalid array bounds select `bad_array_new_length` or a null result
 for nonthrowing allocation; null allocations skip initialization. Loop/switch
 body objects are destroyed on `break` and `continue`. The `<new>` allocation-error
-APIs are implemented and tested. Namespaced numeric-limits constant linkage
-remains a compiler TODO.
+APIs are implemented and tested. Namespaced numeric-limits constants now use
+the proper ABI names, with host-compiler object interoperability checks.
 
 See [C++11/14 design and status](doc/stdcxx-cxx11.md),
 [the implementation TODO](doc/stdcxx-cxx11-TODO.md), and

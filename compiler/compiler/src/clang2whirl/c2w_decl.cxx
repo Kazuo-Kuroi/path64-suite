@@ -233,16 +233,21 @@ WhirlDeclBuilder::ConvertName(const Decl *decl, const llvm::StringRef &str, INT 
     else
       return _builder->EnterString(str);
   } else if (_builder->Lang_CPP()) {
+    // Linkage specifications are transparent for a variable's namespace.
+    // Let Clang decide its ABI name, including extern "C" exceptions, rather
+    // than inferring linkage from the immediate declaration context.
+    if (const VarDecl *var = dyn_cast<VarDecl>(decl)) {
+      if (var->hasGlobalStorage() &&
+          _builder->MangleContext()->shouldMangleDeclName(var))
+        return _builder->EnterString(GetMangledName(decl, variant));
+      return _builder->EnterString(str);
+    }
     if ((decl->isFunctionOrFunctionTemplate() &&
          !cast<FunctionDecl>(decl)->isExternC() &&
          str.str() != "main") ||         /* don't mangle 'main' and extern "C" functions */
          (decl->getDeclContext()->isNamespace() &&
           !isa<ClassTemplateSpecializationDecl>(decl) &&
-          !isa<CXXRecordDecl>(decl)) ||  /* don't mangle class/record decl */
-         (isa<VarDecl>(decl) &&
-          (cast<VarDecl>(decl)->isStaticDataMember() ||
-           cast<VarDecl>(decl)->isStaticLocal())) ||   /* mangle static var and data member  */
-         (isa<VarTemplateSpecializationDecl>(decl))) { /* mangle var template specialization */
+          !isa<CXXRecordDecl>(decl))) {  /* don't mangle class/record decl */
       return _builder->EnterString(GetMangledName(decl, variant));
     } else {
       return _builder->EnterString(str);

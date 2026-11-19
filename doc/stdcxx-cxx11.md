@@ -279,11 +279,11 @@ These are Linux x86-64 results. IRIX's C++ library port still needs configuratio
 and execution coverage; its sysroot lacks `<uchar.h>`, and several fenv
 functions use older `void` return signatures requiring adapters.
 
-The integration work also exposed a separate psclang/library ABI problem with
-namespaced external numeric-limits constants. The saved
-`compiler-limits-constants.todo.cpp` fails to link with psclang, while host Clang
-over the same runtime passes. It remains an explicit compiler follow-up;
-C math `nan` and `nextafter` work independently of those constants.
+The integration work also exposed a psclang/library ABI problem with
+namespaced external numeric-limits constants. It is now fixed by the variable
+mangling change described below; `compiler-limits-constants.pass.cpp` is the
+promoted reproducer. C math `nan` and `nextafter` work independently of those
+constants.
 
 ## Numeric string conversion checkpoint
 
@@ -342,3 +342,31 @@ All 200 shared/static C++98 library objects rebuild. These results are from
 Linux x86-64; IRIX C++ library configuration and execution remain separate work.
 The Phase 3 string feature list is complete; Phase 2 basic_string
 move/emplacement modernization is still open.
+
+## Variable linkage checkpoint
+
+psclang previously inferred variable mangling from the immediate declaration
+context. An `extern "C++"` block inside a namespace hid that namespace, so
+references to the GCC-built library's `__rw` numeric-limits constants used
+unmangled names. Two namespaces declaring the same variable name inside these
+blocks could also emit duplicate assembler symbols.
+
+Variables with global storage now use Clang's ABI mangling decision. This
+preserves C linkage and handles namespaced variables, static data members and
+static locals, while ordinary function/template locals retain their local names.
+The old failing limits test is now `compiler-limits-constants.pass.cpp`.
+`compiler-variable-linkage.pass.cpp` checks distinct namespace variables,
+constant data, shared C linkage, static members, guarded local initialization
+and template-local values. Its provider/consumer build modes support separate
+translation units produced by different compilers.
+
+The linkage/Unicode/limits checks pass 3/3 with psclang and host Clang in
+C++11/14 at `-O0` and `-O2`. All original regressions pass at both levels:
+25 applicable in C++11 and 26 in C++14. C++98 linkage/limits/sorting checks
+pass 3/3 at both levels, and all eleven C++98/C++03 language probes remain
+green. Separately compiled psclang/host-Clang and psclang/GCC provider/consumer
+objects link and run in both directions at `-O0` and `-O2` (eight combinations).
+The combined C++14 `-O2` foundations/strings/traits/original-regression batch
+passes 696/700 selected checks, with the same three raw-pointer-incompatible
+vector compile failures and tuple-extension `PR31384` runtime difference.
+There are 69 reference-marker exclusions and one expected failure.

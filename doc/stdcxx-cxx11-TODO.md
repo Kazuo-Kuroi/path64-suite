@@ -489,12 +489,14 @@ extension `PR31384` are unchanged.
   loops and C++11 range-for; `nth-element.pass.cpp` also exercises a vector
   destroyed by `continue`.
 
-- [ ] **Namespaced numeric-limits constants (psclang).** The saved
-  `compiler-limits-constants.todo.cpp` fails to link references to
-  `numeric_limits<double>::quiet_NaN()` and `denorm_min()`: psclang refers to
-  unmangled symbols, while the GCC-built library exports them in `__rw`.
-  Host Clang over the same headers/runtime passes. This was exposed by the
-  C-header integration checks; the C math APIs `nan` and `nextafter` work.
+- [x] (Codex) **Namespaced numeric-limits constants (psclang).** Variables
+  with global storage now use Clang's ABI mangling decision, including
+  namespace variables inside transparent `extern "C++"` blocks. C linkage
+  stays unmangled, and ordinary function locals retain their local names.
+  `compiler-limits-constants.pass.cpp` is the promoted reproducer.
+  `compiler-variable-linkage.pass.cpp` checks namespace collisions, constants,
+  shared C linkage, static members, guarded locals and template-local values.
+  Provider/consumer modes allow host-Clang/GCC object interoperability checks.
 
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.
