@@ -45,6 +45,7 @@
 
 #ifdef _RWSTD_CXX11
 #  include <rw/_c11_utility.h>
+#  include <iosfwd>
 #endif
 
 #ifndef _RWSTD_STRICT_HEADERS
@@ -837,6 +838,11 @@ public:
 
 
 typedef basic_string<char, char_traits<char>, allocator<char> > string;
+#ifdef _RWSTD_CXX11
+typedef basic_string<char16_t, char_traits<char16_t>, allocator<char16_t> > u16string;
+typedef basic_string<char32_t, char_traits<char32_t>, allocator<char32_t> > u32string;
+#endif
+
 
 #ifndef _RWSTD_NO_WCHAR_T
 
@@ -1623,6 +1629,8 @@ template <> struct hash<string> : __rw_c11::__string_hash<string> { };
 #ifndef _RWSTD_NO_WCHAR_T
 template <> struct hash<wstring> : __rw_c11::__string_hash<wstring> { };
 #endif
+template <> struct hash<u16string> : __rw_c11::__string_hash<u16string> { };
+template <> struct hash<u32string> : __rw_c11::__string_hash<u32string> { };
 
 #endif   // _RWSTD_CXX11
 

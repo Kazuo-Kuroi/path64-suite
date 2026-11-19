@@ -45,6 +45,11 @@ struct char_traits;
 _RWSTD_SPECIALIZED_CLASS
 struct char_traits<char>;
 
+#ifdef _RWSTD_CXX11
+template<> struct char_traits<char16_t>;
+template<> struct char_traits<char32_t>;
+#endif
+
 #ifndef _RWSTD_NO_WCHAR_T
 
 _RWSTD_SPECIALIZED_CLASS

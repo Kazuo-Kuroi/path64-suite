@@ -380,7 +380,7 @@ C++11 and 24 C++14 tests.
   `adjacent_difference` and safe iterator increments in `inner_product`.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests
   excluded in C++11/14.
-- [ ] **`<string>`:**
+- [x] (Codex) **`<string>` Phase 3 additions:**
   * [x] (Codex) `to_string`, `to_wstring`, `stoi`/`stol`/`stoul`/`stoll`/
     `stoull`/`stof`/`stod`/`stold`, for narrow and wide strings.
     Parsing preserves errno, checks both libc and narrower `int` ranges,
@@ -392,8 +392,16 @@ C++11 and 24 C++14 tests.
     numeric-conversion, long-long division and `_Exit` names in `std`.
     Both reference header checks pass with both compilers across that matrix;
   * `hash<string>` and `hash<wstring>` are implemented.
-  * `u16string`/`u32string`, `char_traits<char16_t>`
-    and `char_traits<char32_t>` (`strings/char.traits`, 79 tests).
+  * [x] (Codex) `u16string`/`u32string`, their hashes, dedicated
+    `char_traits<char16_t>`/`char_traits<char32_t>` and stream-position aliases.
+    Code-unit integer types match `<cstdint>`; bounded searches never inspect
+    the next element. Narrow/wide scalar trait operations are constexpr in
+    C++11/14. `strings/char.traits`: 64/64 applicable reference tests pass;
+    15 C++20 char8_t tests are excluded. With conversion tests and the original
+    Unicode regression, 75/75 pass with both compilers in C++11/14 at `-O0`/`-O2`.
+    Original checks include guard-page search bounds, overlapping moves,
+    surrogate/code-point storage, mutation/copies, modifiers, hashes and constants.
+    Phase 2 basic_string move/emplacement modernization remains separate.
 - [x] (Codex) **C library headers (Linux x86-64):**
   * `<cmath>`: C++11 C99 functions, float/long-double and integral/mixed
     overloads, suffixed functions, boolean classification/comparison predicates

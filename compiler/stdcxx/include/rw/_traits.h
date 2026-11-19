@@ -41,6 +41,10 @@
 #endif   // _RWSTD_RW_MBSTATE_H_INCLUDED
 
 
+#ifdef _RWSTD_CXX11
+#  include <cstdint>
+#endif
+
 #if defined (_RWSTDDEBUG) || defined (_RWSTD_EDG_ECCP)
 
 // avoid including <cstring> and <cwchar> in debug mode or when using
@@ -396,7 +400,7 @@ struct char_traits<char>
     typedef _RWSTD_MBSTATE_T state_type;
     typedef fpos<state_type> pos_type;
 
-    static int_type eof () {
+    static _RWSTD_CONSTEXPR int_type eof () {
         return int_type (_RWSTD_EOF);
     }
 
@@ -404,11 +408,11 @@ struct char_traits<char>
         __c1 = __c2;
     }
 
-    static bool eq (const char_type& __c1, const char_type& __c2) {
+    static _RWSTD_CONSTEXPR bool eq (const char_type& __c1, const char_type& __c2) {
         return __c1 == __c2;
     }
 
-    static bool lt (const char_type& __c1, const char_type& __c2) {
+    static _RWSTD_CONSTEXPR bool lt (const char_type& __c1, const char_type& __c2) {
         // lwg issue 467: cast arguments to unsigned char
         // to get the same result as memcmp(&c1, &c2) < 0
         return   _RWSTD_STATIC_CAST (unsigned char, __c1)
@@ -452,19 +456,19 @@ struct char_traits<char>
         return __s;
     }
 
-    static bool eq_int_type (const int_type& __c1, const int_type& __c2) {
+    static _RWSTD_CONSTEXPR bool eq_int_type (const int_type& __c1, const int_type& __c2) {
         return __c1 == __c2;
     }
 
-    static int_type not_eof (const int_type& __c) {
+    static _RWSTD_CONSTEXPR int_type not_eof (const int_type& __c) {
         return eq_int_type (eof (), __c) ? 0 : __c;
     }
                         
-    static char_type to_char_type (const int_type& __c) {
+    static _RWSTD_CONSTEXPR char_type to_char_type (const int_type& __c) {
         return _RWSTD_STATIC_CAST (char_type, __c);
     }
       
-    static int_type to_int_type (const char_type& __c) {
+    static _RWSTD_CONSTEXPR int_type to_int_type (const char_type& __c) {
         // make sure (signed char)'\xff' converts to 255 and not -1
         return _RWSTD_STATIC_CAST (unsigned char, __c);
     }
@@ -483,7 +487,7 @@ struct char_traits<wchar_t>
     typedef _RWSTD_MBSTATE_T state_type;
     typedef fpos<state_type> pos_type;
 
-    static int_type eof () {
+    static _RWSTD_CONSTEXPR int_type eof () {
         return int_type (_RWSTD_WEOF);
     }
 
@@ -491,11 +495,11 @@ struct char_traits<wchar_t>
         __c1 = __c2;
     }
 
-    static bool eq (const char_type& __c1, const char_type& __c2) {
+    static _RWSTD_CONSTEXPR bool eq (const char_type& __c1, const char_type& __c2) {
         return __c1 == __c2;
     }
 
-    static bool lt (const char_type& __c1, const char_type& __c2) {
+    static _RWSTD_CONSTEXPR bool lt (const char_type& __c1, const char_type& __c2) {
         return __c1 < __c2;
     }
 
@@ -535,25 +539,29 @@ struct char_traits<wchar_t>
         return __s;
     }
 
-    static bool eq_int_type (const int_type& __c1, const int_type& __c2) {
+    static _RWSTD_CONSTEXPR bool eq_int_type (const int_type& __c1, const int_type& __c2) {
         return __c1 == __c2;
     }
 
-    static int_type not_eof (const int_type& __c) {
+    static _RWSTD_CONSTEXPR int_type not_eof (const int_type& __c) {
         return eq_int_type (eof (), __c) ? 0 : __c;
     }
 
-    static char_type to_char_type (const int_type& __c) {
+    static _RWSTD_CONSTEXPR char_type to_char_type (const int_type& __c) {
         return __c;
     }
       
-    static int_type to_int_type (const char_type& __c) {
+    static _RWSTD_CONSTEXPR int_type to_int_type (const char_type& __c) {
         return __c;
     }
 };
 
 #endif   // _RWSTD_NO_WCHAR_T
 
+
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_char_traits.h>
+#endif
 
 }   // namespace std
 

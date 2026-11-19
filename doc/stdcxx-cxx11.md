@@ -37,7 +37,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
 | `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
 | `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition, selection and stable sorting | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
-| `<string>` | Numeric formatting/parsing for narrow/wide strings, string hashes; Unicode strings/traits remain open | string.conversions: 10/10 |
+| `<string>` | Numeric formatting/parsing, UTF-16/32 aliases and traits, string hashes | conversions: 10/10; char.traits: 64/64 applicable |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
@@ -55,9 +55,8 @@ test tools in `compiler/stdcxx/tests/cxx11`.
 **Next phases:**
 1. Containers: move, `initializer_list` and `emplace` members for `list`,
    `basic_string`, `map`/`set`.
-2. Remaining `<iterator>` additions (including `make_reverse_iterator`),
-   `<algorithm>` and `<numeric>` additions.
-3. Unicode string types and character traits. Numeric string conversions are implemented.
+2. Remaining algorithm dependencies (`<random>`) and list-backed insertion coverage.
+3. Exception handles, nested exceptions, streams and bitset additions.
 4. New headers: `<forward_list>`, `<unordered_map>`, `<unordered_set>`,
    `<ratio>`, `<chrono>`, `<system_error>`, `<atomic>`, `<thread>`,
    `<mutex>`, `<condition_variable>`, `<random>`; later `<future>`,
@@ -309,7 +308,7 @@ errno restoration, bases, embedded NULs, infinities, NaNs, signed zero and
 large narrow/wide output. The follow-up `<cstdio>`/`<cstdlib>` exports also
 pass both reference header tests across that matrix: bounded and variadic
 formatting/scanning, C numeric conversions, long-long absolute value/division,
-and `_Exit`. Unicode string aliases/traits remain the next string TODO.
+and `_Exit`. Unicode string aliases/traits are covered by the following checkpoint.
 
 The combined C++14 `-O2` foundations/conversion/original-regression run is
 629/633: three raw-pointer-incompatible vector reference tests still fail to
@@ -317,3 +316,29 @@ compile, and the unchanged tuple extension `PR31384` differs at runtime. All
 23 original regressions pass in C++14 at both levels; 22 apply in C++11 and
 pass at both levels. The eleven C++98/C++03 language probes remain green at
 `-O0` and `-O2`.
+
+## Unicode string checkpoint
+
+The C++11 layer now supplies `u16string` and `u32string`, corresponding hashes,
+dedicated `char_traits<char16_t>`/`char_traits<char32_t>` specializations and
+`u16streampos`/`u32streampos`. The traits use `uint_least16_t`/`uint_least32_t`
+as their integer types and compare numeric code-unit values rather than raw
+byte order. Bounded search returns without inspecting an element after the
+range, including null pointers with zero length. Memory moves support overlap.
+Narrow, wide and Unicode scalar trait operations support C++11 constant
+expressions; the new internal constexpr macro expands to nothing in C++98.
+
+All 64 applicable character-trait reference tests pass; 15 C++20 char8_t tests
+are excluded. With the ten numeric-conversion reference tests and
+`unicode-strings.pass.cpp`, the focused batch passes 75/75 with psclang and
+host Clang in C++11/14 at `-O0` and `-O2`. The original test checks position and
+integer types, constant expressions, numeric ordering, overlapping moves,
+zero-length operations and searches adjacent to a protected memory page.
+String checks cover UTF-16 surrogate pairs, UTF-32 code points, embedded NULs,
+noncharacter code units, copies/mutation, modifiers, reserve/resize and hashes.
+These aliases store code units; they do not perform Unicode transcoding.
+
+All 200 shared/static C++98 library objects rebuild. These results are from
+Linux x86-64; IRIX C++ library configuration and execution remain separate work.
+The Phase 3 string feature list is complete; Phase 2 basic_string
+move/emplacement modernization is still open.

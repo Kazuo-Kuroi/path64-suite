@@ -204,6 +204,13 @@ class fpos;
 typedef fpos<_RWSTD_MBSTATE_T> streampos;
 typedef fpos<_RWSTD_MBSTATE_T> wstreampos;
 
+#ifdef _RWSTD_CXX11
+typedef _RWSTD_STREAMOFF streamoff;
+typedef _RWSTD_STREAMSIZE streamsize;
+typedef fpos<_RWSTD_MBSTATE_T> u16streampos;
+typedef fpos<_RWSTD_MBSTATE_T> u32streampos;
+#endif
+
 }   // namespace std
 
 

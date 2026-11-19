@@ -85,3 +85,9 @@ base prefixes, partial input, embedded NULs, invalid/range exceptions, consumed
 positions and errno restoration. Formatting checks include signed zero and
 maximum double/long-double output beyond the initial buffer. It also checks
 the C++11 stdio and stdlib numeric exports used by this work.
+
+unicode-strings.pass.cpp checks UTF-16/32 trait types, constexpr scalar
+operations (including narrow/wide traits), bounded searches against a protected
+memory page, overlapping moves, string aliases, copies/mutation, modifiers,
+embedded NULs and noncharacters, surrogate/code-point storage, and hashes.
+The protected-page checks use the Linux mmap/mprotect interfaces.
