@@ -72,3 +72,10 @@ stable-sorting.pass.cpp checks move-only stable_sort with full, partial and
 failed temporary-buffer allocation; ascending/descending stable identity
 ordering; packed-bit proxies; comparison bounds; and resource cleanup when
 moves or comparisons throw. Its buffer provider substitutes only raw storage.
+
+c-library.pass.cpp checks the C++11 C-header interfaces together: native integer
+type identity and macros, formatting/parsing, math overloads and ADL, floating
+classification/rounding/exception flags, and stateful UTF-16/32 conversion.
+The supplementary Unicode checks need C.UTF-8; ASCII checks always run.
+compiler-limits-constants.todo.cpp saves the separate psclang linkage failure
+for __rw's numeric-limits constants; host Clang over the same runtime passes.

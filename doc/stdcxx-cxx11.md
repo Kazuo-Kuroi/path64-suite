@@ -40,6 +40,8 @@ the reference for the design. Its test suite is the conformance test.
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
+| `<cmath>` | C99 functions and suffixed forms, arithmetic overloads, boolean classification and comparison predicates | c.math: 3/3 |
+| `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
 The libc++ tuple-extension test `PR31384` differs from stdcxx and the
 system C++ library. The remaining C++11 library work includes
@@ -244,3 +246,41 @@ compilers at `-O0` and `-O2`. The broader C++14 optimized foundations batch stay
 599/603 without original tests, with the same four reference incompatibilities.
 Shared and static libcxxrt rebuild on Linux and cross-build for big-endian
 IRIX n32/MIPS IV. No new IRIX hardware execution is claimed.
+
+## C library header checkpoint
+
+The C++11 `<cmath>` additions live in `rw/_c11_cmath.h`; the C++98 overloads
+remain unchanged. The new overloads preserve float and long-double return
+types and promote integral/mixed arithmetic arguments as required. Constraints
+keep unrelated user-defined types available for ADL. Classification predicates
+return `bool`, include integral and long-double arguments, and use the compiler's
+classification/sign builtins. Ordered comparisons first exclude NaNs, avoiding
+the backend's unfinished C comparison intrinsics and preserving floating-point
+flags for quiet NaNs. The reference cmath test includes overload/type checks.
+
+`<cinttypes>`, `<cfenv>` and `<cuchar>` import libc's types and functions, while `<ctgmath>`
+includes the math and complex interfaces and `<cstdbool>` provides the C++11
+compatibility macro. `<cstdint>` already uses the native C types on the tested
+configuration and passes the reference test. `c-library.pass.cpp` additionally
+checks integer formatting/parsing and type identity, mixed overloads, ADL,
+negative zero, subnormals, long-double classification, rounding modes, exception
+flags and stateful UTF-16/32 conversions. Supplementary Unicode conversions
+run when the host supplies the `C.UTF-8` locale; ASCII conversion is unconditional.
+
+All eight selected C-header reference tests plus the original stable-sort and
+C-header tests pass 10/10 with psclang and host Clang in C++11/14 at `-O0` and
+`-O2`. All 200 shared/static C++98 library objects rebuild, and a legacy
+stable-sort/math probe passes with GCC, psclang and host Clang at both levels.
+The combined iterator/algorithm/numeric/C-header batch and all original
+regressions pass 309/340 selected tests in C++11 at `-O0` and 311/342 in C++14
+at `-O2`. The 31 compile failures are unchanged (missing random support, two
+C++17 clamp tests and list move insertion), with no runtime failures.
+These are Linux x86-64 results. IRIX's C++ library port still needs configuration
+and execution coverage; its sysroot lacks `<uchar.h>`, and several fenv
+functions use older `void` return signatures requiring adapters.
+
+The integration work also exposed a separate psclang/library ABI problem with
+namespaced external numeric-limits constants. The saved
+`compiler-limits-constants.todo.cpp` fails to link with psclang, while host Clang
+over the same runtime passes. It remains an explicit compiler follow-up;
+C math `nan` and `nextafter` work independently of those constants.

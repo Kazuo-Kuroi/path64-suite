@@ -1057,6 +1057,7 @@ inline long double tanh (long double __x)
 
 #endif   // _RWSTD_NO_LONG_DOUBLE
 
+#ifndef _RWSTD_CXX11
 template <typename __T> int isinf(__T __x) {
     return __builtin_isinf(__x);
 }
@@ -1126,6 +1127,8 @@ template <typename __T> int isunordered(__T __x, __T __y) {
     return __builtin_isunordered(__x, __y);
 }
 
+#endif
+
 // using statements must come after the overloads.
 // working around MSVC6 PR# 27677
 #if !defined (_RWSTD_NO_HONOR_STD) && !defined (_RWSTD_NO_USING_LIBC_IN_STD)
@@ -1156,6 +1159,7 @@ _USING (::tanh);
 #endif   // !_RWSTD_NO_HONOR_STD && !_RWSTD_NO_USING_LIBC_IN_STD
 
 #ifdef _RWSTD_CXX11
+#include <rw/_c11_cmath.h>
 template <class _Tp, class _Up>
 inline typename enable_if<is_arithmetic<_Tp>::value && is_arithmetic<_Up>::value,
     typename common_type<

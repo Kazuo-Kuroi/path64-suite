@@ -103,16 +103,20 @@ Open work includes:
 The algorithm reference suite currently passes 115/145 runner-selected tests.
 Its remaining compile failures are 28 missing-`<random>` dependencies and two
 unmarked C++17 tests. Move-only `sort`, heap operations, `partial_sort` and
-`stable_partition` are covered by original tests, including packed-bit
-iterators and temporary-buffer exception cleanup. Move-only `nth_element`
-and `stable_sort` still need modernization. The iterator suite has one
+`stable_partition`, `nth_element` and `stable_sort` are covered by original
+tests, including packed-bit iterators, stable ordering and temporary-buffer
+exception cleanup. C++11 math overloads and the C library header wrappers
+have Linux x86-64 reference and integration coverage. The iterator suite has one
 list-dependent insertion failure. These are selected suites, not a
 whole-library conformance result.
 
 The saved constructor-initializer unwind failure is fixed, with expanded
 checks for completed record members/bases, inner catches and temporary
-arguments. Invalid-bound array-new exception selection remains a separate
-compiler TODO. The `<new>` allocation-error APIs are implemented and tested.
+arguments. Invalid array bounds select `bad_array_new_length` or a null result
+for nonthrowing allocation; null allocations skip initialization. Loop/switch
+body objects are destroyed on `break` and `continue`. The `<new>` allocation-error
+APIs are implemented and tested. Namespaced numeric-limits constant linkage
+remains a compiler TODO.
 
 See [C++11/14 design and status](doc/stdcxx-cxx11.md),
 [the implementation TODO](doc/stdcxx-cxx11-TODO.md), and

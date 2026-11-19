@@ -386,11 +386,23 @@ C++11 and 24 C++14 tests.
   * `hash<string>` and `hash<wstring>` are implemented.
   * `u16string`/`u32string`, `char_traits<char16_t>`
     and `char_traits<char32_t>` (`strings/char.traits`, 79 tests).
-- [ ] **C library headers:**
-  * `<cmath>`: the C++11 functions (`isnan`, `isinf`, `fpclassify`,
-    `round`, `trunc`, `hypot`...) in `std` (`numerics/c.math`);
-  * `<cstdint>`: everything in `std`;
-  * `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>`.
+- [x] (Codex) **C library headers (Linux x86-64):**
+  * `<cmath>`: C++11 C99 functions, float/long-double and integral/mixed
+    overloads, suffixed functions, boolean classification/comparison predicates
+    and ADL-safe arithmetic constraints. Classification handles signed zero,
+    subnormals and long double; unordered comparisons avoid ordered NaN tests.
+  * `<cstdint>`: existing native-libc imports verified, including type identity,
+    integer limits and constant macros; no replacement implementation needed.
+  * `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` wrappers.
+    Unicode conversion delegates to libc and its locale/state handling.
+  * Eight libc++ reference tests and two original regressions pass 10/10
+    with psclang and host Clang in C++11/14 at `-O0`/`-O2`. The originals
+    exercise stable sorting and C-header integration, floating-point flags,
+    rounding modes, signed zero, NaNs, integer formatting/parsing, and UTF-16/32.
+    All 200 shared/static C++98 library objects rebuild; a legacy stable-sort/
+    math probe passes with GCC, psclang and host Clang at both levels.
+    IRIX C++ library integration remains open: its sysroot lacks `<uchar.h>`
+    and several native fenv functions return `void` rather than C99's `int`.
 - [ ] **`<exception>`:** `exception_ptr`, `current_exception`,
   `rethrow_exception`, `make_exception_ptr`, `nested_exception`,
   `throw_with_nested`. These need libcxxrt (`language.support`).
@@ -398,7 +410,7 @@ C++11 and 24 C++14 tests.
   The six allocation-error reference tests and original handler concurrency/
   callback checks pass with psclang and host Clang in C++11/C++14 at `-O0`/`-O2`.
   Shared/static libcxxrt builds on Linux x86-64 and cross-builds for IRIX n32.
-  Invalid-bound `new[]` exception selection remains separate lowering work below.
+  Invalid-bound `new[]` exception selection is also implemented; see below.
 - [ ] **`<ios>`, `<istream>`, `<ostream>`:**
   * rvalue stream insertion and extraction;
   * stream move and swap;
@@ -460,6 +472,13 @@ extension `PR31384` are unchanged.
   `compiler-loop-cleanup.pass.cpp` checks nested blocks, switches, for/while/do
   loops and C++11 range-for; `nth-element.pass.cpp` also exercises a vector
   destroyed by `continue`.
+
+- [ ] **Namespaced numeric-limits constants (psclang).** The saved
+  `compiler-limits-constants.todo.cpp` fails to link references to
+  `numeric_limits<double>::quiet_NaN()` and `denorm_min()`: psclang refers to
+  unmangled symbols, while the GCC-built library exports them in `__rw`.
+  Host Clang over the same headers/runtime passes. This was exposed by the
+  C-header integration checks; the C math APIs `nan` and `nextafter` work.
 
 - [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
   job, with a list of the tests expected to pass, so regressions show.

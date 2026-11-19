@@ -1,0 +1,11 @@
+// C++11 C library interface. Original Path64 implementation.
+#ifndef _RWSTD_CINTTYPES_INCLUDED
+#define _RWSTD_CINTTYPES_INCLUDED
+#include <cstdint>
+#include <cstdlib>
+#include <inttypes.h>
+namespace std {
+using ::imaxdiv_t; using ::imaxabs; using ::imaxdiv;
+using ::strtoimax; using ::strtoumax; using ::wcstoimax; using ::wcstoumax;
+}
+#endif

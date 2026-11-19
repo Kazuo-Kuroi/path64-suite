@@ -1,0 +1,7 @@
+// C++11 C library interface. Original Path64 implementation.
+#ifndef _RWSTD_CSTDBOOL_INCLUDED
+#define _RWSTD_CSTDBOOL_INCLUDED
+#ifndef __bool_true_false_are_defined
+#define __bool_true_false_are_defined 1
+#endif
+#endif
