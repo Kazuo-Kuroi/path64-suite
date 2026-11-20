@@ -423,6 +423,22 @@ public:
         _RWSTD_LIST_INSERT_RANGE (begin (), __rhs.begin (), __rhs.end ());
     }
 
+#ifdef _RWSTD_CXX11
+    // The buffered representation owns an allocated sentinel. Give the source
+    // an empty sentinel rather than copying elements (which may be move-only).
+    // This allocation means this constructor cannot yet promise noexcept.
+    list (list&& __rhs)
+        : allocator_type (std::move (static_cast<allocator_type&>(__rhs))),
+          _RWSTD_NODE_BUFFER_INIT(0,0)
+          _C_next_avail (0), _C_last (0), _C_node (0), _C_length (0) {
+        // Keep the source allocator compatible with its replacement sentinel,
+        // and with its existing nodes if sentinel allocation throws.
+        static_cast<allocator_type&>(__rhs) = static_cast<allocator_type&>(*this);
+        _C_init (true);
+        _C_swap_data (__rhs);
+    }
+#endif
+
     ~list ();
 
     list& operator= (const list&);   
@@ -544,6 +560,48 @@ public:
 
     iterator insert (iterator __it, const_reference __x);
 
+#ifdef _RWSTD_CXX11
+    template <class... _Args>
+    iterator emplace (const_iterator __it, _Args&&... __args) {
+        _RWSTD_ASSERT_RANGE (begin (), __it);
+        _C_link_type __node = _C_get_node (false);
+        _TRY {
+            allocator_type& __alloc = *this;
+            allocator_traits<allocator_type>::construct (
+                __alloc, std::addressof (__node->_C_data),
+                std::forward<_Args>(__args)...);
+        } _CATCH (...) {
+            _C_put_node (__node);
+            _RETHROW;
+        }
+        // Publish the node only after construction succeeds.
+        __node->_C_next = _ITER_NODE (__it);
+        __node->_C_prev = _ITER_NODE (__it)->_C_prev;
+        __node->_C_prev->_C_next = __node;
+        __node->_C_next->_C_prev = __node;
+        ++_C_length;
+        return _C_make_iter (__node);
+    }
+
+    template <class... _Args> void emplace_front (_Args&&... __args) {
+        emplace (begin (), std::forward<_Args>(__args)...);
+    }
+    template <class... _Args> void emplace_back (_Args&&... __args) {
+        emplace (end (), std::forward<_Args>(__args)...);
+    }
+    void push_front (value_type&& __value) { emplace_front (std::move (__value)); }
+    void push_back (value_type&& __value) { emplace_back (std::move (__value)); }
+    iterator insert (iterator __it, value_type&& __value) {
+        return emplace (__it, std::move (__value));
+    }
+    iterator insert (const_iterator __it, value_type&& __value) {
+        return emplace (__it, std::move (__value));
+    }
+    iterator insert (const_iterator __it, const_reference __value) {
+        return insert (_C_make_iter (_ITER_NODE (__it)), __value);
+    }
+#endif
+
     // handles nonintegral types
     template<class _InputIterator>
     void _C_insert (const iterator &__it,
@@ -598,6 +656,16 @@ public:
 #endif
 
 protected:
+
+#ifdef _RWSTD_CXX11
+    void _C_swap_data (list& __rhs) noexcept {
+        std::swap (_C_node, __rhs._C_node);
+        std::swap (_C_length, __rhs._C_length);
+        _RWSTD_NODE_LIST_SWAP (__rhs);
+        std::swap (_C_next_avail, __rhs._C_next_avail);
+        std::swap (_C_last, __rhs._C_last);
+    }
+#endif
     
     void _C_transfer (iterator, iterator, iterator, list&);
 
