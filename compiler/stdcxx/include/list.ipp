@@ -85,7 +85,11 @@ void list<_TypeT, _Allocator>::_C_add_buffer (bool __is_list_empty)
             __next_buffer_size = _RWSTD_NEW_CAPACITY (list, this, 0);
         }          
      }
-    _C_buf_pointer __tmp = 
+#ifdef _RWSTD_CXX11
+    __next_buffer_size=(std::min)(__next_buffer_size,
+        static_cast<_RWSTD_SIZE_T>(_C_node_alloc_type(*this).max_size()));
+#endif
+    _C_buf_pointer __tmp =
         _C_buf_alloc_type (*this).allocate (1, (void*)_C_buflist);
 
     _TRY {
@@ -131,6 +135,10 @@ void list<_TypeT, _Allocator>::_C_transfer (iterator __it, iterator __first,
 {
     _RWSTD_ASSERT_RANGE (begin (), __it);
     _RWSTD_ASSERT_RANGE (__first, __last);
+#ifdef _RWSTD_CXX11
+    if (__first==__last) return;
+    if (!_C_node) { _C_init(true); __it=end(); }
+#endif
 
     if (this == &__x) {
         (*(_C_link_type ((*_ITER_NODE (__last))._C_prev)))._C_next =
@@ -154,7 +162,12 @@ void list<_TypeT, _Allocator>::_C_transfer (iterator __it, iterator __first,
 
 
 template <class _TypeT, class _Allocator>
-void list<_TypeT, _Allocator>::resize (size_type __size, _TypeT __val)
+void list<_TypeT, _Allocator>::resize (size_type __size,
+#ifdef _RWSTD_CXX11
+                                      const_reference __val)
+#else
+                                      _TypeT __val)
+#endif
 {
     if (__size > size ())
         insert (end (), __size - size (), __val);
@@ -170,6 +183,10 @@ template <class _TypeT, class _Allocator>
 list<_TypeT, _Allocator>&
 list<_TypeT, _Allocator>::operator= (const list<_TypeT, _Allocator>& __rhs)
 {
+#ifdef _RWSTD_CXX11
+    if (this!=std::addressof(__rhs))
+        _C_copy_assign(__rhs,typename _C_traits::propagate_on_container_copy_assignment());
+#else
     if (this != &__rhs) {
         iterator       __first1 = begin ();
         iterator       __last1  = end ();
@@ -185,6 +202,7 @@ list<_TypeT, _Allocator>::operator= (const list<_TypeT, _Allocator>& __rhs)
         else
             insert (__last1, __first2, __last2);
     }
+#endif
     return *this;
 }
 
@@ -192,6 +210,10 @@ list<_TypeT, _Allocator>::operator= (const list<_TypeT, _Allocator>& __rhs)
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::splice (iterator __it, list &__x)
 {
+#ifdef _RWSTD_CXX11
+    if (__x.empty()) return;
+    if (!_C_node) { _C_init(true); __it=end(); }
+#endif
     // assert 23.2.2.4, p3
     _RWSTD_ASSERT (&__x != this);
     _RWSTD_ASSERT_RANGE (begin (), __it);
@@ -234,6 +256,10 @@ void list<_TypeT, _Allocator>::splice (iterator __it, list &__x)
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::splice (iterator __i, list &__x, iterator __j)
 {
+#ifdef _RWSTD_CXX11
+    if (__j==__x.end()) return;
+    if (!_C_node) { _C_init(true); __i=end(); }
+#endif
     _RWSTD_ASSERT_RANGE (begin (), __i);
     _RWSTD_ASSERT_RANGE (__x.begin (), __j);
     
@@ -290,6 +316,9 @@ splice (iterator __i, list &__x, iterator __j, iterator __k)
 
     if (__j == __k)
         return;
+#ifdef _RWSTD_CXX11
+    if (!_C_node) { _C_init(true); __i=end(); }
+#endif
 
 #if !defined (_RWSTD_NO_LIST_NODE_BUFFER)
         insert (__i, __j, __k);
@@ -342,6 +371,19 @@ splice (iterator __i, list &__x, iterator __j, iterator __k)
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::remove (const_reference __val)
 {
+#ifdef _RWSTD_CXX11
+    // The removal value may refer to an element in this list (LWG 526).
+    // Keep that element alive until every comparison has finished.
+    iterator deferred=end();
+    for (iterator first=begin(); first!=end();) {
+        iterator current=first++;
+        if (*current==__val) {
+            if (std::addressof(*current)==std::addressof(__val)) deferred=current;
+            else erase(current);
+        }
+    }
+    if (deferred!=end()) erase(deferred);
+#else
     for (iterator __first = begin (), __last = end (); !(__first == __last); ) {
         iterator __next = __first;
         ++__next;
@@ -349,6 +391,7 @@ void list<_TypeT, _Allocator>::remove (const_reference __val)
             erase (__first);
         __first = __next;
     }
+#endif
 }
 
 

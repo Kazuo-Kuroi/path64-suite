@@ -45,6 +45,10 @@
 
 
 #include <memory>
+#ifdef _RWSTD_CXX11
+#  include <initializer_list>
+#  include <limits>
+#endif
 
 #include <rw/_algobase.h>
 #include <rw/_iterator.h>
@@ -54,6 +58,31 @@
 
 
 _RWSTD_NAMESPACE (std) { 
+
+#ifdef _RWSTD_CXX11
+// Keep raw node links while honoring rebound and fancy-pointer allocators.
+template <class _Allocator, class _Tp>
+struct __rw_list_allocator {
+    typedef typename allocator_traits<_Allocator>::template rebind_alloc<_Tp> _Alloc;
+    typedef allocator_traits<_Alloc> _Traits;
+    typedef _Tp* pointer;
+    _Alloc _C_alloc;
+    explicit __rw_list_allocator(const _Allocator& a) : _C_alloc(a) {}
+    pointer allocate(typename _Traits::size_type n, const void* = 0) {
+        return __rw_c11::__raw_address(_Traits::allocate(_C_alloc,n));
+    }
+    void deallocate(pointer p, typename _Traits::size_type n) {
+        if (p) _Traits::deallocate(_C_alloc,
+            pointer_traits<typename _Traits::pointer>::pointer_to(*p),n);
+    }
+    pointer address(_Tp& value) const { return std::addressof(value); }
+    template<class... _Args> void construct(pointer p, _Args&&... args) {
+        _Traits::construct(_C_alloc,p,std::forward<_Args>(args)...);
+    }
+    void destroy(pointer p) { _Traits::destroy(_C_alloc,p); }
+    typename _Traits::size_type max_size() const { return _Traits::max_size(_C_alloc); }
+};
+#endif
 
 template <class _TypeT>
 struct __rw_list_node
@@ -95,7 +124,7 @@ public:
 
     typedef  __rw_list_node<value_type>*                   _C_link_type;
     
-    __rw_list_iter () { }
+    __rw_list_iter () : _C_node(0) { }
 
     __rw_list_iter (const _C_link_type& __rhs)
         : _C_node (__rhs) { }
@@ -182,6 +211,19 @@ public:
 
     typedef _TypeT                                    value_type;
     typedef _Allocator                                allocator_type;
+#ifdef _RWSTD_CXX11
+    typedef allocator_traits<allocator_type> _C_traits;
+    typedef value_type& reference;
+    typedef const value_type& const_reference;
+    typedef typename _C_traits::size_type size_type;
+    typedef typename _C_traits::difference_type difference_type;
+    typedef typename _C_traits::pointer pointer;
+    typedef typename _C_traits::const_pointer const_pointer;
+    typedef __rw_list_node<value_type> _C_list_node;
+    typedef _C_list_node* _C_link_type;
+    typedef __rw_list_allocator<allocator_type,_C_list_node> _C_node_alloc_type;
+    typedef __rw_list_allocator<allocator_type,value_type> _C_value_alloc_type;
+#else
     typedef typename allocator_type::reference       reference;
     typedef typename allocator_type::const_reference const_reference;
     typedef typename allocator_type::size_type       size_type;
@@ -193,8 +235,13 @@ public:
 
     typedef _RWSTD_REBIND (allocator_type, _C_list_node)   _C_node_alloc_type;
     typedef _RWSTD_ALLOC_TYPE (allocator_type, value_type) _C_value_alloc_type;
+#endif
 
 
+#ifdef _RWSTD_CXX11
+    typedef __rw_list_iter<value_type,difference_type,value_type*,reference> _C_list_iter;
+    typedef __rw_list_iter<value_type,difference_type,const value_type*,const_reference> _C_list_citer;
+#else
     typedef __rw_list_iter<value_type, difference_type, pointer, reference>
     _C_list_iter; 
 
@@ -202,6 +249,7 @@ public:
                            const_reference>
     _C_list_citer;
 
+#endif
 
 #ifndef _RWSTD_NO_DEBUG_ITER
 
@@ -261,8 +309,13 @@ protected:
 
     // Node buffer data structure
     struct _C_nodebuf {
+#ifdef _RWSTD_CXX11
+        typedef __rw_list_allocator<allocator_type,_C_nodebuf> _C_alloc_type;
+        typedef _C_nodebuf* _C_pointer;
+#else
         typedef _RWSTD_REBIND (allocator_type, _C_nodebuf) _C_alloc_type;
         typedef typename _C_alloc_type::pointer           _C_pointer;
+#endif
 
         _C_pointer   _C_next_buf;
         size_type    _C_bufsize;
@@ -378,13 +431,35 @@ protected:
 
 public:
 
-    explicit
-    list (const allocator_type& __alloc = allocator_type ())
+#ifdef _RWSTD_CXX11
+    list() : list(allocator_type()) {}
+    explicit list(const allocator_type& __alloc)
+#else
+    explicit list (const allocator_type& __alloc = allocator_type ())
+#endif
         : allocator_type (__alloc), _RWSTD_NODE_BUFFER_INIT(0,0)
           _C_next_avail (0), _C_last (0), _C_node (0), _C_length (0) {
         _C_init (true);
     }
     
+#ifdef _RWSTD_CXX11
+    explicit list(size_type n, const allocator_type& a=allocator_type()) : list(a) {
+        _C_check_growth(n);
+        while (n--) emplace_back();
+    }
+    list(size_type n, const_reference value, const allocator_type& a=allocator_type()) : list(a) {
+        _C_check_growth(n);
+        while (n--) emplace_back(value);
+    }
+    template<class _InputIterator, class=typename enable_if<!is_integral<_InputIterator>::value>::type>
+    list(_InputIterator first, _InputIterator last, const allocator_type& a=allocator_type()) : list(a) {
+        for (; first!=last; ++first) emplace_back(*first);
+    }
+    list(const list& rhs) : list(rhs,_C_traits::select_on_container_copy_construction(rhs.get_allocator())) {}
+    list(const list& rhs, const allocator_type& a) : list(rhs.begin(),rhs.end(),a) {}
+    list(initializer_list<value_type> values, const allocator_type& a=allocator_type())
+        : list(values.begin(),values.end(),a) {}
+#else
     explicit
     list (size_type             __n, 
           const_reference       __x     = value_type (),
@@ -423,26 +498,47 @@ public:
         _RWSTD_LIST_INSERT_RANGE (begin (), __rhs.begin (), __rhs.end ());
     }
 
+#endif
+
 #ifdef _RWSTD_CXX11
-    // The buffered representation owns an allocated sentinel. Give the source
-    // an empty sentinel rather than copying elements (which may be move-only).
-    // This allocation means this constructor cannot yet promise noexcept.
-    list (list&& __rhs)
-        : allocator_type (std::move (static_cast<allocator_type&>(__rhs))),
+    // Transfer the complete buffer owner. A moved-from list has no sentinel;
+    // its first insertion materializes one using its current allocator.
+    list(list&& rhs) noexcept(is_nothrow_move_constructible<allocator_type>::value)
+        : allocator_type(std::move(static_cast<allocator_type&>(rhs))),
           _RWSTD_NODE_BUFFER_INIT(0,0)
-          _C_next_avail (0), _C_last (0), _C_node (0), _C_length (0) {
-        // Keep the source allocator compatible with its replacement sentinel,
-        // and with its existing nodes if sentinel allocation throws.
-        static_cast<allocator_type&>(__rhs) = static_cast<allocator_type&>(*this);
-        _C_init (true);
-        _C_swap_data (__rhs);
+          _C_next_avail(0), _C_last(0), _C_node(0), _C_length(0) {
+        _C_swap_data(rhs);
     }
+    list(list&& rhs, const allocator_type& a) : list(a) {
+        if (a==rhs.get_allocator()) _C_swap_data(rhs);
+        else for (iterator i=rhs.begin(); i!=rhs.end(); ++i) emplace_back(std::move(*i));
+    }
+    list& operator=(list&& rhs)
+        noexcept(_C_traits::propagate_on_container_move_assignment::value &&
+                 is_nothrow_move_assignable<allocator_type>::value) {
+        if (this!=std::addressof(rhs))
+            _C_move_assign(rhs,typename _C_traits::propagate_on_container_move_assignment());
+        return *this;
+    }
+    list& operator=(initializer_list<value_type> values) { assign(values); return *this; }
+    void assign(initializer_list<value_type> values) { assign(values.begin(),values.end()); }
 #endif
 
     ~list ();
 
     list& operator= (const list&);   
 
+#ifdef _RWSTD_CXX11
+    template<class _InputIterator, class=typename enable_if<!is_integral<_InputIterator>::value>::type>
+    void assign(_InputIterator first, _InputIterator last) {
+        list replacement(first,last,get_allocator());
+        _C_swap_data(replacement);
+    }
+    void assign(size_type n, const_reference value) {
+        list replacement(n,value,get_allocator());
+        _C_swap_data(replacement);
+    }
+#else
     template<class _InputIterator>
     void assign (_InputIterator __first, _InputIterator __last) {
         _RWSTD_ASSERT_RANGE (__first, __last);
@@ -457,39 +553,77 @@ public:
         insert (begin (), __n, __val);
     }
 
-    allocator_type get_allocator () const {
+#endif
+
+    allocator_type get_allocator () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return *this;
     }
 
-    iterator begin () {
-        return _C_make_iter ((*_C_node)._C_next);
+    iterator begin ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
+        return _C_make_iter (_C_node ? _C_node->_C_next : _C_link_type(0));
     }
 
-    const_iterator begin () const {
-        return _C_make_iter ((*_C_node)._C_next);
+    const_iterator begin () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
+        return _C_make_iter (_C_node ? _C_node->_C_next : _C_link_type(0));
     }
 
-    iterator end () {
+    iterator end ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_make_iter (_C_node);
     }
 
-    const_iterator end () const {
+    const_iterator end () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_make_iter (_C_node);
     }
 
-    reverse_iterator rbegin () { 
+    reverse_iterator rbegin ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return reverse_iterator (end ());
     }
 
-    const_reverse_iterator rbegin () const { 
+    const_reverse_iterator rbegin () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return const_reverse_iterator (end ());
     }
 
-    reverse_iterator rend () { 
+    reverse_iterator rend ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return reverse_iterator (begin ());
     }
 
-    const_reverse_iterator rend () const {
+    const_reverse_iterator rend () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return const_reverse_iterator (begin ());
     }
 
@@ -500,23 +634,48 @@ public:
     const_reverse_iterator crend () const noexcept { return rend (); }
 #endif   // _RWSTD_CXX11
 
-    bool empty () const {
+    bool empty () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return 0 == size ();
     }
 
-    size_type size () const {
+    size_type size () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         return _C_length;
     }
 
-    size_type max_size () const {
+    size_type max_size () const
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
+#ifdef _RWSTD_CXX11
+        return (std::min)(_C_node_alloc_type(*this).max_size(),
+                         size_type((numeric_limits<difference_type>::max)()));
+#else
         return _C_node_alloc_type (*this).max_size ();
+#endif
     }
 
+#ifdef _RWSTD_CXX11
+    void resize(size_type, const_reference);
+    void resize(size_type n) {
+        if (n>size()) {
+            const size_type old=size();
+            _TRY { while (size()<n) emplace_back(); }
+            _CATCH (...) { while (size()>old) pop_back(); _RETHROW; }
+        } else while (size()>n) pop_back();
+    }
+#else
     void resize (size_type, value_type);
-
-    void resize (size_type __n) {
-        resize (__n, value_type ());
-    }
+    void resize (size_type __n) { resize (__n, value_type ()); }
+#endif
 
     reference front () {
         _RWSTD_ASSERT (!empty ());
@@ -564,6 +723,8 @@ public:
     template <class... _Args>
     iterator emplace (const_iterator __it, _Args&&... __args) {
         _RWSTD_ASSERT_RANGE (begin (), __it);
+        _C_check_growth(1);
+        if (!_C_node) { _C_init(true); __it=cend(); }
         _C_link_type __node = _C_get_node (false);
         _TRY {
             allocator_type& __alloc = *this;
@@ -617,6 +778,42 @@ public:
         _C_insert (__it, size_type (__first), const_reference (__last));
     }
 
+#ifdef _RWSTD_CXX11
+    template<class _InputIterator>
+    typename enable_if<!is_integral<_InputIterator>::value,iterator>::type
+    insert(const_iterator position, _InputIterator first, _InputIterator last) {
+        if (first==last) return _C_make_iter(_ITER_NODE(position));
+        if (!_C_node) { _C_init(true); position=cend(); }
+        iterator end=_C_make_iter(_ITER_NODE(position)), result=end;
+        _TRY {
+            for (; first!=last; ++first) {
+                iterator added=emplace(position,*first);
+                if (result==end) result=added;
+            }
+        } _CATCH (...) { erase(result,end); _RETHROW; }
+        return result;
+    }
+    iterator insert(const_iterator position, size_type n, const_reference value) {
+        _C_check_growth(n);
+        if (!n) return _C_make_iter(_ITER_NODE(position));
+        if (!_C_node) { _C_init(true); position=cend(); }
+        iterator end=_C_make_iter(_ITER_NODE(position)), result=end;
+        _TRY {
+            while (n--) {
+                iterator added=emplace(position,value);
+                if (result==end) result=added;
+            }
+        } _CATCH (...) { erase(result,end); _RETHROW; }
+        return result;
+    }
+    iterator insert(const_iterator position, initializer_list<value_type> values) {
+        return insert(position,values.begin(),values.end());
+    }
+    iterator erase(const_iterator position) { return erase(_C_make_iter(_ITER_NODE(position))); }
+    iterator erase(const_iterator first, const_iterator last) {
+        return erase(_C_make_iter(_ITER_NODE(first)),_C_make_iter(_ITER_NODE(last)));
+    }
+#else
     template<class _InputIterator>
     void insert (iterator __it, 
                  _InputIterator __first, _InputIterator __last) {
@@ -639,13 +836,27 @@ public:
         _C_insert (__it, __n, __val);
     }
 
+#endif
+
     iterator erase (iterator);
 
     iterator erase (iterator, iterator);
 
-    void swap (list&);
+    void swap (list&)
+#if __cplusplus >= 201402L
+        noexcept
+#elif defined(_RWSTD_CXX11)
+        noexcept(!_C_traits::propagate_on_container_swap::value ||
+                 (is_nothrow_move_constructible<allocator_type>::value &&
+                  is_nothrow_move_assignable<allocator_type>::value))
+#endif
+        ;
 
-    void clear () {
+    void clear ()
+#ifdef _RWSTD_CXX11
+        noexcept
+#endif
+    {
         erase (begin (), end ());
     }
 
@@ -658,6 +869,41 @@ public:
 protected:
 
 #ifdef _RWSTD_CXX11
+    void _C_check_growth(size_type n) const {
+        _RWSTD_REQUIRES(n<=max_size()-size(),
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("list growth"),
+                          static_cast<unsigned>(n), static_cast<unsigned>(max_size())));
+    }
+    void _C_release_storage() noexcept {
+        if (_C_node) {
+            clear();
+            _C_put_node(_C_node);
+            _RWSTD_NODE_LIST_FREE();
+        }
+        _C_node=0; _C_length=0; _C_next_avail=0; _C_last=0;
+    }
+    void _C_move_assign(list& rhs, true_type) {
+        _C_release_storage();
+        static_cast<allocator_type&>(*this)=std::move(static_cast<allocator_type&>(rhs));
+        _C_swap_data(rhs);
+    }
+    void _C_move_assign(list& rhs, false_type) {
+        if (get_allocator()==rhs.get_allocator()) { _C_release_storage(); _C_swap_data(rhs); }
+        else assign(make_move_iterator(rhs.begin()),make_move_iterator(rhs.end()));
+    }
+    void _C_copy_assign(const list& rhs, false_type) { assign(rhs.begin(),rhs.end()); }
+    void _C_copy_assign(const list& rhs, true_type) {
+        list replacement(rhs,rhs.get_allocator());
+        _C_release_storage();
+        static_cast<allocator_type&>(*this)=rhs.get_allocator();
+        _C_swap_data(replacement);
+    }
+    void _C_swap_allocator(list& rhs, true_type) {
+        std::swap(static_cast<allocator_type&>(*this),static_cast<allocator_type&>(rhs));
+    }
+    void _C_swap_allocator(list& rhs, false_type) {
+        _RWSTD_ASSERT(get_allocator()==rhs.get_allocator());
+    }
     void _C_swap_data (list& __rhs) noexcept {
         std::swap (_C_node, __rhs._C_node);
         std::swap (_C_length, __rhs._C_length);
@@ -797,6 +1043,9 @@ operator>= (const list<_TypeT, _Allocator>& __x,
 template <class _TypeT, class _Allocator>
 inline void swap (list<_TypeT, _Allocator>& __x, 
                   list<_TypeT, _Allocator>& __y)
+#ifdef _RWSTD_CXX11
+    noexcept(noexcept(__x.swap(__y)))
+#endif
 {
     __x.swap (__y);
 }
@@ -808,6 +1057,9 @@ template <class _TypeT, class _Allocator>
 inline typename list<_TypeT, _Allocator>::iterator 
 list<_TypeT, _Allocator>::insert (iterator __it, const_reference __x)
 {
+#ifdef _RWSTD_CXX11
+    return emplace(__it,__x);
+#else
     _RWSTD_ASSERT_RANGE (begin (), __it);
 
     // create temporary allocator for non-conforming compilers
@@ -835,6 +1087,7 @@ list<_TypeT, _Allocator>::insert (iterator __it, const_reference __x)
     ++_C_length;
 
     return _C_make_iter (__tmp);
+#endif
 }
 
 
@@ -857,9 +1110,14 @@ list<_TypeT, _Allocator>::erase (iterator __it)
 
     --_C_length;
 
+#ifdef _RWSTD_CXX11
+    _C_traits::destroy(static_cast<allocator_type&>(*this),
+                       std::addressof(_ITER_NODE(__it)->_C_data));
+#else
     _RWSTD_VALUE_ALLOC (_C_value_alloc_type, *this,
                         destroy (_RWSTD_VALUE_ALLOC (_C_value_alloc_type,
                             *this, address ((*_ITER_NODE (__it))._C_data))));
+#endif
     _C_put_node (_ITER_NODE (__it));
 
     return __tmp;
@@ -869,7 +1127,18 @@ list<_TypeT, _Allocator>::erase (iterator __it)
 template <class _TypeT, class _Allocator>
 inline void
 list<_TypeT, _Allocator>::swap (list &__x)
+#if __cplusplus >= 201402L
+    noexcept
+#elif defined(_RWSTD_CXX11)
+    noexcept(!_C_traits::propagate_on_container_swap::value ||
+             (is_nothrow_move_constructible<allocator_type>::value &&
+              is_nothrow_move_assignable<allocator_type>::value))
+#endif
 {
+#ifdef _RWSTD_CXX11
+    _C_swap_allocator(__x,typename _C_traits::propagate_on_container_swap());
+    _C_swap_data(__x);
+#else
     if (get_allocator () == __x.get_allocator ()) {
         _STD::swap (_C_node, __x._C_node); 
         _STD::swap (_C_length, __x._C_length);
@@ -884,6 +1153,7 @@ list<_TypeT, _Allocator>::swap (list &__x)
         *this = __x;
         __x = __tmp;
     }
+#endif
 }
 
 }   // namespace std

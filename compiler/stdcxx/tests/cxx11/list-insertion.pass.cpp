@@ -42,12 +42,12 @@ template<class T> struct Alloc : std::allocator<T> {
     }
     template<class U> Alloc(const Alloc<U>& other) : owner(other.owner) {}
     T* allocate(std::size_t n, const void* hint=0) {
-        assert(owner==3);
+        assert(owner==3 || owner==-1);
         if (fail_allocation) throw std::bad_alloc();
         T* p=std::allocator<T>::allocate(n,hint); ++allocations; return p;
     }
     void deallocate(T* p, std::size_t n) {
-        assert(owner==3); --allocations; std::allocator<T>::deallocate(p,n);
+        assert(owner==3 || owner==-1); --allocations; std::allocator<T>::deallocate(p,n);
     }
     template<class U, class... Args> void construct(U* p, Args&&... args) {
         ++constructions;
@@ -82,16 +82,14 @@ int main() {
         assert(values.back().value==61 && constructions>=9);
         const int before_move_allocations=allocations;
         fail_allocation=true;
-        try {
-            std::list<Item, Alloc<Item> > failed(std::move(values));
-            assert(false);
-        } catch(const std::bad_alloc&) { }
-        fail_allocation=false;
-        assert(allocations==before_move_allocations && values.size()==before+1);
-        assert(saved->value==3);
         std::list<Item, Alloc<Item> > moved(std::move(values));
-        assert(moved.size()==before+1 && saved->value==3 && allocator_moves==2);
-        assert(values.empty());
+        assert(allocations==before_move_allocations);
+        assert(moved.size()==before+1 && saved->value==3 && allocator_moves==1);
+        assert(values.empty() && values.begin()==values.end());
+        try { values.emplace_back(70,1); assert(false); }
+        catch(const std::bad_alloc&) { }
+        assert(values.empty() && allocations==before_move_allocations);
+        fail_allocation=false;
         values.emplace_back(70,1);
         assert(values.front().value==71);
     }
