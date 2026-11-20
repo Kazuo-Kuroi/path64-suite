@@ -88,8 +88,11 @@ FLD_HANDLE get_fld_and_offset(TY_IDX ty_idx, UINT32 field_id, UINT32& cur_field_
 
 WN *Emit_dtor_call(ST_IDX st_idx, ST_IDX object_st = ST_IDX_ZERO);
 
+ST_IDX Create_guard_symbol(STR_IDX name, SRCPOS spos, ST_IDX object_st);
+WN *Emit_guard_abort(ST_IDX guard, SRCPOS spos);
+
 WN *Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
-                      ST_IDX object_st = ST_IDX_ZERO);
+                      ST_IDX object_st = ST_IDX_ZERO, ST_IDX guard_st = ST_IDX_ZERO);
 
 WN *Gen_null_const(TY_IDX ty_idx);
 

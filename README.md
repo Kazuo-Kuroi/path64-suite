@@ -126,7 +126,10 @@ whole-library conformance result.
 
 The saved constructor-initializer unwind failure is fixed, with expanded
 checks for completed record members/bases, inner catches and temporary
-arguments. Invalid array bounds select `bad_array_new_length` or a null result
+arguments. Throwing function-local static initializers abort their guards after
+initializer cleanup, allowing subsequent calls and waiting threads to retry.
+Nested initializers and mixed host/psclang inline statics have regression coverage.
+Invalid array bounds select `bad_array_new_length` or a null result
 for nonthrowing allocation; null allocations skip initialization. Loop/switch
 body objects are destroyed on `break` and `continue`. The `<new>` allocation-error
 APIs are implemented and tested. Namespaced numeric-limits constants now use

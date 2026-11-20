@@ -243,5 +243,11 @@ static-guard.pass.cpp checks the ABI completion byte, explicit abort/retry,
 32 rounds of eight contending threads, and publication of a compiler-generated
 local static. Runtime guard completion and lock state must occupy distinct
 words; returning after a contended completed initialization must unlock.
-Automatic guard-abort cleanup when a psclang initializer throws remains a
-separate TODO; the direct ABI test does not claim that compiler path works.
+static-initializer-retry.pass.cpp checks compiler-generated abort/retry, cleanup
+ordering, nested statics and catches, throwing argument constructors/destructors,
+direct throw expressions, C++14 static lambda captures and eight contenders.
+The failed attempt must finish its cleanup before another thread can retry;
+only a successful initialization registers the static object's destructor.
+For mixed compiler checks, compile static-retry-provider.cpp in C++11 with one
+compiler and this regression in C++14 with STATIC_RETRY_CONSUMER_ONLY using the
+other compiler, then link the objects. Both directions pass at -O0/-O2.

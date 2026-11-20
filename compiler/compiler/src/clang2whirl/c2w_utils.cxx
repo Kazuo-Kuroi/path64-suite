@@ -349,16 +349,12 @@ Emit_cxa_guard_release(SRCPOS spos) {
 //         __cxa_guard_release (&obj_guard);
 //       }
 //     }
-WN *
-Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
-                  ST_IDX object_st) {
-  Is_True(guard_str_idx != (STR_IDX)0,
-          ("Invalid mangled name for guarded initlized st"));
-
+ST_IDX
+Create_guard_symbol(STR_IDX name, SRCPOS spos, ST_IDX object_st) {
   // create guard init st
   ST *guard_var_st = New_ST(GLOBAL_SYMTAB);
   TY_IDX guard_ty = MTYPE_To_TY(MTYPE_I8);
-  ST_Init(guard_var_st, guard_str_idx, CLASS_VAR,
+  ST_Init(guard_var_st, name, CLASS_VAR,
           SCLASS_PSTATIC, EXPORT_LOCAL, guard_ty);
   if (object_st && ST_is_weak_symbol(ST_ptr(object_st)) &&
       ST_export(ST_ptr(object_st)) != EXPORT_LOCAL) {
@@ -371,9 +367,31 @@ Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
   Set_ST_Srcpos(*guard_var_st, spos);
   Set_ST_init_value_zero(guard_var_st);
 
+  return ST_st_idx(guard_var_st);
+}
+
+WN *Emit_guard_abort(ST_IDX guard, SRCPOS spos) {
+  WN *call=WN_Create(OPR_CALL, MTYPE_V, MTYPE_V, 1);
+  WN_st_idx(call)=Emit_cxa_guard_abort(spos);
+  TY_IDX pointer=Make_Pointer_Type(ST_type(ST_ptr(guard)));
+  WN_kid0(call)=WGEN_CreateParm(Pointer_Mtype,WN_Lda(Pointer_Mtype,0,ST_ptr(guard)),pointer);
+  WN_Set_Call_Default_Flags(call);
+  WN_Set_Linenum(call,spos);
+  Set_ST_addr_saved(ST_ptr(guard));
+  Set_ST_addr_passed(ST_ptr(guard));
+  return call;
+}
+
+WN *
+Emit_guarded_init(STR_IDX guard_str_idx, WN *ctor, ST_IDX dtor_st, SRCPOS spos,
+                  ST_IDX object_st, ST_IDX guard_st) {
+  Is_True(guard_str_idx != (STR_IDX)0, ("missing guard name"));
+  if (!guard_st) guard_st=Create_guard_symbol(guard_str_idx,spos,object_st);
+  ST *guard_var_st=ST_ptr(guard_st);
+  TY_IDX guard_ty=ST_type(guard_var_st);
+
   // create st
   ST_IDX guard_acquire = Emit_cxa_guard_acquire(spos);
-  ST_IDX guard_abort = Emit_cxa_guard_abort(spos);
   ST_IDX guard_release = Emit_cxa_guard_release(spos);
 
   // obj_guard.first_type

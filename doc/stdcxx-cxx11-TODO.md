@@ -641,14 +641,22 @@ Phase 2 list modernization remains separate, as described above.
   direct ABI abort/retry, 32 rounds with eight contenders, and compiler-generated
   local statics. Both runtime variants rebuild; the optimized system-error
   concurrency regression also passes 50 consecutive executions.
-- [ ] **Failed local-static initialization (psclang):** `Emit_guarded_init`
-  creates an abort symbol but does not attach an unwind cleanup invoking it.
-  After a throwing initializer, a second attempt therefore hangs on the pending
-  guard. The runtime's explicit abort/retry works; host Clang inserts the missing
-  cleanup and retries correctly. Reproducer: a local static initialized by
-  `++attempts == 1 ? throw 7 : 19`, caught by the caller and then accessed again.
-  Connect abort cleanup during initializer lowering; wrapping it after its EH
-  regions have already been built is insufficient.
+- [x] (Codex) **Failed local-static initialization (psclang):** initializer
+  lowering installs `__cxa_guard_abort` unwind cleanup before building calls'
+  exception regions. Initializer locals and temporaries unwind before abort;
+  enclosing locals unwind afterward. Successful full-expression cleanup precedes
+  guard release and destructor registration. `static-initializer-retry.pass.cpp`
+  covers scalar/class retry, throwing argument construction/destruction, direct
+  throw expressions, nested guards, locally caught exceptions, rethrows, static
+  lambda captures and eight contending threads. Mixed host/psclang inline statics
+  share one guard in both directions at `-O0`/`-O2`. The original regression
+  target passes **53/53** in C++11 and **54/54** in C++14 at both optimization
+  levels; host checks and a `-fno-exceptions` smoke test also pass.
+- [ ] **Discarded atomic builtin result (psclang/backend):** the threaded retry
+  regression exposed a backend `Code_Expansion` crash for a discarded
+  `__sync_add_and_fetch(&failures, 1)` inside a catch handler. Consuming its
+  result in the regression's exactly-one-failure assertion compiles correctly.
+  Reduce and repair this separately from static-guard cleanup.
 
 - [x] (Codex) **Union destructor lowering (psclang):** a union destructor
   destroys variants only through explicit user code. Enclosing classes skip

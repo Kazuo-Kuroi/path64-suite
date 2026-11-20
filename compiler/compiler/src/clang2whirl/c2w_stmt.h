@@ -251,6 +251,8 @@ public:
   void Build_eh_type_info();
 
   void Append_constructor_initializer(WN *body, WN *block);
+  WN *Emit_static_initializer(STR_IDX name, WN *initializer, ST_IDX destructor,
+                              SRCPOS spos, ST_IDX object, ST_IDX guard, size_t temporary_depth);
   WN *Setup_eh_region(WN *wn, SRCPOS spos, bool for_unwinding, bool is_dtor_or_ctor_call = FALSE);
 
   void Do_handlers(INT cleanups = 0);

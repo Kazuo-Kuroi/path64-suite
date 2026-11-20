@@ -160,7 +160,65 @@ DTOR_COPY_STACK dtor_for_copy_ctor_stack;
 static bool constructor_cleanup_context;
 static DTOR_ST_VECTOR constructor_cleanups;
 static std::map<ST_IDX, WN*> constructor_destructors;
+struct StaticGuardCleanup {
+  ST_IDX guard;
+  size_t local_depth, temporary_depth;
+  int scope;
+};
+static std::vector<StaticGuardCleanup> static_guard_cleanups;
+class StaticGuardScope {
+  ST_IDX guard;
+public:
+  StaticGuardScope(ST_IDX value, SRCPOS spos) : guard(value) {
+    if (!guard) return;
+    StaticGuardCleanup cleanup={guard,dtor_call_stack.size(),dtor_for_copy_ctor_stack.size(),scope_cleanup_i};
+    static_guard_cleanups.push_back(cleanup);
+    constructor_destructors[guard]=wgen::Emit_guard_abort(guard,spos);
+  }
+  ~StaticGuardScope() {
+    if (!guard) return;
+    Is_True(!static_guard_cleanups.empty() && static_guard_cleanups.back().guard==guard,
+            ("unbalanced static initializer cleanup"));
+    static_guard_cleanups.pop_back();
+  }
+};
+
+// Preserve cleanup ordering around the initializer: its own locals/temporaries,
+// then abort, then the enclosing function's locals and constructor subobjects.
+static bool Append_static_guard_cleanups(DTOR_ST_VECTOR *cleanups, int target_scope) {
+  std::vector<StaticGuardCleanup> guards;
+  for (const StaticGuardCleanup& guard:static_guard_cleanups)
+    if (guard.scope>=target_scope) guards.push_back(guard);
+  if (guards.empty()) return false;
+  std::map<ST_IDX,size_t> levels;
+  DTOR_CALL_STACK locals=dtor_call_stack;
+  while (!locals.empty()) {
+    ST_IDX key=locals.top().second.second;
+    for (size_t i=0;i<guards.size();++i)
+      if (locals.size()>guards[i].local_depth) levels[key]=i+1;
+    locals.pop();
+  }
+  DTOR_COPY_STACK temporaries=dtor_for_copy_ctor_stack;
+  while (!temporaries.empty()) {
+    ST_IDX key=temporaries.top().second;
+    for (size_t i=0;i<guards.size();++i)
+      if (temporaries.size()>guards[i].temporary_depth) levels[key]=i+1;
+    temporaries.pop();
+  }
+  DTOR_ST_VECTOR previous;
+  previous.swap(*cleanups);
+  for (size_t level=guards.size();level;--level) {
+    for (const DTOR_ST_PAIR& cleanup:previous)
+      if (levels[cleanup.second]==level) cleanups->push_back(cleanup);
+    cleanups->push_back(DTOR_ST_PAIR(QualType(),guards[level-1].guard));
+  }
+  for (const DTOR_ST_PAIR& cleanup:previous)
+    if (!levels[cleanup.second]) cleanups->push_back(cleanup);
+  return true;
+}
+
 void Begin_constructor_cleanups(bool active) {
+  static_guard_cleanups.clear();
   constructor_cleanup_context = active;
   constructor_cleanups.clear();
   constructor_destructors.clear();
@@ -1105,7 +1163,7 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
     return New_eh_cleanup_entry(NULL, cleanups, 0);
   }
 
-  if (scope_cleanup_i == -1 && !constructor_cleanup_context)
+  if (scope_cleanup_i == -1 && !constructor_cleanup_context && static_guard_cleanups.empty())
   {
     iv = New_INITV();
     INITV_Set_ZERO(Initv_Table[iv], MTYPE_U4, 1);
@@ -1136,7 +1194,8 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
         if (item.first == try_stmt && item.second.second == ST_IDX_ZERO)
           break;
       if (item.second.second) {
-        if (is_dtor_or_ctor_call) {
+        if (is_dtor_or_ctor_call && (static_guard_cleanups.empty() ||
+            may_cleanup.size()>static_guard_cleanups.back().local_depth)) {
           if (pop_current_decl)
             cleanups->push_back(item.second);
           else
@@ -1156,9 +1215,11 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
       const DTOR_ST_PAIR& item = may_cleanup.top();
       if (item.second) {
         WN *cleanup_call = WN_operator(wn) == OPR_CALL ? wn :
-            ((constructor_cleanup_context || temporary_guards.find(item.second) != temporary_guards.end()) ? FindCallWn(wn) : NULL);
+            ((constructor_cleanup_context || !static_guard_cleanups.empty() ||
+              temporary_guards.find(item.second) != temporary_guards.end()) ? FindCallWn(wn) : NULL);
         if (cleanup_call && WN_operator(cleanup_call) == OPR_CALL &&
-            strcmp(ST_name(WN_st(cleanup_call)), "__cxa_throw")) {
+            (strcmp(ST_name(WN_st(cleanup_call)), "__cxa_throw") ||
+             !static_guard_cleanups.empty())) {
           cleanups->push_back(item);
           may_cleanup.pop();
           continue;
@@ -1199,6 +1260,9 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
   else // no enclosing try block
   {
     Append_constructor_cleanups(cleanups);
+  }
+  bool guarded=Append_static_guard_cleanups(cleanups,scope_index);
+  if (!t || !isa<CXXTryStmt>(t) || scope_index<0) {
     if (cleanups->empty() && (!t || !isa<CXXCatchStmt>(t)))
     {
       iv = New_INITV();
@@ -1207,7 +1271,7 @@ WhirlStmtBuilder::Lookup_cleanups(WN *wn, INITV_IDX& iv, bool is_dtor_or_ctor_ca
     }
   }
 
-  if (!constructor_cleanups.empty() ||
+  if (guarded || !constructor_cleanups.empty() ||
       (!try_block_seen && !processing_handler && manual_unwinding_needed()))
     Set_PU_needs_manual_unwinding(Get_Current_PU());
 
@@ -1710,6 +1774,7 @@ Get_cleanup_info(DTOR_ST_VECTOR *cleanups, LABEL_IDX *goto_idx)
       }
     }
     if (isa<CXXTryStmt>(scope_cleanup_stack[i].stmt)) {
+      Append_static_guard_cleanups(cleanups,i);
       *goto_idx = scope_cleanup_stack[i].cmp_idx;
       return false;
     }
@@ -1718,6 +1783,7 @@ Get_cleanup_info(DTOR_ST_VECTOR *cleanups, LABEL_IDX *goto_idx)
   if (!processing_handler)
   {
     Append_constructor_cleanups(cleanups);
+    Append_static_guard_cleanups(cleanups,-1);
     *goto_idx = 0;
     return true;
   }
@@ -2390,6 +2456,19 @@ WN *WhirlStmtBuilder::ConvertCXXTryStmt(const CXXTryStmt *stmt) {
   return NULL;
 }
 
+WN *WhirlStmtBuilder::Emit_static_initializer(STR_IDX name, WN *initializer,
+    ST_IDX destructor, SRCPOS spos, ST_IDX object, ST_IDX guard, size_t temporary_depth) {
+  // Full-expression cleanup belongs to the guarded operation, not to later
+  // visits to the declaration. Snapshot EH before the guard context is popped.
+  if (emit_exceptions && FindCallWn(initializer)) {
+    WN *protected_initializer=WN_CreateBlock();
+    SetEHRegionForCall(protected_initializer,initializer);
+    initializer=protected_initializer;
+  }
+  pop_dtor_for_copy_ctor_stack(initializer,QualType(),temporary_depth);
+  return Emit_guarded_init(name,initializer,destructor,spos,object,guard);
+}
+
 // Initialize VarDecl
 WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
   WN *ret = NULL;
@@ -2399,8 +2478,8 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
 
   if (const LambdaExpr *lambda = WhirlLambdaHelper::GetLambdaExpr(decl)) {
     _builder->LambdaHelper().AddLambdaVar(lambda, decl);
-    // skip init for empty cpature list
-    if (lambda->capture_size() > 0) {
+    // Static closures must use the guarded initializer path below, too.
+    if (!isStaticLocal && lambda->capture_size() > 0) {
       ST_IDX idx = _builder->Get_var_st(decl);
       Is_True(idx, ("bad var st"));
       Result target = Result::nwSym(idx, ST_type(idx));
@@ -2409,7 +2488,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
       Is_True(r.isSym() && r.Sym() == idx,
               ("r is not handled here"));
     }
-    return NULL;
+    if (!isStaticLocal) return NULL;
   }
 
   // get init expression for ExprWithCleanups
@@ -2424,6 +2503,14 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
   WN* init_blk = isStaticLocal ? WhirlBlockUtil::nwBlock()
                                : WhirlBlockUtil::getCurrentBlock();
   ST_IDX idx = _builder->SB().ConvertSymbol(decl);
+  const size_t initializer_temporary_depth=dtor_for_copy_ctor_stack.size();
+  ST_IDX initializer_guard=ST_IDX_ZERO;
+  if (isStaticLocal && emit_exceptions && !ST_is_initialized(ST_ptr(idx))) {
+    llvm::StringRef name;
+    STR_IDX guard_name=_builder->DeclBuilder().ConvertName(decl,name,true);
+    initializer_guard=Create_guard_symbol(guard_name,spos,idx);
+  }
+  StaticGuardScope initializer_cleanup(initializer_guard,spos);
   if (isStaticLocal && ST_is_initialized(ST_ptr(idx)) &&
       _builder->Context()->getAsConstantArrayType(decl->getType())) {
     int count = 0;
@@ -2433,7 +2520,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
       STR_IDX guard = _builder->DeclBuilder().ConvertName(decl,name,true);
       ST_IDX destructor = _builder->DeclBuilder().GetStaticArrayDtor(decl);
       WhirlBlockUtil::popCurrentBlock();
-      return Emit_guarded_init(guard,init_blk,destructor,spos,idx);
+      return Emit_static_initializer(guard,init_blk,destructor,spos,idx,initializer_guard,initializer_temporary_depth);
     }
   }
   if (isa<CXXConstructExpr>(init)) {
@@ -2469,7 +2556,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
       if (ctor != NULL)
         WN_INSERT_BlockLast(init_blk, ctor);
 
-      ret = Emit_guarded_init(str_idx, init_blk, dtor_st, spos, idx);
+      ret = Emit_static_initializer(str_idx, init_blk, dtor_st, spos, idx,initializer_guard,initializer_temporary_depth);
     } else {
       // handle ldid whirle node here
       if (ret && (!OPCODE_is_stmt(WN_opcode(ret)) || OPCODE_is_scf(WN_opcode(ret)))) {
@@ -2519,7 +2606,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
           if (!WN_block_empty(init_blk)) {
             llvm::StringRef name;
             STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-            ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
+            ret = Emit_static_initializer(str_idx, init_blk, ST_IDX_ZERO, spos, idx,initializer_guard,initializer_temporary_depth);
             WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ret);
           }
         }
@@ -2532,7 +2619,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
           WN_INSERT_BlockLast(init_blk, r.Node());
           llvm::StringRef name;
           STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-          ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
+          ret = Emit_static_initializer(str_idx, init_blk, ST_IDX_ZERO, spos, idx,initializer_guard,initializer_temporary_depth);
           return ret;
         }
         return r.Node();
@@ -2615,7 +2702,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
             WN_INSERT_BlockLast(init_blk, ret);
           llvm::StringRef name;
           STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-          ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
+          ret = Emit_static_initializer(str_idx, init_blk, ST_IDX_ZERO, spos, idx,initializer_guard,initializer_temporary_depth);
           WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), ret);
         }
         return NULL;
@@ -2686,7 +2773,7 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
         WN_INSERT_BlockLast(init_blk, ret);
       llvm::StringRef name;
       STR_IDX str_idx = _builder->DeclBuilder().ConvertName(decl, name, true);
-      ret = Emit_guarded_init(str_idx, init_blk, ST_IDX_ZERO, spos, idx);
+      ret = Emit_static_initializer(str_idx, init_blk, ST_IDX_ZERO, spos, idx,initializer_guard,initializer_temporary_depth);
     }
   }
 
