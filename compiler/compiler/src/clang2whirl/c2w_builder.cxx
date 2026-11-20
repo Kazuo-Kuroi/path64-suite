@@ -467,6 +467,7 @@ WhirlBuilder::HandleTranslationUnit(ASTContext &Ctx) {
   // do an iteration to make sure no deferred vars, vtables and functions
   do {
     HandleDeferredDecls(TRUE);
+    _decl_builder.EmitStaticArrayDtors();
   } while (HasDeferredDecls(TRUE));
 
   // generate initializer for global vars

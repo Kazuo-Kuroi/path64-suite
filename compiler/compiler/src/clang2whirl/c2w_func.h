@@ -42,6 +42,8 @@
 
 namespace wgen {
 
+ST_IDX ReserveDtorWrapperSymbol(SRCPOS pos);
+
 class R;
 class WhirlBuilder;
 

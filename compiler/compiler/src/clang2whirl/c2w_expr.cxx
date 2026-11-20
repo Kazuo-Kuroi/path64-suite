@@ -4402,6 +4402,22 @@ WhirlExprBuilder::ConvertCastExpr(const CastExpr *expr, Result dest) {
     return ConvertExpr(sub, dest);
 
   case CK_LValueToRValue:
+    // Integral static members used as values need no out-of-class storage.
+    // Do not turn these reads into references to an undefined weak symbol.
+    if (const DeclRefExpr *ref = dyn_cast<DeclRefExpr>(sub->IgnoreParens())) {
+      if (const VarDecl *var = dyn_cast<VarDecl>(ref->getDecl())) {
+        if (var->isStaticDataMember() && var->getType().isConstQualified() &&
+            !var->getType().isVolatileQualified() &&
+            var->getType()->isIntegralOrEnumerationType()) {
+          llvm::APSInt value;
+          if (evaluateAsInt(expr, value, _builder->Context())) {
+            TY_IDX type = _builder->TB().ConvertType(expr->getType());
+            return Result::nwIntConst(value.isSigned() ? value.getSExtValue()
+                                      : (INT64)value.getZExtValue(), type);
+          }
+        }
+      }
+    }
     return ConvertLValueToRValue(sub);
 
   case CK_UncheckedDerivedToBase:

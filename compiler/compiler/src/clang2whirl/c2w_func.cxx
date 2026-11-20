@@ -369,18 +369,8 @@ WhirlFuncBuilder::EmitCXXGlobalInitialization(ST_IDX st_idx, int priority_size) 
   return pu_info;
 }
 
-PU_Info *
-WhirlFuncBuilder::EmitDtorPtr(const VarDecl *decl, ST_IDX &dtor_st_idx) {
-  ST_IDX var_st = _builder->SB().GetST(decl);
-  Is_True(var_st, ("bad var st"));
-  return EmitDtorPtr(cast<VarDecl>(decl)->getType(), var_st, dtor_st_idx);
-}
-
-// The __tcf_N function atexit runs to destroy the object var_st of type.
-PU_Info *
-WhirlFuncBuilder::EmitDtorPtr(QualType type, ST_IDX var_st,
-                              ST_IDX &dtor_st_idx) {
-
+ST_IDX
+ReserveDtorWrapperSymbol(SRCPOS pos) {
   // pu type
   TY_IDX ty_idx;
   TY &func = New_TY(ty_idx);
@@ -404,8 +394,26 @@ WhirlFuncBuilder::EmitDtorPtr(QualType type, ST_IDX var_st,
   ST *st = New_ST(GLOBAL_SYMTAB);
   ST_Init(st, Save_Str2i("__tcf", "_", _tcf_name_suffix++), CLASS_FUNC,
            SCLASS_TEXT, EXPORT_LOCAL, ty_idx);
-  dtor_st_idx = ST_st_idx(st);
-  Set_ST_Srcpos(*st, GetSrcPos());
+  Set_ST_Srcpos(*st, pos);
+
+  return ST_st_idx(st);
+}
+
+PU_Info *
+WhirlFuncBuilder::EmitDtorPtr(const VarDecl *decl, ST_IDX &dtor_st_idx) {
+  ST_IDX var_st = _builder->SB().GetST(decl);
+  Is_True(var_st, ("bad var st"));
+  return EmitDtorPtr(cast<VarDecl>(decl)->getType(), var_st, dtor_st_idx);
+}
+
+// The __tcf_N function atexit runs to destroy the object var_st of type.
+PU_Info *
+WhirlFuncBuilder::EmitDtorPtr(QualType type, ST_IDX var_st,
+                              ST_IDX &dtor_st_idx) {
+
+  if (!dtor_st_idx) dtor_st_idx = ReserveDtorWrapperSymbol(GetSrcPos());
+  TY_IDX rty = MTYPE_To_TY(MTYPE_V);
+  TY_IDX pty = Make_Pointer_Type(rty);
 
   // create pu info
   CreateLocalSymtab(dtor_st_idx);
@@ -518,6 +526,9 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
       priority_size = ipa->getPriority();
     }
 
+    // Constant objects already contain their ABI data; register destruction
+    // without running their constructors a second time.
+    if (!ST_is_initialized(ST_ptr(_builder->SB().GetST(decl)))) {
     // handle ExprWithCleanups
     if (isa<ExprWithCleanups>(init_expr)) {
       const ExprWithCleanups *cleanups = cast<ExprWithCleanups>(init_expr);
@@ -645,6 +656,8 @@ WhirlFuncBuilder::EmitCXXGlobalVarDeclInitialization(ST_IDX st_idx) {
       // dtor temps created in cpnvert init_expr
       WhirlStmtBuilder stmt_bldr(_builder);
       stmt_bldr.pop_dtor_for_copy_ctor_stack(stmt);
+    }
+
     }
 
     // dtor call

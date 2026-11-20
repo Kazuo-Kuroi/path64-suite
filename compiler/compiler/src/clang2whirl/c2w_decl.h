@@ -51,6 +51,7 @@ private:
   WhirlBuilder *_builder;
 
   ST_IDX_MAP _dtor_tcf_map;
+  std::map<const clang::VarDecl*, ST_IDX> _static_array_dtors;
   // temporaries bound to namespace-scope references, made up front
   // so they can have a __tcf (MaterializeTemporaryExpr -> ST)
   std::map<const clang::Expr *, ST_IDX> _global_temp_st;
@@ -72,6 +73,8 @@ public:
 
 private:
   BOOL IsStaticInitialized(const clang::Expr *init_expr, bool &no_need_initialize);
+
+  INITV_IDX ConvertConstantObject(clang::QualType type, const clang::APValue *value);
 
   INITV_IDX ConvertAPValue(clang::QualType type, const clang::APValue *value, INT repeat = 1);
 
@@ -203,6 +206,8 @@ public:
   void ConvertVTable(const clang::CXXRecordDecl *decl);
 
   const ST_IDX GetTcfST(const clang::Decl *decl);
+  ST_IDX GetStaticArrayDtor(const clang::VarDecl *decl);
+  void EmitStaticArrayDtors();
 
   ST_IDX GetGlobalTempST(const clang::Expr *mte) {
     std::map<const clang::Expr *, ST_IDX>::iterator it = _global_temp_st.find(mte);

@@ -2424,6 +2424,18 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
   WN* init_blk = isStaticLocal ? WhirlBlockUtil::nwBlock()
                                : WhirlBlockUtil::getCurrentBlock();
   ST_IDX idx = _builder->SB().ConvertSymbol(decl);
+  if (isStaticLocal && ST_is_initialized(ST_ptr(idx)) &&
+      _builder->Context()->getAsConstantArrayType(decl->getType())) {
+    int count = 0;
+    const CXXRecordDecl *record = _builder->DeclBuilder().ConvertConstantArrayType(decl->getType(),count);
+    if (record && !record->hasTrivialDestructor()) {
+      llvm::StringRef name;
+      STR_IDX guard = _builder->DeclBuilder().ConvertName(decl,name,true);
+      ST_IDX destructor = _builder->DeclBuilder().GetStaticArrayDtor(decl);
+      WhirlBlockUtil::popCurrentBlock();
+      return Emit_guarded_init(guard,init_blk,destructor,spos,idx);
+    }
+  }
   if (isa<CXXConstructExpr>(init)) {
     const CXXConstructExpr *expr = dyn_cast<CXXConstructExpr>(init);
     const CXXDestructorDecl *dtor = NULL;
@@ -2431,7 +2443,8 @@ WN *WhirlStmtBuilder::Init_var_decl(const VarDecl *decl) {
       dtor = expr->getConstructor()->getParent()->getDestructor();
 
     // Initialize CXXConstructExpr
-    if (_builder->DeclBuilder().GetNonTrivialInitializer(expr)) {
+    if (!ST_is_initialized(ST_ptr(idx)) &&
+        _builder->DeclBuilder().GetNonTrivialInitializer(expr)) {
       ret = Emit_cxx_constructor_call(decl);
     } else {
       // push dtor for the decl which is trivial initializer

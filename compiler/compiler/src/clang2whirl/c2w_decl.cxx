@@ -28,6 +28,8 @@
 
 */
 
+#include <functional>
+#include <algorithm>
 #include <clang/AST/VTableBuilder.h>
 #include <clang/AST/VTTBuilder.h>
 #include "c2w_decl.h"
@@ -659,6 +661,138 @@ WhirlDeclBuilder::ConvertAPValue(QualType type, const APValue *value, INT repeat
   }
   Is_True(inv != INITV_IDX_ZERO, ("bad inv"));
   return inv;
+}
+
+// APValue describes source fields, not ABI vptrs. Serialize a constant object
+// by physical offsets, adding the complete object's address points explicitly.
+static bool ContainsPolymorphicObject(ASTContext *ctx, QualType type) {
+  if (const ConstantArrayType *array = ctx->getAsConstantArrayType(type))
+    return ContainsPolymorphicObject(ctx, array->getElementType());
+  if (const CXXRecordDecl *record = type->getAsCXXRecordDecl()) {
+    if (record->isPolymorphic()) return true;
+    for (const CXXBaseSpecifier &base : record->bases())
+      if (ContainsPolymorphicObject(ctx, base.getType())) return true;
+    for (const FieldDecl *field : record->fields())
+      if (ContainsPolymorphicObject(ctx, field->getType())) return true;
+  }
+  return false;
+}
+
+INITV_IDX
+WhirlDeclBuilder::ConvertConstantObject(QualType type, const APValue *value) {
+  struct Piece { UINT64 offset, size; INITV_IDX init; };
+  std::vector<Piece> pieces;
+  std::map<UINT64, INITV_IDX> vptrs;
+  std::map<UINT64, unsigned> bit_bytes;
+  ASTContext *ctx = _builder->Context();
+  const UINT64 pointer_size = MTYPE_byte_size(Pointer_Mtype);
+  std::function<void(QualType, const APValue&, UINT64, bool)> emit;
+  std::function<void(const FieldDecl*, const APValue&, UINT64, UINT64)> field;
+  field = [&](const FieldDecl *decl, const APValue &v, UINT64 start, UINT64 bits) {
+    if (!decl->isBitField()) { emit(decl->getType(), v, start + bits/8, false); return; }
+    if (decl->isUnnamedBitfield() || v.getKind() == APValue::Uninitialized) return;
+    const unsigned width = decl->getBitWidthValue(*ctx);
+    const llvm::APSInt &integer = v.getInt();
+    const bool big = ctx->getTargetInfo().isBigEndian();
+    for (unsigned i=0; i<width; ++i) {
+      UINT64 position = bits + i;
+      unsigned source = big ? width-1-i : i;
+      if (source < integer.getBitWidth() && integer[source])
+        bit_bytes[start + position/8] |= 1U << (big ? 7-position%8 : position%8);
+      else bit_bytes[start + position/8] |= 0;
+    }
+  };
+  emit = [&](QualType t, const APValue &v, UINT64 start, bool base) {
+    if (v.getKind() == APValue::Uninitialized) return;
+    if (const ConstantArrayType *array = ctx->getAsConstantArrayType(t)) {
+      QualType element = array->getElementType();
+      UINT64 size = ctx->getTypeSizeInChars(element).getQuantity();
+      for (unsigned i=0; i<v.getArraySize(); ++i) {
+        if (i<v.getArrayInitializedElts()) emit(element,v.getArrayInitializedElt(i),start+i*size,false);
+        else if (v.hasArrayFiller()) emit(element,v.getArrayFiller(),start+i*size,false);
+      }
+      return;
+    }
+    if (const RecordType *rt = t->getAs<RecordType>()) {
+      const RecordDecl *record = rt->getDecl();
+      const ASTRecordLayout &layout = ctx->getASTRecordLayout(record);
+      if (v.isUnion()) {
+        if (const FieldDecl *active = v.getUnionField())
+          field(active, v.getUnionValue(), start, 0);
+        return;
+      }
+      if (const CXXRecordDecl *cxx = dyn_cast<CXXRecordDecl>(record)) {
+        if (!base && cxx->isDynamicClass()) {
+          Is_True(!cxx->getNumVBases(), ("constant object has virtual bases"));
+          ST_IDX table = GetVTableST(cxx);
+          ItaniumVTableContext *tables = cast<ItaniumVTableContext>(ctx->getVTableContext());
+          const VTableLayout &vt = tables->getVTableLayout(cxx);
+          for (const auto &address : vt.getAddressPoints()) {
+            UINT64 off = start + address.first.getBaseOffset().getQuantity();
+            if (vptrs.count(off)) continue;
+            UINT64 index = vt.getVTableOffset(address.second.VTableIndex) +
+                           address.second.AddressPointIndex;
+            INITV_IDX init = New_INITV();
+            INITV_Init_Symoff(init, ST_ptr(table), index*pointer_size);
+            vptrs[off] = init;
+          }
+        }
+        unsigned i=0;
+        for (const CXXBaseSpecifier &b : cxx->bases()) {
+          const CXXRecordDecl *br = b.getType()->getAsCXXRecordDecl();
+          emit(b.getType(),v.getStructBase(i++),
+               start+layout.getBaseClassOffset(br).getQuantity(),true);
+        }
+      }
+      unsigned i=0;
+      for (const FieldDecl *f : record->fields()) {
+        field(f,v.getStructField(i),start,layout.getFieldOffset(i));
+        ++i;
+      }
+      return;
+    }
+    INITV_IDX init = ConvertAPValue(t,&v);
+    if (init) pieces.push_back({start,UINT64(ctx->getTypeSizeInChars(t).getQuantity()),init});
+  };
+  emit(type,*value,0,false);
+  for (const auto &vptr : vptrs) pieces.push_back({vptr.first,pointer_size,vptr.second});
+  for (const auto &byte : bit_bytes) {
+    INITV_IDX init = New_INITV(); INITV_Init_Integer(init,MTYPE_U1,byte.second);
+    pieces.push_back({byte.first,1,init});
+  }
+  std::sort(pieces.begin(),pieces.end(),[](const Piece &a,const Piece &b) { return a.offset<b.offset; });
+  INITV_IDX first=0,last=0;
+  UINT64 used=0,total=ctx->getTypeSizeInChars(type).getQuantity();
+  auto append = [&](INITV_IDX init) { if(last) Set_INITV_next(last,init); else first=init; last=init; };
+  for (const Piece &piece : pieces) {
+    Is_True(piece.offset>=used, ("overlapping constant object initializers"));
+    if (piece.offset>used) { INITV_IDX pad=New_INITV(); INITV_Init_Pad(pad,piece.offset-used); append(pad); }
+    append(piece.init); used=piece.offset+piece.size;
+  }
+  Is_True(used<=total, ("constant object initializer too large"));
+  if (used<total) { INITV_IDX pad=New_INITV(); INITV_Init_Pad(pad,total-used); append(pad); }
+  INITV_IDX block=New_INITV(); INITV_Init_Block(block,first);
+  return block;
+}
+
+ST_IDX
+WhirlDeclBuilder::GetStaticArrayDtor(const VarDecl *decl) {
+  auto &symbol = _static_array_dtors[decl->getCanonicalDecl()];
+  if (!symbol) symbol = ReserveDtorWrapperSymbol(_builder->GetSrcPos());
+  return symbol;
+}
+
+void
+WhirlDeclBuilder::EmitStaticArrayDtors() {
+  const TranslationUnitDecl *unit = _builder->Context()->getTranslationUnitDecl();
+  while (!_static_array_dtors.empty()) {
+    const auto entry = *_static_array_dtors.begin();
+    _static_array_dtors.erase(_static_array_dtors.begin());
+    ScopeHelper<const TranslationUnitDecl*> scope(_builder->Scope(),unit);
+    WhirlFuncBuilder function(_builder);
+    ST_IDX symbol = entry.second;
+    function.EmitDtorPtr(entry.first,symbol);
+  }
 }
 
 void
@@ -1688,6 +1822,13 @@ WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
   if (st_idx == ST_IDX_ZERO)
     st_idx = _builder->SB().ConvertSymbol(decl);
 
+  // An in-class initializer does not supply storage for a non-inline static
+  // member. Keep it external until its out-of-class definition is seen.
+  if (decl->isStaticDataMember() && !decl->isThisDeclarationADefinition()) {
+    const VarDecl *definition = decl->getDefinition();
+    if (!definition) return;
+    decl = definition;
+  }
   ST *st = ST_ptr(st_idx);
   // reset st_idx's sclass & eclass after redecllaration
   if (ST_sclass(st) == SCLASS_EXTERN && !decl->hasExternalStorage() &&
@@ -1702,8 +1843,9 @@ WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
     HandleAttrs(decl, st_idx);
 
   // return prematurely if decl has no init to avoid redeclarations
-  if (!decl->hasInit() ||
-      isa<CXXNullPtrLiteralExpr>(decl->getInit()))
+  const VarDecl *initializer_decl = decl;
+  const Expr *initializer = decl->getAnyInitializer(initializer_decl);
+  if (!initializer || isa<CXXNullPtrLiteralExpr>(initializer))
     return;
 
   // reset st_idx's sclass if decl has init
@@ -1732,6 +1874,22 @@ WhirlDeclBuilder::ConvertVar(const VarDecl *decl) {
   }
 
   const APValue *eva_val = decl->evaluateValue();
+  // Keep constant vptr relocations in the object even when another compiler's
+  // inline guard performs only destructor registration.
+  if (_builder->Lang_CPP() && eva_val &&
+      ContainsPolymorphicObject(_builder->Context(), type)) {
+    New_INITO(st, ConvertConstantObject(type,eva_val));
+    if (IsReadOnlyVar(_builder->Context(),decl)) Set_ST_is_const_var(st);
+    if (ST_sclass(st)==SCLASS_UGLOBAL || ST_sclass(st)==SCLASS_COMMON ||
+        ST_sclass(st)==SCLASS_EXTERN) Set_ST_sclass(st,SCLASS_DGLOBAL);
+    Set_ST_is_initialized(st);
+    const CXXRecordDecl *record = _builder->Context()->getBaseElementType(type)->getAsCXXRecordDecl();
+    if (record && !record->hasTrivialDestructor()) {
+      _builder->Get_func_st(GlobalDecl(record->getDestructor(),CXXDtorType::Dtor_Complete));
+      if (!decl->isStaticLocal()) _deferred_global_var_decls.insert(decl);
+    }
+    return;
+  }
   bool no_need_initialize = FALSE;
   if (_builder->Lang_CPP()) {
     if (eva_val == NULL || !IsStaticInitialized(init_expr, no_need_initialize)) {
