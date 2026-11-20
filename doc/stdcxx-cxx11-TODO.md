@@ -478,7 +478,15 @@ C++11 and 24 C++14 tests.
     buffers now have coverage. All 16 numeric-facet references pass with both
     compilers at C++14 `-O2`. String `front()`/`back()` preserve COW detachment;
     modern callers instantiate the new members from headers.
-  * [ ] `io_errc`, `iostream_category` (depends on `<system_error>`);
+  * [x] (Codex) `io_errc`, `iostream_category`, traits and error-code/condition
+    factories. Four stream-category references pass, alongside 56 system-error
+    references (one C++17 variable-trait test excluded), with both compilers.
+  * [ ] Modern `ios_base::failure`: the shared C++98 library still throws the
+    legacy `__rw_failure` hierarchy. Its `system_error` base, error-code
+    constructors and `code()` need a coordinated runtime/ABI transition; the
+    two modern failure references remain outside the passing checkpoint.
+    Audit allocation-free/noexcept exception copies with that work: the new
+    system_error currently inherits the legacy runtime_error copy guarantees.
   * [x] (Codex) `get_money`, `put_money`, `get_time`, `put_time`,
     `hexfloat`, `defaultfloat`, including facet exceptions and output failures.
     Six reference tests and an original integration test pass with psclang and
@@ -525,7 +533,7 @@ remains a WIP port.
 | `<unordered_map>`, `<unordered_set>` | `containers/unord` (329) | needs `hash<string>` |
 | `<ratio>` | `utilities/ratio` (13) | header-only, easy start |
 | `<chrono>` | `utilities/time` (269) | clocks via `clock_gettime` (inline) |
-| `<system_error>` | `diagnostics/syserr` (57) | categories as inline function-local statics |
+| `<system_error>` | `diagnostics/syserr` (57) | Implemented: errc, categories, codes/conditions, comparisons, hashes and system_error; 56 applicable references pass, one C++17 trait-variable test excluded. Legacy exception-base guarantees remain. |
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
@@ -536,7 +544,31 @@ remains a WIP port.
 | `<codecvt>` | `localization/locale.stdcvt` (24) | Implemented: original `codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`; 24/24 references pass with both compilers. |
 | `<cuchar>` | | |
 
+The system-error/category and existing stream/numeric/Unicode checkpoint passes
+171/171 with both compilers at C++14 `-O2` (nine exclusions). Original tests
+pass with PathScale: 42 in C++11, 43 in C++14, at `-O0`/`-O2`. New checks pass
+with both compilers across that matrix; the virtual-call regression also runs
+in C++98. Four mixed Clang/PathScale provider/consumer checks cover category
+identity, returned codes and thrown system_error objects at both levels.
+C++11 header use also compiles/runs with `-fno-exceptions` in both compiler modes.
+
 ## Infrastructure
+
+- [x] (Codex) **Virtual-call redeclarations and object expressions:** canonical
+  declarations identify vtable slots, including member-pointer constants and
+  destructor entries. Unqualified calls dispatch virtually through references
+  returned by functions, casts and direct objects; explicit qualification keeps
+  direct calls. Evaluate the object once for both this and vtable lookup.
+  `compiler-virtual-redeclaration.pass.cpp` covers these paths and deletion.
+- [ ] **Constant-initialized polymorphic statics (psclang):** an implicit
+  constexpr constructor can let native Clang emit an initialized vptr while
+  psclang emits zero storage plus a runtime constructor. Coalescing inline
+  singleton objects and guards across mixed object files can then leave a null
+  vptr. Reproducer shape: a constexpr-constructed base with virtual destructor
+  and methods, returned as `static Derived object` from an inline getter,
+  defined in a shared header and consumed by both compilers. The standard
+  category classes use explicit non-constexpr runtime constructors, so their
+  objects and guards agree; the general compiler limitation remains.
 
 - [x] (Codex) **Constructor initializer exception cleanup (psclang).**
   Completed record members and bases are recorded in initialization order,

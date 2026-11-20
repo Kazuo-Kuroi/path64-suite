@@ -1,0 +1,828 @@
+// Original Path64 C++11 system-error interfaces. No external implementation code.
+#ifndef _RWSTD_SYSTEM_ERROR_INCLUDED
+#define _RWSTD_SYSTEM_ERROR_INCLUDED
+#include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#include <string>
+#include <stdexcept>
+#include <type_traits>
+#include <functional>
+#include <cerrno>
+#include <cstring>
+
+namespace std {
+class error_code;
+class error_condition;
+class error_category;
+const error_category& generic_category() noexcept;
+const error_category& system_category() noexcept;
+template<class T> struct is_error_code_enum : false_type {};
+template<class T> struct is_error_condition_enum : false_type {};
+enum class errc {
+#ifdef EAFNOSUPPORT
+    address_family_not_supported=EAFNOSUPPORT,
+#else
+    address_family_not_supported=-1000,
+#endif
+#ifdef EADDRINUSE
+    address_in_use=EADDRINUSE,
+#else
+    address_in_use=-1001,
+#endif
+#ifdef EADDRNOTAVAIL
+    address_not_available=EADDRNOTAVAIL,
+#else
+    address_not_available=-1002,
+#endif
+#ifdef EISCONN
+    already_connected=EISCONN,
+#else
+    already_connected=-1003,
+#endif
+#ifdef E2BIG
+    argument_list_too_long=E2BIG,
+#else
+    argument_list_too_long=-1004,
+#endif
+#ifdef EDOM
+    argument_out_of_domain=EDOM,
+#else
+    argument_out_of_domain=-1005,
+#endif
+#ifdef EFAULT
+    bad_address=EFAULT,
+#else
+    bad_address=-1006,
+#endif
+#ifdef EBADF
+    bad_file_descriptor=EBADF,
+#else
+    bad_file_descriptor=-1007,
+#endif
+#ifdef EBADMSG
+    bad_message=EBADMSG,
+#else
+    bad_message=-1008,
+#endif
+#ifdef EPIPE
+    broken_pipe=EPIPE,
+#else
+    broken_pipe=-1009,
+#endif
+#ifdef ECONNABORTED
+    connection_aborted=ECONNABORTED,
+#else
+    connection_aborted=-1010,
+#endif
+#ifdef EALREADY
+    connection_already_in_progress=EALREADY,
+#else
+    connection_already_in_progress=-1011,
+#endif
+#ifdef ECONNREFUSED
+    connection_refused=ECONNREFUSED,
+#else
+    connection_refused=-1012,
+#endif
+#ifdef ECONNRESET
+    connection_reset=ECONNRESET,
+#else
+    connection_reset=-1013,
+#endif
+#ifdef EXDEV
+    cross_device_link=EXDEV,
+#else
+    cross_device_link=-1014,
+#endif
+#ifdef EDESTADDRREQ
+    destination_address_required=EDESTADDRREQ,
+#else
+    destination_address_required=-1015,
+#endif
+#ifdef EBUSY
+    device_or_resource_busy=EBUSY,
+#else
+    device_or_resource_busy=-1016,
+#endif
+#ifdef ENOTEMPTY
+    directory_not_empty=ENOTEMPTY,
+#else
+    directory_not_empty=-1017,
+#endif
+#ifdef ENOEXEC
+    executable_format_error=ENOEXEC,
+#else
+    executable_format_error=-1018,
+#endif
+#ifdef EEXIST
+    file_exists=EEXIST,
+#else
+    file_exists=-1019,
+#endif
+#ifdef EFBIG
+    file_too_large=EFBIG,
+#else
+    file_too_large=-1020,
+#endif
+#ifdef ENAMETOOLONG
+    filename_too_long=ENAMETOOLONG,
+#else
+    filename_too_long=-1021,
+#endif
+#ifdef ENOSYS
+    function_not_supported=ENOSYS,
+#else
+    function_not_supported=-1022,
+#endif
+#ifdef EHOSTUNREACH
+    host_unreachable=EHOSTUNREACH,
+#else
+    host_unreachable=-1023,
+#endif
+#ifdef EIDRM
+    identifier_removed=EIDRM,
+#else
+    identifier_removed=-1024,
+#endif
+#ifdef EILSEQ
+    illegal_byte_sequence=EILSEQ,
+#else
+    illegal_byte_sequence=-1025,
+#endif
+#ifdef ENOTTY
+    inappropriate_io_control_operation=ENOTTY,
+#else
+    inappropriate_io_control_operation=-1026,
+#endif
+#ifdef EINTR
+    interrupted=EINTR,
+#else
+    interrupted=-1027,
+#endif
+#ifdef EINVAL
+    invalid_argument=EINVAL,
+#else
+    invalid_argument=-1028,
+#endif
+#ifdef ESPIPE
+    invalid_seek=ESPIPE,
+#else
+    invalid_seek=-1029,
+#endif
+#ifdef EIO
+    io_error=EIO,
+#else
+    io_error=-1030,
+#endif
+#ifdef EISDIR
+    is_a_directory=EISDIR,
+#else
+    is_a_directory=-1031,
+#endif
+#ifdef EMSGSIZE
+    message_size=EMSGSIZE,
+#else
+    message_size=-1032,
+#endif
+#ifdef ENETDOWN
+    network_down=ENETDOWN,
+#else
+    network_down=-1033,
+#endif
+#ifdef ENETRESET
+    network_reset=ENETRESET,
+#else
+    network_reset=-1034,
+#endif
+#ifdef ENETUNREACH
+    network_unreachable=ENETUNREACH,
+#else
+    network_unreachable=-1035,
+#endif
+#ifdef ENOBUFS
+    no_buffer_space=ENOBUFS,
+#else
+    no_buffer_space=-1036,
+#endif
+#ifdef ECHILD
+    no_child_process=ECHILD,
+#else
+    no_child_process=-1037,
+#endif
+#ifdef ENOLINK
+    no_link=ENOLINK,
+#else
+    no_link=-1038,
+#endif
+#ifdef ENOLCK
+    no_lock_available=ENOLCK,
+#else
+    no_lock_available=-1039,
+#endif
+#ifdef ENODATA
+    no_message_available=ENODATA,
+#else
+    no_message_available=-1040,
+#endif
+#ifdef ENOMSG
+    no_message=ENOMSG,
+#else
+    no_message=-1041,
+#endif
+#ifdef ENOPROTOOPT
+    no_protocol_option=ENOPROTOOPT,
+#else
+    no_protocol_option=-1042,
+#endif
+#ifdef ENOSPC
+    no_space_on_device=ENOSPC,
+#else
+    no_space_on_device=-1043,
+#endif
+#ifdef ENOSR
+    no_stream_resources=ENOSR,
+#else
+    no_stream_resources=-1044,
+#endif
+#ifdef ENXIO
+    no_such_device_or_address=ENXIO,
+#else
+    no_such_device_or_address=-1045,
+#endif
+#ifdef ENODEV
+    no_such_device=ENODEV,
+#else
+    no_such_device=-1046,
+#endif
+#ifdef ENOENT
+    no_such_file_or_directory=ENOENT,
+#else
+    no_such_file_or_directory=-1047,
+#endif
+#ifdef ESRCH
+    no_such_process=ESRCH,
+#else
+    no_such_process=-1048,
+#endif
+#ifdef ENOTDIR
+    not_a_directory=ENOTDIR,
+#else
+    not_a_directory=-1049,
+#endif
+#ifdef ENOTSOCK
+    not_a_socket=ENOTSOCK,
+#else
+    not_a_socket=-1050,
+#endif
+#ifdef ENOSTR
+    not_a_stream=ENOSTR,
+#else
+    not_a_stream=-1051,
+#endif
+#ifdef ENOTCONN
+    not_connected=ENOTCONN,
+#else
+    not_connected=-1052,
+#endif
+#ifdef ENOMEM
+    not_enough_memory=ENOMEM,
+#else
+    not_enough_memory=-1053,
+#endif
+#ifdef ENOTSUP
+    not_supported=ENOTSUP,
+#else
+    not_supported=-1054,
+#endif
+#ifdef ECANCELED
+    operation_canceled=ECANCELED,
+#else
+    operation_canceled=-1055,
+#endif
+#ifdef EINPROGRESS
+    operation_in_progress=EINPROGRESS,
+#else
+    operation_in_progress=-1056,
+#endif
+#ifdef EPERM
+    operation_not_permitted=EPERM,
+#else
+    operation_not_permitted=-1057,
+#endif
+#ifdef EOPNOTSUPP
+    operation_not_supported=EOPNOTSUPP,
+#else
+    operation_not_supported=-1058,
+#endif
+#ifdef EWOULDBLOCK
+    operation_would_block=EWOULDBLOCK,
+#else
+    operation_would_block=-1059,
+#endif
+#ifdef EOWNERDEAD
+    owner_dead=EOWNERDEAD,
+#else
+    owner_dead=-1060,
+#endif
+#ifdef EACCES
+    permission_denied=EACCES,
+#else
+    permission_denied=-1061,
+#endif
+#ifdef EPROTO
+    protocol_error=EPROTO,
+#else
+    protocol_error=-1062,
+#endif
+#ifdef EPROTONOSUPPORT
+    protocol_not_supported=EPROTONOSUPPORT,
+#else
+    protocol_not_supported=-1063,
+#endif
+#ifdef EROFS
+    read_only_file_system=EROFS,
+#else
+    read_only_file_system=-1064,
+#endif
+#ifdef EDEADLK
+    resource_deadlock_would_occur=EDEADLK,
+#else
+    resource_deadlock_would_occur=-1065,
+#endif
+#ifdef EAGAIN
+    resource_unavailable_try_again=EAGAIN,
+#else
+    resource_unavailable_try_again=-1066,
+#endif
+#ifdef ERANGE
+    result_out_of_range=ERANGE,
+#else
+    result_out_of_range=-1067,
+#endif
+#ifdef ENOTRECOVERABLE
+    state_not_recoverable=ENOTRECOVERABLE,
+#else
+    state_not_recoverable=-1068,
+#endif
+#ifdef ETIME
+    stream_timeout=ETIME,
+#else
+    stream_timeout=-1069,
+#endif
+#ifdef ETXTBSY
+    text_file_busy=ETXTBSY,
+#else
+    text_file_busy=-1070,
+#endif
+#ifdef ETIMEDOUT
+    timed_out=ETIMEDOUT,
+#else
+    timed_out=-1071,
+#endif
+#ifdef ENFILE
+    too_many_files_open_in_system=ENFILE,
+#else
+    too_many_files_open_in_system=-1072,
+#endif
+#ifdef EMFILE
+    too_many_files_open=EMFILE,
+#else
+    too_many_files_open=-1073,
+#endif
+#ifdef EMLINK
+    too_many_links=EMLINK,
+#else
+    too_many_links=-1074,
+#endif
+#ifdef ELOOP
+    too_many_symbolic_link_levels=ELOOP,
+#else
+    too_many_symbolic_link_levels=-1075,
+#endif
+#ifdef EOVERFLOW
+    value_too_large=EOVERFLOW,
+#else
+    value_too_large=-1076,
+#endif
+#ifdef EPROTOTYPE
+    wrong_protocol_type=EPROTOTYPE,
+#else
+    wrong_protocol_type=-1077,
+#endif
+};
+template<> struct is_error_condition_enum<errc> : true_type {};
+
+class error_category {
+protected:
+    constexpr error_category() noexcept {}
+public:
+    error_category(const error_category&)=delete;
+    error_category& operator=(const error_category&)=delete;
+    virtual ~error_category() noexcept {}
+    virtual const char* name() const noexcept=0;
+    virtual string message(int) const=0;
+    virtual error_condition default_error_condition(int) const noexcept;
+    virtual bool equivalent(int,const error_condition&) const noexcept;
+    virtual bool equivalent(const error_code&,int) const noexcept;
+    bool operator==(const error_category& rhs) const noexcept { return this==&rhs; }
+    bool operator!=(const error_category& rhs) const noexcept { return this!=&rhs; }
+    bool operator<(const error_category& rhs) const noexcept {
+        return less<const error_category*>()(this,&rhs);
+    }
+};
+
+class error_code {
+    int value_;
+    const error_category* category_;
+public:
+    error_code() noexcept : value_(0),category_(&system_category()) {}
+    error_code(int value,const error_category& cat) noexcept : value_(value),category_(&cat) {}
+    template<class E,typename enable_if<is_error_code_enum<E>::value,int>::type=0>
+    error_code(E value) noexcept { *this=make_error_code(value); }
+    template<class E> typename enable_if<is_error_code_enum<E>::value,error_code&>::type
+    operator=(E value) noexcept { *this=make_error_code(value); return *this; }
+    void assign(int value,const error_category& cat) noexcept { value_=value; category_=&cat; }
+    void clear() noexcept { assign(0,system_category()); }
+    int value() const noexcept { return value_; }
+    const error_category& category() const noexcept { return *category_; }
+    error_condition default_error_condition() const noexcept;
+    string message() const { return category().message(value_); }
+    explicit operator bool() const noexcept { return value_!=0; }
+};
+class error_condition {
+    int value_;
+    const error_category* category_;
+public:
+    error_condition() noexcept : value_(0),category_(&generic_category()) {}
+    error_condition(int value,const error_category& cat) noexcept : value_(value),category_(&cat) {}
+    template<class E,typename enable_if<is_error_condition_enum<E>::value,int>::type=0>
+    error_condition(E value) noexcept { *this=make_error_condition(value); }
+    template<class E> typename enable_if<is_error_condition_enum<E>::value,error_condition&>::type
+    operator=(E value) noexcept { *this=make_error_condition(value); return *this; }
+    void assign(int value,const error_category& cat) noexcept { value_=value; category_=&cat; }
+    void clear() noexcept { assign(0,generic_category()); }
+    int value() const noexcept { return value_; }
+    const error_category& category() const noexcept { return *category_; }
+    string message() const { return category().message(value_); }
+    explicit operator bool() const noexcept { return value_!=0; }
+};
+inline bool operator==(const error_code& a,const error_code& b) noexcept {
+    return a.value()==b.value() && a.category()==b.category();
+}
+inline bool operator==(const error_condition& a,const error_condition& b) noexcept {
+    return a.value()==b.value() && a.category()==b.category();
+}
+inline bool operator==(const error_code& a,const error_condition& b) noexcept {
+    return a.category().equivalent(a.value(),b) || b.category().equivalent(a,b.value());
+}
+inline bool operator==(const error_condition& a,const error_code& b) noexcept { return b==a; }
+inline bool operator!=(const error_code& a,const error_code& b) noexcept { return !(a==b); }
+inline bool operator!=(const error_condition& a,const error_condition& b) noexcept { return !(a==b); }
+inline bool operator!=(const error_code& a,const error_condition& b) noexcept { return !(a==b); }
+inline bool operator!=(const error_condition& a,const error_code& b) noexcept { return !(a==b); }
+inline bool operator<(const error_code& a,const error_code& b) noexcept {
+    return a.category()<b.category() || (a.category()==b.category() && a.value()<b.value());
+}
+inline bool operator<(const error_condition& a,const error_condition& b) noexcept {
+    return a.category()<b.category() || (a.category()==b.category() && a.value()<b.value());
+}
+inline error_condition error_category::default_error_condition(int value) const noexcept {
+    return error_condition(value,*this);
+}
+inline bool error_category::equivalent(int value,const error_condition& condition) const noexcept {
+    return default_error_condition(value)==condition;
+}
+inline bool error_category::equivalent(const error_code& code,int value) const noexcept {
+    return code.category()==*this && code.value()==value;
+}
+inline error_condition error_code::default_error_condition() const noexcept {
+    return category().default_error_condition(value());
+}
+namespace __rw_c11 {
+struct __errno_restore {
+    int saved;
+    __errno_restore() noexcept : saved(errno) {}
+    ~__errno_restore() noexcept { errno=saved; }
+};
+inline const char* __strerror_text(char* text,char*) { return text; }
+inline const char* __strerror_text(int result,char* text) { return result==0?text:"Unknown error"; }
+inline string __errno_message(int value) {
+    __errno_restore guard;
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__sun)
+    char buffer[256]={};
+    const char* text=__strerror_text(::strerror_r(value,buffer,sizeof buffer),buffer);
+#else
+    const char* text=std::strerror(value);
+#endif
+    return string(text?text:"Unknown error");
+}
+inline bool __portable_errno(int value) noexcept {
+    if (value==0) return true;
+    const int values[]={
+#ifdef EAFNOSUPPORT
+        EAFNOSUPPORT,
+#endif
+#ifdef EADDRINUSE
+        EADDRINUSE,
+#endif
+#ifdef EADDRNOTAVAIL
+        EADDRNOTAVAIL,
+#endif
+#ifdef EISCONN
+        EISCONN,
+#endif
+#ifdef E2BIG
+        E2BIG,
+#endif
+#ifdef EDOM
+        EDOM,
+#endif
+#ifdef EFAULT
+        EFAULT,
+#endif
+#ifdef EBADF
+        EBADF,
+#endif
+#ifdef EBADMSG
+        EBADMSG,
+#endif
+#ifdef EPIPE
+        EPIPE,
+#endif
+#ifdef ECONNABORTED
+        ECONNABORTED,
+#endif
+#ifdef EALREADY
+        EALREADY,
+#endif
+#ifdef ECONNREFUSED
+        ECONNREFUSED,
+#endif
+#ifdef ECONNRESET
+        ECONNRESET,
+#endif
+#ifdef EXDEV
+        EXDEV,
+#endif
+#ifdef EDESTADDRREQ
+        EDESTADDRREQ,
+#endif
+#ifdef EBUSY
+        EBUSY,
+#endif
+#ifdef ENOTEMPTY
+        ENOTEMPTY,
+#endif
+#ifdef ENOEXEC
+        ENOEXEC,
+#endif
+#ifdef EEXIST
+        EEXIST,
+#endif
+#ifdef EFBIG
+        EFBIG,
+#endif
+#ifdef ENAMETOOLONG
+        ENAMETOOLONG,
+#endif
+#ifdef ENOSYS
+        ENOSYS,
+#endif
+#ifdef EHOSTUNREACH
+        EHOSTUNREACH,
+#endif
+#ifdef EIDRM
+        EIDRM,
+#endif
+#ifdef EILSEQ
+        EILSEQ,
+#endif
+#ifdef ENOTTY
+        ENOTTY,
+#endif
+#ifdef EINTR
+        EINTR,
+#endif
+#ifdef EINVAL
+        EINVAL,
+#endif
+#ifdef ESPIPE
+        ESPIPE,
+#endif
+#ifdef EIO
+        EIO,
+#endif
+#ifdef EISDIR
+        EISDIR,
+#endif
+#ifdef EMSGSIZE
+        EMSGSIZE,
+#endif
+#ifdef ENETDOWN
+        ENETDOWN,
+#endif
+#ifdef ENETRESET
+        ENETRESET,
+#endif
+#ifdef ENETUNREACH
+        ENETUNREACH,
+#endif
+#ifdef ENOBUFS
+        ENOBUFS,
+#endif
+#ifdef ECHILD
+        ECHILD,
+#endif
+#ifdef ENOLINK
+        ENOLINK,
+#endif
+#ifdef ENOLCK
+        ENOLCK,
+#endif
+#ifdef ENODATA
+        ENODATA,
+#endif
+#ifdef ENOMSG
+        ENOMSG,
+#endif
+#ifdef ENOPROTOOPT
+        ENOPROTOOPT,
+#endif
+#ifdef ENOSPC
+        ENOSPC,
+#endif
+#ifdef ENOSR
+        ENOSR,
+#endif
+#ifdef ENXIO
+        ENXIO,
+#endif
+#ifdef ENODEV
+        ENODEV,
+#endif
+#ifdef ENOENT
+        ENOENT,
+#endif
+#ifdef ESRCH
+        ESRCH,
+#endif
+#ifdef ENOTDIR
+        ENOTDIR,
+#endif
+#ifdef ENOTSOCK
+        ENOTSOCK,
+#endif
+#ifdef ENOSTR
+        ENOSTR,
+#endif
+#ifdef ENOTCONN
+        ENOTCONN,
+#endif
+#ifdef ENOMEM
+        ENOMEM,
+#endif
+#ifdef ENOTSUP
+        ENOTSUP,
+#endif
+#ifdef ECANCELED
+        ECANCELED,
+#endif
+#ifdef EINPROGRESS
+        EINPROGRESS,
+#endif
+#ifdef EPERM
+        EPERM,
+#endif
+#ifdef EOPNOTSUPP
+        EOPNOTSUPP,
+#endif
+#ifdef EWOULDBLOCK
+        EWOULDBLOCK,
+#endif
+#ifdef EOWNERDEAD
+        EOWNERDEAD,
+#endif
+#ifdef EACCES
+        EACCES,
+#endif
+#ifdef EPROTO
+        EPROTO,
+#endif
+#ifdef EPROTONOSUPPORT
+        EPROTONOSUPPORT,
+#endif
+#ifdef EROFS
+        EROFS,
+#endif
+#ifdef EDEADLK
+        EDEADLK,
+#endif
+#ifdef EAGAIN
+        EAGAIN,
+#endif
+#ifdef ERANGE
+        ERANGE,
+#endif
+#ifdef ENOTRECOVERABLE
+        ENOTRECOVERABLE,
+#endif
+#ifdef ETIME
+        ETIME,
+#endif
+#ifdef ETXTBSY
+        ETXTBSY,
+#endif
+#ifdef ETIMEDOUT
+        ETIMEDOUT,
+#endif
+#ifdef ENFILE
+        ENFILE,
+#endif
+#ifdef EMFILE
+        EMFILE,
+#endif
+#ifdef EMLINK
+        EMLINK,
+#endif
+#ifdef ELOOP
+        ELOOP,
+#endif
+#ifdef EOVERFLOW
+        EOVERFLOW,
+#endif
+#ifdef EPROTOTYPE
+        EPROTOTYPE,
+#endif
+    };
+    for (size_t i=0;i<sizeof(values)/sizeof(*values);++i) if (values[i]==value) return true;
+    return false;
+}
+// Explicit runtime constructors keep coalesced objects and guards consistent
+// across compilers with different support for constant vptr initialization.
+class __generic_error_category : public error_category {
+public:
+    __generic_error_category() noexcept {}
+    const char* name() const noexcept override { return "generic"; }
+    string message(int value) const override { return __errno_message(value); }
+};
+class __system_error_category : public error_category {
+public:
+    __system_error_category() noexcept {}
+    const char* name() const noexcept override { return "system"; }
+    string message(int value) const override { return __errno_message(value); }
+    error_condition default_error_condition(int value) const noexcept override {
+        return error_condition(value,__portable_errno(value)?generic_category():*this);
+    }
+};
+}
+inline const error_category& generic_category() noexcept {
+    static __rw_c11::__generic_error_category category;
+    return category;
+}
+inline const error_category& system_category() noexcept {
+    static __rw_c11::__system_error_category category;
+    return category;
+}
+inline error_code make_error_code(errc value) noexcept { return error_code(int(value),generic_category()); }
+inline error_condition make_error_condition(errc value) noexcept { return error_condition(int(value),generic_category()); }
+namespace __rw_c11 {
+inline string __system_error_message(const error_code& code,const char* text) {
+    return text && *text?string(text)+": "+code.message():code.message();
+}
+}
+template<class C,class T>
+inline basic_ostream<C,T>& operator<<(basic_ostream<C,T>& out,const error_code& code) {
+    return out << code.category().name() << ':' << code.value();
+}
+class system_error : public runtime_error {
+    error_code code_;
+public:
+    system_error(error_code code,const string& text)
+        : runtime_error(__rw_c11::__system_error_message(code,text.c_str())),code_(code) {}
+    system_error(error_code code,const char* text)
+        : runtime_error(__rw_c11::__system_error_message(code,text)),code_(code) {}
+    system_error(error_code code) : runtime_error(code.message()),code_(code) {}
+    system_error(int value,const error_category& cat,const string& text)
+        : system_error(error_code(value,cat),text) {}
+    system_error(int value,const error_category& cat,const char* text)
+        : system_error(error_code(value,cat),text) {}
+    system_error(int value,const error_category& cat) : system_error(error_code(value,cat)) {}
+    const error_code& code() const noexcept { return code_; }
+};
+template<> struct hash<error_code> {
+    typedef error_code argument_type;
+    typedef size_t result_type;
+    size_t operator()(const error_code& code) const noexcept {
+        return hash<const error_category*>()(&code.category()) ^ (hash<int>()(code.value())*16777619U);
+    }
+};
+template<> struct hash<error_condition> {
+    typedef error_condition argument_type;
+    typedef size_t result_type;
+    size_t operator()(const error_condition& code) const noexcept {
+        return hash<const error_category*>()(&code.category()) ^ (hash<int>()(code.value())*16777619U);
+    }
+};
+}
+#endif // C++11
+#endif

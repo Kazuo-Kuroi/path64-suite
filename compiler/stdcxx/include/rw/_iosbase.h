@@ -50,10 +50,36 @@
 
 #ifdef _RWSTD_CXX11
 #  include <rw/_c11_utility.h>
+#  include <system_error>
 #endif
 
 _RWSTD_NAMESPACE (std) {
 
+
+#ifdef _RWSTD_CXX11
+enum class io_errc { stream=1 };
+template<> struct is_error_code_enum<io_errc> : true_type {};
+namespace __rw_c11 {
+class __iostream_error_category : public error_category {
+public:
+    __iostream_error_category() noexcept {}
+    const char* name() const noexcept override { return "iostream"; }
+    string message(int value) const override {
+        return value==int(io_errc::stream)?"iostream error":"Unknown iostream error";
+    }
+};
+}
+inline const error_category& iostream_category() noexcept {
+    static __rw_c11::__iostream_error_category category;
+    return category;
+}
+inline error_code make_error_code(io_errc value) noexcept {
+    return error_code(int(value),iostream_category());
+}
+inline error_condition make_error_condition(io_errc value) noexcept {
+    return error_condition(int(value),iostream_category());
+}
+#endif
 
 struct _RWSTD_EXPORT ios_base: _RW::__rw_synchronized
 {

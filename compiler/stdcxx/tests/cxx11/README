@@ -153,3 +153,13 @@ indirect-object and const calls through parenthesized member expressions.
 codecvt-unicode.pass.cpp checks Unicode scalar boundaries, malformed UTF-8,
 partial buffers, UTF-16 units, BOM modes, byte order, filename overloads and
 wide-file integration. The approved locale.stdcvt references pass 24/24.
+
+system-error.pass.cpp checks ADL enum customization, custom category equivalence,
+messages, errno preservation, hashes, threaded singleton use, copying and throws.
+ERROR_PROVIDER_ONLY/ERROR_CONSUMER_ONLY split the file for cross-compiler links:
+category pointers, returned codes and thrown errors must agree across objects.
+compiler-virtual-redeclaration.pass.cpp checks canonical virtual methods, calls
+through returned references, one object evaluation, member pointers and deletion.
+It also runs in C++98. The reference system-error/category checkpoint is 60/60
+with one C++17 variable-trait exclusion. Modern ios_base::failure constructors
+and inheritance remain an explicit ABI follow-up, with two pending references.

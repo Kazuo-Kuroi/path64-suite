@@ -573,4 +573,45 @@ calls and stream flags also pass in C++98, and the eleven legacy probes pass
 at both levels. Libraries and the frontend have been rebuilt. IRIX backend
 builds; Unicode/file execution is checked only on Linux x86-64.
 
-`<system_error>` and its stream error-category integration remain pending.
+The subsequent system-error/category checkpoint is below.
+
+
+### System-error and stream-category checkpoint
+
+The original `<system_error>` implements `errc`, error enum traits,
+`error_category`, `error_code`, `error_condition`, factories, comparisons,
+stream insertion, hashes and `system_error`. Generic/system category singletons
+map available POSIX errors and preserve errno while forming messages. On Linux,
+FreeBSD and Solaris, message conversion uses the available strerror_r ABI;
+other platforms use the C library strerror fallback. Category identity is shared
+across translation units. Stream headers add `io_errc`, `iostream_category`
+and the corresponding trait/factories.
+
+Concrete standard categories have explicit runtime constructors. This keeps
+coalesced singleton objects and guard variables consistent between native Clang
+and PathScale while psclang lacks static vptr initialization for some constexpr
+polymorphic objects. The broader limitation remains in the TODO. The new header
+also exposed virtual lowering bugs: vtable indices now use canonical method
+declarations, calls through returned references dispatch virtually, and the
+implicit object expression is evaluated once.
+
+All 56 applicable system-error references and four stream-category references
+pass with both compilers at C++14 `-O2`; the trait-variable reference is C++17.
+Together with the stream/numeric/Unicode batch, the checkpoint is 171/171 with
+nine exclusions. Original tests check custom ADL enums, equivalence in both
+directions, messages, errno, hashing, threaded singleton use and exceptions.
+Four mixed-compiler checks confirm shared category identity, returned codes
+and thrown system_error objects at `-O0`/`-O2`. New originals pass in C++11/14
+with both compilers at both levels; PathScale's full original suite passes
+42 tests in C++11 and 43 in C++14. The virtual-call check also passes in C++98,
+and exception-free C++11 header use passes with both compilers at both levels.
+Eleven legacy C++98/03 probes remain clear. Execution coverage is Linux x86-64.
+
+The modern `ios_base::failure` interface is still pending. Shared C++98 library
+code throws `__rw_failure` and its existing subclasses; those objects currently
+have the legacy base hierarchy and layout. Changing the header typedef alone
+would make modern catches disagree with shared-library throws. Its system_error
+base, stored code and code-aware constructors need a coordinated runtime/ABI
+transition. The two modern failure references remain outside the passing
+checkpoint. System_error also inherits the legacy runtime_error copy guarantees;
+allocation-free/noexcept exception copying belongs in that transition audit.
