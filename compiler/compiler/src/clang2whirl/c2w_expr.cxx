@@ -888,9 +888,9 @@ WhirlExprBuilder::ConvertCXXMFPFromFA(const UnaryOperator* expr, INT64 ofst) {
         = dyn_cast<clang::CXXDestructorDecl>(method);
     UINT64 vofst;
     if (dtor)
-      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete));
+      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete).getCanonicalDecl());
     else
-      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(method));
+      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(method).getCanonicalDecl());
     vofst *= MTYPE_byte_size(Pointer_Mtype);
     stid = WN_Stid(Pointer_Mtype, 0, tmp_st, ty,
                    WN_Intconst(Pointer_Mtype, vofst + 1), 1);
@@ -2666,7 +2666,7 @@ WhirlExprBuilder::ConvertCXXDeleteExpr(const clang::CXXDeleteExpr *expr) {
     ItaniumVTableContext *vt_ctx =
       cast<ItaniumVTableContext>(_builder->Context()->getVTableContext());
     UINT64 slot = vt_ctx->getMethodVTableIndex(
-                    GlobalDecl(dtor_decl, CXXDtorType::Dtor_Deleting));
+                    GlobalDecl(dtor_decl, CXXDtorType::Dtor_Deleting).getCanonicalDecl());
     TYPE_ID uintptr_ty = _builder->TB().GetUIntPtrMType();
     TY_IDX func_ty = _builder->TB().ConvertType(dtor_decl->getType());
     WN *icall = WN_Icall(MTYPE_V, MTYPE_V, 2, func_ty);
@@ -3097,9 +3097,9 @@ WhirlExprBuilder::ConvertCXXMFPToINITV(const Expr *expr, TY_IDX ty) {
     const clang::CXXDestructorDecl* dtor
         = dyn_cast<clang::CXXDestructorDecl>(method);
     if (dtor)
-      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete));
+      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete).getCanonicalDecl());
     else
-      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(method));
+      vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(method).getCanonicalDecl());
     vofst *= MTYPE_byte_size(Pointer_Mtype);
     // gen INITO for MemberFunPointer
     ST_IDX tmp_st = GenINITOForCXXMFP(ty, vofst + 1);
@@ -3275,17 +3275,9 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
   SRCPOS spos = SetSrcPos(getLocation(expr));
 
   const MemberExpr *member_expr = cast<MemberExpr>(callee);
-  // create ICALL if ImplicitObjectArgument is ReferenceType
-  const Expr *impl_obj = expr->getImplicitObjectArgument();
-  bool is_ref_obj = false;
-  if (impl_obj && isa<DeclRefExpr>(impl_obj)) {
-    const DeclRefExpr *sub_expr = cast<DeclRefExpr>(impl_obj);
-    if (sub_expr->getDecl()->getType()->isReferenceType())
-      is_ref_obj = true;
-  }
-
-  if (md->isVirtual() && (member_expr->isArrow() || is_ref_obj) &&
-      !member_expr->hasQualifier()) {
+  // Unqualified virtual calls dispatch through the object's vtable, including
+  // references returned by calls, casts, and direct object expressions.
+  if (md->isVirtual() && !member_expr->hasQualifier()) {
     Expr *base = member_expr->getBase();
     Result base_r = ConvertExpr(base);
     TY_IDX base_ty_idx = _builder->TB().ConvertType(base->getType());
@@ -3304,12 +3296,9 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
     }
 #endif
     WN *ldid_base_wn = base_r.GetLValue();
-    Is_True((WN_operator(ldid_base_wn) == OPR_LDID ||
-             WN_operator(ldid_base_wn) == OPR_ILOAD ||
-             WN_operator(ldid_base_wn) == OPR_ILDA ||
-             WN_operator(ldid_base_wn) == OPR_COMMA ||
-             WN_operator(ldid_base_wn) == OPR_ADD),
-             ("Base wn is not ldid, iload or ilda."));
+    Is_True(OPERATOR_is_expression(WN_operator(ldid_base_wn)) &&
+            WN_rtype(ldid_base_wn) == Pointer_Mtype,
+            ("Virtual call object is not an address"));
     TY_IDX ret_ty_idx = _builder->TB().ConvertType(expr->getType());
     if (expr->isGLValue())
       ret_ty_idx = Make_Pointer_Type(ret_ty_idx);
@@ -3327,6 +3316,12 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
     if (!_builder->DeclBuilder().Call_nothrow(md))
       Mark_call_region(icall_wn);
 
+    // The implicit object is shared by the this argument and vtable lookup.
+    // Save its address so side effects and volatile loads occur only once.
+    WN *object_store = WGEN_StidTemp(base_ty_idx, ldid_base_wn, ".virtual_object");
+    WN_Set_Linenum(object_store, spos);
+    WN_INSERT_BlockLast(WhirlBlockUtil::getCurrentBlock(), object_store);
+    ldid_base_wn = WN_Ldid(TY_mtype(base_ty_idx), WN_offset(object_store), WN_st(object_store), base_ty_idx);
     WN *parm_first = WGEN_CreateParm(TY_mtype(base_ty_idx), ldid_base_wn, base_ty_idx);
     int parm_idx = 0;
     if (memory_result)
@@ -3334,8 +3329,7 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
           result_object.GetLValue(), Make_Pointer_Type(ret_ty_idx));
     WN_kid(icall_wn, parm_idx++) = parm_first;
     SetCallParm(expr, icall_wn, parm_idx);
-    Result base_r2 = ConvertExpr(base);
-    WN *ldid_base_wn2 = base_r2.GetLValue();
+    WN *ldid_base_wn2 = WN_COPY_Tree(ldid_base_wn);
     ASTContext *ast_c = _builder->Context();
     ItaniumVTableContext *vtable_c = cast<ItaniumVTableContext>(ast_c->getVTableContext());
     TY_IDX vtable_ty = _builder->TB().ConvertVTableType(md->getParent());
@@ -3343,10 +3337,10 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
     uint64_t offset;
     const clang::CXXDestructorDecl* dtor = dyn_cast<clang::CXXDestructorDecl>(md);
     if (dtor) {
-      offset = vtable_c->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete));
+      offset = vtable_c->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete).getCanonicalDecl());
     }
     else {
-      offset = vtable_c->getMethodVTableIndex(GlobalDecl(md));
+      offset = vtable_c->getMethodVTableIndex(GlobalDecl(md).getCanonicalDecl());
     }
 
     offset *= TY_size(TY_etype(vtable_ty));

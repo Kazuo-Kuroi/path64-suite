@@ -314,9 +314,9 @@ WhirlConstBuilder::ConvertCastExpr(const CastExpr *expr, QualType type) {
               = dyn_cast<clang::CXXDestructorDecl>(method);
           UINT64 vofst;
           if (dtor)
-            vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete));
+            vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(dtor, CXXDtorType::Dtor_Complete).getCanonicalDecl());
           else
-            vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(method));
+            vofst = vt_ctx->getMethodVTableIndex(GlobalDecl(method).getCanonicalDecl());
           vofst *= MTYPE_byte_size(Pointer_Mtype);
           INITV_Init_Integer(fptr_inv, MTYPE_I8, vofst);
         }
