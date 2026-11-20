@@ -251,3 +251,9 @@ only a successful initialization registers the static object's destructor.
 For mixed compiler checks, compile static-retry-provider.cpp in C++11 with one
 compiler and this regression in C++14 with STATIC_RETRY_CONSUMER_ONLY using the
 other compiler, then link the objects. Both directions pass at -O0/-O2.
+
+compiler-discarded-atomic.pass.cpp checks discarded 32-/64-bit __sync results
+before calls with EH regions, high-bit bitwise/exchange updates, successful and
+failed CAS, consumed results and destructor unwinding. It also checks that
+optimized post-atomic reads see the updated value rather than a pre-atomic
+store. Runs in C++98/11/14 at -O0/-O2.

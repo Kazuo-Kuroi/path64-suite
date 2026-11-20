@@ -6,6 +6,21 @@ This file lists what is left, for anyone who wants to take a piece. Put
 your name on an item before you start, and tick it off (or update the
 numbers) in the same change that does it.
 
+## Remaining scope (2026-11-20)
+
+The TODO is not nearly complete as a whole. Most Phase 1–3 implementation
+items are checked off, with recorded tuple/vector reference limitations and
+pooled-list allocation-test differences. Phase 3 `shuffle` and its remaining
+algorithm reference coverage depend on `<random>`.
+
+Phase 4 still contains substantial new work: forward/unordered containers,
+ratio/chrono, atomics, threading/synchronization/futures, random, regex,
+typeindex and scoped allocators. The C Unicode wrappers also need their
+remaining coverage. IRIX n32/big-endian validation and the decision about
+C++11 runtime-library additions remain open. The phase tables below distinguish
+implemented headers from planned work; unchecked checkbox counts alone omit
+most of that scope.
+
 ## Getting set up
 
 1. **Build the suite** as usual. The build's stage directory,
@@ -652,11 +667,21 @@ Phase 2 list modernization remains separate, as described above.
   share one guard in both directions at `-O0`/`-O2`. The original regression
   target passes **53/53** in C++11 and **54/54** in C++14 at both optimization
   levels; host checks and a `-fno-exceptions` smoke test also pass.
-- [ ] **Discarded atomic builtin result (psclang/backend):** the threaded retry
-  regression exposed a backend `Code_Expansion` crash for a discarded
-  `__sync_add_and_fetch(&failures, 1)` inside a catch handler. Consuming its
-  result in the regression's exactly-one-failure assertion compiles correctly.
-  Reduce and repair this separately from static-guard cleanup.
+- [x] (Codex) **Discarded atomic builtin results (psclang/backend):** void
+  intrinsics leave the following statement to the region-aware converter rather
+  than trying to expand an EH region as an expression. x86 bitwise/exchange
+  operations derive their width from the intrinsic, including discarded results.
+  psclang now emits compiler memory barriers around legacy `__sync` operations,
+  matching the legacy frontend and preventing optimized loads from reusing
+  pre-atomic values. `compiler-discarded-atomic.pass.cpp` checks 32-/64-bit
+  arithmetic, bitwise/NAND, exchange, successful/failed compare-and-swap,
+  consumed results, high bits and unwinding through catch-local destructors.
+  It passes in C++98/11/14 at `-O0`/`-O2`; the original threaded reproducer
+  also passes without consuming the atomic result (50 consecutive executions).
+  System-error/smart-pointer references pass **140/140** in C++14 at both levels
+  (three exclusions). The full original target passes **54/54** in C++11 and
+  **55/55** in C++14 at both levels. The IRIX backend also rebuilds; runtime
+  execution coverage remains Linux x86-64.
 
 - [x] (Codex) **Union destructor lowering (psclang):** a union destructor
   destroys variants only through explicit user code. Enclosing classes skip

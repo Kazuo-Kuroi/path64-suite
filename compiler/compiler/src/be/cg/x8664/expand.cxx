@@ -9386,6 +9386,8 @@ Exp_Intrinsic_Call (WN *intrncall, TN *op0, TN *op1, TN *op2,
     Build_OP (TOP_stntsd, op1, op0, Gen_Literal_TN (0,4), ops);
     break;
   
+  // Atomic width belongs to the intrinsic, even when its result is discarded
+  // and the call's return type is void.
   // FETCH_AND_...
 
   case INTRN_FETCH_AND_ADD_I4:
@@ -9411,22 +9413,22 @@ Exp_Intrinsic_Call (WN *intrncall, TN *op0, TN *op1, TN *op2,
 
   case INTRN_FETCH_AND_AND_I4:
   case INTRN_FETCH_AND_AND_I8:
-    return Exp_Fetch_and_And(op0, op1, WN_rtype(intrncall),
+    return Exp_Fetch_and_And(op0, op1, Get_Intrinsic_Size_Mtype(id),
                              ops, label, loop_ops);
 
   case INTRN_FETCH_AND_OR_I4:
   case INTRN_FETCH_AND_OR_I8:
-    return Exp_Fetch_and_Or(op0, op1, WN_rtype(intrncall),
+    return Exp_Fetch_and_Or(op0, op1, Get_Intrinsic_Size_Mtype(id),
                             ops, label, loop_ops);
 
   case INTRN_FETCH_AND_XOR_I4:
   case INTRN_FETCH_AND_XOR_I8:
-    return Exp_Fetch_and_Xor(op0, op1, WN_rtype(intrncall),
+    return Exp_Fetch_and_Xor(op0, op1, Get_Intrinsic_Size_Mtype(id),
                              ops, label, loop_ops);
   
   case INTRN_FETCH_AND_NAND_I4:
   case INTRN_FETCH_AND_NAND_I8:
-    return Exp_Fetch_and_Nand(op0, op1, WN_rtype(intrncall),
+    return Exp_Fetch_and_Nand(op0, op1, Get_Intrinsic_Size_Mtype(id),
                               ops, label, loop_ops);
 
   // COMPARE_AND_SWAP
@@ -9466,29 +9468,29 @@ Exp_Intrinsic_Call (WN *intrncall, TN *op0, TN *op1, TN *op2,
   
   case INTRN_AND_AND_FETCH_I4:
   case INTRN_AND_AND_FETCH_I8:
-    return Exp_And_and_Fetch(op0, op1, WN_rtype(intrncall),
+    return Exp_And_and_Fetch(op0, op1, Get_Intrinsic_Size_Mtype(id),
                              ops, label, loop_ops);
 
   case INTRN_OR_AND_FETCH_I4:
   case INTRN_OR_AND_FETCH_I8:
-    return Exp_Or_and_Fetch(op0, op1, WN_rtype(intrncall),
+    return Exp_Or_and_Fetch(op0, op1, Get_Intrinsic_Size_Mtype(id),
                             ops, label, loop_ops);
 
   case INTRN_XOR_AND_FETCH_I4:
   case INTRN_XOR_AND_FETCH_I8:
-    return Exp_Xor_and_Fetch(op0, op1, WN_rtype(intrncall),
+    return Exp_Xor_and_Fetch(op0, op1, Get_Intrinsic_Size_Mtype(id),
                              ops, label, loop_ops);
   
   case INTRN_NAND_AND_FETCH_I4:
   case INTRN_NAND_AND_FETCH_I8:
-    return Exp_Nand_and_Fetch(op0, op1, WN_rtype(intrncall),
+    return Exp_Nand_and_Fetch(op0, op1, Get_Intrinsic_Size_Mtype(id),
                               ops, label, loop_ops);
 
   // LOCK_...
 
   case INTRN_LOCK_TEST_AND_SET_I4:
   case INTRN_LOCK_TEST_AND_SET_I8:
-    return Exp_Lock_Test_and_Set(op0, op1, WN_rtype(intrncall), ops);
+    return Exp_Lock_Test_and_Set(op0, op1, Get_Intrinsic_Size_Mtype(id), ops);
   
   case INTRN_LOCK_RELEASE_I4:
   case INTRN_LOCK_RELEASE_I8:

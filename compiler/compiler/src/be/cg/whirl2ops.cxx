@@ -5464,9 +5464,13 @@ Handle_INTRINSIC_CALL (WN *intrncall)
 
   /* Expand the next statement and check if it has a use of $2. If any
    * use of $2 is found, replace it by the 'result' TN of the intrncall.
+   * A void intrinsic has no return-register use to replace. Leave its next
+   * statement to convert_stmt_list_to_OPs, which also handles EH regions;
+   * Expand_Statement cannot expand a REGION following a discarded atomic.
    */
   if (next_stmt != NULL && 
       result != NULL &&
+      WN_rtype(intrncall) != MTYPE_V &&
       !WN_operator_is (next_stmt, OPR_INTRINSIC_CALL))
   {
     OP *op;

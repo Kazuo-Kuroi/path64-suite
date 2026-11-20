@@ -289,18 +289,26 @@ WhirlExprBuilder::GenerateIntrinsic(const CallExpr *expr, TY_IDX rtype, INTRINSI
                                   iopc, args_num, kids);
   if (!is_op)
     WN_Set_Linenum(intrn, GetSrcPos());
-  if (!is_op && TY_mtype(rtype) != MTYPE_V && retv) {
-    WN *blk = WN_CreateBlock();
-    WN_INSERT_BlockLast(blk, intrn);
-    WN_Set_Linenum(intrn, GetSrcPos());
-
-    WN *ldid = WN_Ldid(TY_mtype(rtype), -1, Return_Val_Preg, rtype);
-    WN *stid = WGEN_StidTemp(rtype, ldid, "intrn.ret");
-    WN_INSERT_BlockLast(blk, stid);
-    WN_Set_Linenum(stid, GetSrcPos());
-
-    ldid = WN_Ldid(TY_mtype(rtype), WN_offset(stid), WN_st(stid), rtype);
-    intrn = WGEN_CreateComma(Mtype_comparison(TY_mtype(rtype)), blk, ldid);
+  unsigned builtin_id=expr->getDirectCallee()->getBuiltinID();
+  bool sync_barriers=builtin_id>=Builtin::BI__sync_fetch_and_add &&
+                     builtin_id<=Builtin::BI__sync_swap_16;
+  bool value=!is_op && TY_mtype(rtype)!=MTYPE_V && retv;
+  if (value || sync_barriers) {
+    WN *blk=WN_CreateBlock();
+    // Match the legacy front end's compiler barriers. The locked instruction
+    // alone does not stop optimization from reusing pre-atomic memory values.
+    if (sync_barriers) WN_INSERT_BlockLast(blk,WN_CreateBarrier(TRUE,0));
+    WN_INSERT_BlockLast(blk,intrn);
+    WN *ldid=NULL;
+    if (value) {
+      ldid=WN_Ldid(TY_mtype(rtype),-1,Return_Val_Preg,rtype);
+      WN *stid=WGEN_StidTemp(rtype,ldid,"intrn.ret");
+      WN_INSERT_BlockLast(blk,stid);
+      WN_Set_Linenum(stid,GetSrcPos());
+      ldid=WN_Ldid(TY_mtype(rtype),WN_offset(stid),WN_st(stid),rtype);
+    }
+    if (sync_barriers) WN_INSERT_BlockLast(blk,WN_CreateBarrier(FALSE,0));
+    intrn=value ? WGEN_CreateComma(Mtype_comparison(TY_mtype(rtype)),blk,ldid) : blk;
   }
   return Result::nwNode(intrn, 0);
 }

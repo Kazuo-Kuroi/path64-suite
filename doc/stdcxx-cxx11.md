@@ -615,3 +615,26 @@ base, stored code and code-aware constructors need a coordinated runtime/ABI
 transition. The two modern failure references remain outside the passing
 checkpoint. System_error also inherits the legacy runtime_error copy guarantees;
 allocation-free/noexcept exception copying belongs in that transition audit.
+
+### Guarded initialization and legacy atomic checkpoint (2026-11-20)
+
+The later stream-failure ABI work supersedes the pending items in the preceding
+historical checkpoint; see `stdcxx-cxx11-TODO.md` for the current status.
+Throwing local-static initializers now unwind initializer locals/temporaries,
+abort the guard, and allow waiting threads or later calls to retry. Successful
+full-expression cleanup precedes guard release and object destructor
+registration. Nested guards, catches/rethrows, static lambda captures and
+mixed host/psclang inline statics have original regression coverage.
+
+Discarded atomic results no longer make code expansion treat the following
+EH region as an expression. x86 bitwise/exchange operations retain their
+32-/64-bit width when their result is unused. Compiler barriers around legacy
+`__sync` operations prevent optimized post-atomic reads from reusing earlier
+memory values. The original atomic regression passes C++98/11/14 at `-O0`/`-O2`,
+and the threaded initializer reproducer passes 50 consecutive executions.
+The system-error/smart-pointer references pass 140/140 applicable tests in
+C++14 at both optimization levels (three later-standard exclusions).
+The full original regression target passes 54/54 in C++11 and 55/55 in C++14
+at both optimization levels. The IRIX backend rebuilds with the shared fix.
+This does not implement the remaining Phase 4 `<atomic>` header or complete
+native ordered-atomic lowering. Execution coverage is Linux x86-64.
