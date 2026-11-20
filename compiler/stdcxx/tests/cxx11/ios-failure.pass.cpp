@@ -34,6 +34,16 @@ static void* worker(void*) {
     try { legacy_stream_failure(); } catch(...) { captured=std::current_exception(); }
     return 0;
 }
+static void* copy_worker(void* raw) {
+    const std::ios_base::failure& source=*static_cast<std::ios_base::failure*>(raw);
+    for (int i=0;i<10000;++i) {
+        std::ios_base::failure first(source), second(source);
+        second=first;
+        assert(std::strcmp(first.what(),source.what())==0);
+        assert(second.code()==source.code());
+    }
+    return 0;
+}
 int main() {
     static_assert(std::is_base_of<std::system_error,std::ios_base::failure>::value,"failure hierarchy");
     static_assert(std::is_nothrow_copy_constructible<std::system_error>::value,"system error copy");
@@ -53,6 +63,11 @@ int main() {
         try { throw copy; }
         catch(const std::system_error& e) { assert(e.code()==original.code()); }
     }
+    // Shared message ownership must use atomic counters even in TLS builds.
+    pthread_t copiers[4];
+    for (int i=0;i<4;++i) assert(pthread_create(copiers+i,0,copy_worker,&original)==0);
+    for (int i=0;i<4;++i) assert(pthread_join(copiers[i],0)==0);
+    assert(std::strcmp(assigned.what(),original.what())==0);
     deny_allocations=false;
     try { legacy_stream_failure(); assert(false); }
     catch(const std::ios_base::failure& e) {

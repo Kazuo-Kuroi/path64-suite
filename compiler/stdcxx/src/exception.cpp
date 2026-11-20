@@ -841,10 +841,10 @@ static __rw_exception_text* __rw_text_header(char* text) {
     return reinterpret_cast<__rw_exception_text*>(text-sizeof(__rw_exception_text));
 }
 static void __rw_retain_text(char* text) {
-    if (text) _RWSTD_THREAD_PREINCREMENT(__rw_text_header(text)->refs, false);
+    if (text) _RWSTD_ATOMIC_PREINCREMENT(__rw_text_header(text)->refs, false);
 }
 static void __rw_release_text(char* text) {
-    if (text && !_RWSTD_THREAD_PREDECREMENT(__rw_text_header(text)->refs, false))
+    if (text && !_RWSTD_ATOMIC_PREDECREMENT(__rw_text_header(text)->refs, false))
         delete[] reinterpret_cast<char*>(__rw_text_header(text));
 }
 
