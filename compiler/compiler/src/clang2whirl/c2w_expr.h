@@ -122,6 +122,7 @@ private:
   void EmitCallee(const clang::Expr *expr);
 
   Result ConvertCallExpr(const clang::CallExpr *expr, BOOL retv, Result dest = Result::nwNone());
+  Result ConvertEmptyAssignment(const clang::Expr *lhs, const clang::Expr *rhs, BOOL retv);
   
   Result ConvertChooseExpr(const clang::ChooseExpr *expr);
 

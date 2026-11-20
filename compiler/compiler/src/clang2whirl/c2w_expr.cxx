@@ -1543,6 +1543,8 @@ WhirlExprBuilder::ConvertCallExpr(const CallExpr *expr, BOOL retv, Result dest) 
            cxx_callee->isMoveAssignmentOperator())) {
         Is_True(impl_obj && num_args == 2,
                 ("wrong arg num for copy/move assignment"));
+        if (cxx_callee->getParent()->isEmpty())
+          return ConvertEmptyAssignment(impl_obj, expr->getArg(0), retv);
         Result lhs = ConvertExpr(impl_obj);
         Result rhs = ConvertExpr(expr->getArg(0));
         TY_IDX ty = _builder->TB().ConvertType(expr->getType());
@@ -3370,11 +3372,28 @@ WhirlExprBuilder::ConvertCXXMemberCallExpr(const CXXMemberCallExpr *expr, BOOL r
 }
 
 Result
+WhirlExprBuilder::ConvertEmptyAssignment(const Expr *lhs, const Expr *rhs, BOOL retv) {
+  // Empty base subobjects share storage with derived members. Their trivial
+  // assignment has no bytes to copy, even though sizeof the complete type is
+  // nonzero. Preserve operand side effects and the returned lhs reference.
+  TY_IDX pointer = Make_Pointer_Type(_builder->TB().ConvertType(lhs->getType()));
+  WN *address = ConvertToNode(lhs);
+  address = Handle_expr_for_copy(WhirlBlockUtil::getCurrentBlock(), address,
+                                 pointer, GetSrcPos(), ".empty.lhs");
+  ConvertToNode(rhs, Result::nwNone(), FALSE);
+  return retv ? Result::nwNode(address, pointer)
+              : Result::nwNode(WN_CreateEval(address), 0);
+}
+
+Result
 WhirlExprBuilder::ConvertCXXOperatorCallExpr(const CXXOperatorCallExpr *expr, BOOL retv, Result dest) {
   TRACE_FUNC();
   const CXXMethodDecl *met_decl = dyn_cast_or_null<CXXMethodDecl>(expr->getCalleeDecl());
   // no need to convert for trivial operator call expression
   if (met_decl != NULL && met_decl->isTrivial()) {
+    if (met_decl->getParent()->isEmpty() &&
+        (met_decl->isCopyAssignmentOperator() || met_decl->isMoveAssignmentOperator()))
+      return ConvertEmptyAssignment(expr->getArg(0), expr->getArg(1), retv);
     TY_IDX ty = _builder->TB().ConvertType(expr->getType());
     Result lhs = ConvertExpr(expr->getArg(0));
     Result rhs = ConvertExpr(expr->getArg(1));
