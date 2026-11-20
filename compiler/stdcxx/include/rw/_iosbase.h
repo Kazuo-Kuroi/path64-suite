@@ -59,20 +59,6 @@ _RWSTD_NAMESPACE (std) {
 #ifdef _RWSTD_CXX11
 enum class io_errc { stream=1 };
 template<> struct is_error_code_enum<io_errc> : true_type {};
-namespace __rw_c11 {
-class __iostream_error_category : public error_category {
-public:
-    __iostream_error_category() noexcept {}
-    const char* name() const noexcept override { return "iostream"; }
-    string message(int value) const override {
-        return value==int(io_errc::stream)?"iostream error":"Unknown iostream error";
-    }
-};
-}
-inline const error_category& iostream_category() noexcept {
-    static __rw_c11::__iostream_error_category category;
-    return category;
-}
 inline error_code make_error_code(io_errc value) noexcept {
     return error_code(int(value),iostream_category());
 }

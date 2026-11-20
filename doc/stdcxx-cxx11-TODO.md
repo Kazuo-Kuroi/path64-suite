@@ -481,12 +481,14 @@ C++11 and 24 C++14 tests.
   * [x] (Codex) `io_errc`, `iostream_category`, traits and error-code/condition
     factories. Four stream-category references pass, alongside 56 system-error
     references (one C++17 variable-trait test excluded), with both compilers.
-  * [ ] Modern `ios_base::failure`: the shared C++98 library still throws the
-    legacy `__rw_failure` hierarchy. Its `system_error` base, error-code
-    constructors and `code()` need a coordinated runtime/ABI transition; the
-    two modern failure references remain outside the passing checkpoint.
-    Audit allocation-free/noexcept exception copies with that work: the new
-    system_error currently inherits the legacy runtime_error copy guarantees.
+  * [x] (Codex) Modern `ios_base::failure`: common C++98/C++11 runtime
+    hierarchy derives from `system_error`, with error-code constructors and
+    `code()`. Runtime stream throws carry `iostream_category`/`io_errc::stream`.
+    Both modern failure references pass. Exception messages have shared ownership;
+    copying/assigning runtime_error, system_error and failure does not allocate,
+    and captured stream exceptions remain valid after the throwing thread exits.
+    **ABI transition: rebuild libstl and all clients together.** The failure
+    layout, system-error RTTI and private exception-message representation changed.
   * [x] (Codex) `get_money`, `put_money`, `get_time`, `put_time`,
     `hexfloat`, `defaultfloat`, including facet exceptions and output failures.
     Six reference tests and an original integration test pass with psclang and
@@ -533,7 +535,7 @@ remains a WIP port.
 | `<unordered_map>`, `<unordered_set>` | `containers/unord` (329) | needs `hash<string>` |
 | `<ratio>` | `utilities/ratio` (13) | header-only, easy start |
 | `<chrono>` | `utilities/time` (269) | clocks via `clock_gettime` (inline) |
-| `<system_error>` | `diagnostics/syserr` (57) | Implemented: errc, categories, codes/conditions, comparisons, hashes and system_error; 56 applicable references pass, one C++17 trait-variable test excluded. Legacy exception-base guarantees remain. |
+| `<system_error>` | `diagnostics/syserr` (57) | Implemented: errc, categories, codes/conditions, comparisons, hashes and system_error; 56 applicable references pass, one C++17 trait-variable test excluded. Allocation-free exception copies and the modern stream-failure hierarchy are implemented; rebuild clients for the new exception ABI. |
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
@@ -552,6 +554,18 @@ in C++98. Four mixed Clang/PathScale provider/consumer checks cover category
 identity, returned codes and thrown system_error objects at both levels.
 C++11 header use also compiles/runs with `-fno-exceptions` in both compiler modes.
 
+### Stream-failure ABI and constant-vptr checkpoint (2026-11-19)
+
+The system-error, stream-category, modern failure and exception-propagation
+batch plus three original regressions passes **75/75** with psclang and host
+Clang in C++14 at `-O2` (one C++17 exclusion). All original tests pass with
+psclang at `-O0`/`-O2`: **45/45** in C++11 (one C++14-only exclusion) and
+**46/46** in C++14. Twelve C++98 stream-provider/modern-consumer links cover
+legacy PathScale, psclang and host providers at both optimization levels.
+Eight C++98 register-unwind links and four mixed links each for constant vptrs
+and system errors pass. Both compilers also pass the no-exceptions header probe.
+These results require the coordinated exception ABI rebuild described above.
+
 ## Infrastructure
 
 - [x] (Codex) **Virtual-call redeclarations and object expressions:** canonical
@@ -560,15 +574,21 @@ C++11 header use also compiles/runs with `-fno-exceptions` in both compiler mode
   returned by functions, casts and direct objects; explicit qualification keeps
   direct calls. Evaluate the object once for both this and vtable lookup.
   `compiler-virtual-redeclaration.pass.cpp` covers these paths and deletion.
-- [ ] **Constant-initialized polymorphic statics (psclang):** an implicit
-  constexpr constructor can let native Clang emit an initialized vptr while
-  psclang emits zero storage plus a runtime constructor. Coalescing inline
-  singleton objects and guards across mixed object files can then leave a null
-  vptr. Reproducer shape: a constexpr-constructed base with virtual destructor
-  and methods, returned as `static Derived object` from an inline getter,
-  defined in a shared header and consumed by both compilers. The standard
-  category classes use explicit non-constexpr runtime constructors, so their
-  objects and guards agree; the general compiler limitation remains.
+- [x] (Codex) **Constant-initialized polymorphic statics (psclang):** emit
+  complete-object vtable relocations, including secondary bases, nested members
+  and arrays, at their AST layout offsets. Preserve constant data and register
+  destructors without rerunning constructors. Static-local arrays use destructor
+  wrappers and reverse destruction order. Standard error categories no longer
+  need explicit runtime constructors to avoid missing vptrs. Original tests cover
+  early startup dispatch, mutation, bitfields and mixed Clang/PathScale objects.
+- [x] (Codex) **Static integral members:** in-class initializers do not define
+  external storage. Fold value reads while retaining external references for
+  actual storage uses, avoiding duplicate definitions in C++98 stream clients.
+- [x] (Codex) **x86 frame-pointer unwind saves:** emit CFI for callee-saved
+  registers spilled by GRA. Optimized stream cleanup previously lost caller
+  registers across exceptions, breaking later catch dispatch in mixed objects.
+  An original register-preservation test and C++98-provider/modern-consumer
+  stream tests exercise this path.
 
 - [x] (Codex) **Constructor initializer exception cleanup (psclang).**
   Completed record members and bases are recorded in initialization order,

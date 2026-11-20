@@ -41,18 +41,29 @@
 #endif   // _RWSTD_RW_IOSFWD_H_INCLUDED
 
 
+#include <rw/_system_error_base.h>
+#ifdef _RWSTD_CXX11
+#include <system_error>
+#endif
+
 _RWSTD_NAMESPACE (__rw) {
 
-struct _RWSTD_EXPORT __rw_failure: __rw_exception
+struct _RWSTD_EXPORT __rw_failure: __rw_system_error
 {
-    explicit __rw_failure (const _STD::string &__what)
-        : __rw_exception (__what) { }
-
-    // extension
-    explicit __rw_failure (const char *__what = 0)
-        : __rw_exception (__what) { }
-
-    virtual ~__rw_failure () _THROWS (());
+#ifdef _RWSTD_CXX11
+    explicit __rw_failure(const _STD::string& text,
+                         const _STD::error_code& code = _STD::error_code::_C_stream())
+        : __rw_system_error(code,text) {}
+    explicit __rw_failure(const char* text = 0,
+                         const _STD::error_code& code = _STD::error_code::_C_stream())
+        : __rw_system_error(code,text ? text : "") {}
+#else
+    explicit __rw_failure(const _STD::string& text)
+        : __rw_system_error(text,_STD::error_code::_C_stream()) {}
+    explicit __rw_failure(const char* text = 0)
+        : __rw_system_error(text,_STD::error_code::_C_stream()) {}
+#endif
+    virtual ~__rw_failure() _THROWS(());
 };
 
 

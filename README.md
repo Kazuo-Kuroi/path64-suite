@@ -96,11 +96,17 @@ Open work includes:
 | --- | --- |
 | GCC-derived C/C++ front end | Default front end; provides the legacy C/C++ path, including C99 with `-std=c99` and C++98/03. It is not the C++11/14 development path. |
 | Clang-based C/C++ (`-fpsclang`) | Experimental, built against LLVM/Clang 4.0.1 for `x8664`. C and substantial C++11/14 functionality are exercised on x86-64 Linux. Parser support alone does not imply complete lowering or library support. |
-| C++ standard library (`stdcxx`, `libstl`) | C++98 library with C++11/14 additions selected by language mode. Type traits, utility, tuples, functions, smart pointers, array, vector and deque have substantial coverage. Numeric conversions, UTF-16/32 string interfaces, exception handles, nested exceptions and C++11 bitset interfaces are implemented. Rvalue stream operations, stream moves/swaps and money/time/hexadecimal manipulators are available. String buffers preserve allocator ownership, and public stream flags exclude internal radix/stdio state. Unicode conversion facets (`codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`) are implemented. System error codes, categories and exceptions, including stream error categories, are implemented. `ios_base::failure` retains its legacy ABI; its C++11 error-code interface and other new standard headers remain unfinished. |
+| C++ standard library (`stdcxx`, `libstl`) | C++98 library with C++11/14 additions selected by language mode. Type traits, utility, tuples, functions, smart pointers, array, vector and deque have substantial coverage. Numeric conversions, UTF-16/32 string interfaces, exception handles, nested exceptions and C++11 bitset interfaces are implemented. Rvalue stream operations, stream moves/swaps and money/time/hexadecimal manipulators are available. String buffers preserve allocator ownership, and public stream flags exclude internal radix/stdio state. Unicode conversion facets (`codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`) are implemented. System error codes, categories and exceptions, including stream error categories, are implemented. `ios_base::failure` now derives from `system_error` and carries an error code; other new standard headers remain unfinished. |
 | C++ ABI runtime and unwinder | libcxxrt and libunwind supply exception handling and ABI support; libcxxrt also supplies C++14 sized deletion, synchronized new-handler access, the C++11 allocation-error class and reference-counted exception propagation. x86-64 has compiler/runtime regression coverage. IRIX has the limitations above. |
 | Fortran, OpenMP, profiling, optional math and debugger components | Sources and build switches remain. These components are outside the current minimal C/C++ audit configuration; historical product support is not a current validation claim. |
 
 The algorithm reference suite currently passes 115/145 runner-selected tests.
+The exception ABI has changed: rebuild `libstl` and all C++ clients together.
+`ios_base::failure` now includes the common system-error base and stored code,
+including failures thrown by C++98 stream implementations. Exception messages
+use shared ownership so copies do not allocate. Objects built against the
+previous exception headers/runtime are incompatible with this transition.
+
 Its remaining compile failures are 28 missing-`<random>` dependencies and two
 unmarked C++17 tests. Move-only `sort`, heap operations, `partial_sort` and
 `stable_partition`, `nth_element` and `stable_sort` are covered by original

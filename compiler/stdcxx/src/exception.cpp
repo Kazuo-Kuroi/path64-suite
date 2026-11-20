@@ -834,14 +834,28 @@ _RWSTD_EXPORT void __rw_throw (int id, ...)
 }
 
 
+// Immutable owned messages use an intrusive count. Copies and assignment do
+// not allocate, and messages can outlive the thread that formatted them.
+struct __rw_exception_text { int refs; };
+static __rw_exception_text* __rw_text_header(char* text) {
+    return reinterpret_cast<__rw_exception_text*>(text-sizeof(__rw_exception_text));
+}
+static void __rw_retain_text(char* text) {
+    if (text) _RWSTD_THREAD_PREINCREMENT(__rw_text_header(text)->refs, false);
+}
+static void __rw_release_text(char* text) {
+    if (text && !_RWSTD_THREAD_PREDECREMENT(__rw_text_header(text)->refs, false))
+        delete[] reinterpret_cast<char*>(__rw_text_header(text));
+}
+
 __rw_exception::__rw_exception () _THROWS (())
     : _STD::exception (), _C_what (0) { }
 
 
-__rw_exception::__rw_exception (const __rw_exception &rhs)
-    : _STD::exception (rhs), _C_what (0)
+__rw_exception::__rw_exception (const __rw_exception &rhs) _THROWS (())
+    : _STD::exception (rhs), _C_what (rhs._C_what)
 {
-    _C_assign (rhs.what ());
+    __rw_retain_text(_C_what);
 }
 
   
@@ -863,7 +877,7 @@ __rw_exception::__rw_exception (const _STD::string &whatstr)
 // outlined to avoid functional compatibility issues
 /* virtual */ __rw_exception::~__rw_exception () _THROWS (())
 {
-    __rw_free_what_buf (_C_what);
+    __rw_release_text (_C_what);
 
 #ifdef _C_dummy_what
     // zero out dummy member of the base exception class
@@ -881,8 +895,11 @@ __rw_exception::__rw_exception (const _STD::string &whatstr)
 __rw_exception& __rw_exception::
 operator= (const __rw_exception &__rhs) _THROWS (())
 {
-    _C_assign (__rhs.what ());
-
+    if (this != &__rhs) {
+        __rw_retain_text(__rhs._C_what);
+        __rw_release_text(_C_what);
+        _C_what = __rhs._C_what;
+    }
     return *this;
 }
 
@@ -904,33 +921,29 @@ __rw_exception& __rw_exception::
 _C_assign (const char *whatstr, size_t len /* = ~0 */)
 {
     if (whatstr != _C_what) {
-        char *tmp = 0;
-
-        if (whatstr && *whatstr) {
-
-            if (whatstr == __rw_what_buf) {
-                if (len)
-                    _RWSTD_THREAD_PREINCREMENT (__rw_what_refcnt, false);
-                tmp = __rw_what_buf;
-            }
-            else {
-                if (_RWSTD_SIZE_MAX == len)
-                    len = strlen (whatstr);
-
-                if (len) {
-                    // allocate own buffer and copy string
-                    tmp = new char [len + 1];
-                    memcpy (tmp, whatstr, len + 1);
+        char* text = 0;
+        const bool adopt = whatstr && !len;
+        _TRY {
+            if (whatstr && *whatstr) {
+                if (!len || _RWSTD_SIZE_MAX == len) len = strlen(whatstr);
+                if (len > _RWSTD_SIZE_MAX-sizeof(__rw_exception_text)-1) {
+                    _THROW(_STD::bad_alloc());
+                    return *this;
                 }
-                else {
-                    // special case: do not allocate, just use passed in pointer
-                    tmp = _RWSTD_CONST_CAST (char*, whatstr);
-                }
+                char* allocation = new char[sizeof(__rw_exception_text)+len+1];
+                __rw_exception_text* header = new (allocation) __rw_exception_text;
+                header->refs = 1;
+                text = allocation+sizeof(__rw_exception_text);
+                memcpy(text,whatstr,len);
+                text[len] = 0;
             }
+        } _CATCH(...) {
+            if (adopt) __rw_free_what_buf(const_cast<char*>(whatstr));
+            _RETHROW;
         }
-
-        __rw_free_what_buf (_C_what);
-        _C_what = tmp;
+        if (adopt) __rw_free_what_buf(const_cast<char*>(whatstr));
+        __rw_release_text(_C_what);
+        _C_what = text;
     }
     return *this;
 }

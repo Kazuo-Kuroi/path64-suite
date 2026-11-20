@@ -161,5 +161,16 @@ category pointers, returned codes and thrown errors must agree across objects.
 compiler-virtual-redeclaration.pass.cpp checks canonical virtual methods, calls
 through returned references, one object evaluation, member pointers and deletion.
 It also runs in C++98. The reference system-error/category checkpoint is 60/60
-with one C++17 variable-trait exclusion. Modern ios_base::failure constructors
-and inheritance remain an explicit ABI follow-up, with two pending references.
+with one C++17 variable-trait exclusion. The two modern ios_base::failure references now pass as well.
+
+compiler-constant-vptr.pass.cpp checks constant polymorphic globals and locals,
+multiple bases, nested fields, bitfields, early dispatch and array destruction.
+VPTR_PROVIDER_ONLY/VPTR_CONSUMER_ONLY split it for mixed compiler links.
+ios-failure.pass.cpp checks inheritance, stored codes, allocation-free copies,
+actual stream throws and exception_ptr ownership after thread exit. Compile
+its ios-failure-provider.cpp in C++98 and the test with FAILURE_CONSUMER_ONLY
+in C++11/14 to exercise legacy-provider/modern-consumer links. Rebuild all
+clients with the changed exception ABI before running these tests.
+compiler-unwind-registers.pass.cpp checks x86-64 callee-saved registers across
+exception unwinding, including optimized code. UNWIND_PROVIDER_ONLY and
+UNWIND_CONSUMER_ONLY support mixed compiler links; it also runs in C++98.

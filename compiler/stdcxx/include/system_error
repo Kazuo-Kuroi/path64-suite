@@ -5,6 +5,7 @@
 #ifdef _RWSTD_CXX11
 #include <string>
 #include <stdexcept>
+#include <rw/_system_error_base.h>
 #include <type_traits>
 #include <functional>
 #include <cerrno>
@@ -16,8 +17,6 @@ class error_condition;
 class error_category;
 const error_category& generic_category() noexcept;
 const error_category& system_category() noexcept;
-template<class T> struct is_error_code_enum : false_type {};
-template<class T> struct is_error_condition_enum : false_type {};
 enum class errc {
 #ifdef EAFNOSUPPORT
     address_family_not_supported=EAFNOSUPPORT,
@@ -431,24 +430,6 @@ public:
     }
 };
 
-class error_code {
-    int value_;
-    const error_category* category_;
-public:
-    error_code() noexcept : value_(0),category_(&system_category()) {}
-    error_code(int value,const error_category& cat) noexcept : value_(value),category_(&cat) {}
-    template<class E,typename enable_if<is_error_code_enum<E>::value,int>::type=0>
-    error_code(E value) noexcept { *this=make_error_code(value); }
-    template<class E> typename enable_if<is_error_code_enum<E>::value,error_code&>::type
-    operator=(E value) noexcept { *this=make_error_code(value); return *this; }
-    void assign(int value,const error_category& cat) noexcept { value_=value; category_=&cat; }
-    void clear() noexcept { assign(0,system_category()); }
-    int value() const noexcept { return value_; }
-    const error_category& category() const noexcept { return *category_; }
-    error_condition default_error_condition() const noexcept;
-    string message() const { return category().message(value_); }
-    explicit operator bool() const noexcept { return value_!=0; }
-};
 class error_condition {
     int value_;
     const error_category* category_;
@@ -495,6 +476,11 @@ inline bool error_category::equivalent(int value,const error_condition& conditio
 inline bool error_category::equivalent(const error_code& code,int value) const noexcept {
     return code.category()==*this && code.value()==value;
 }
+const error_category& iostream_category() noexcept;
+inline const error_category& error_code::category() const noexcept {
+    return category_ ? *category_ : kind_==1 ? iostream_category() : system_category();
+}
+inline string error_code::message() const { return category().message(value_); }
 inline error_condition error_code::default_error_condition() const noexcept {
     return category().default_error_condition(value());
 }
@@ -757,17 +743,13 @@ inline bool __portable_errno(int value) noexcept {
     for (size_t i=0;i<sizeof(values)/sizeof(*values);++i) if (values[i]==value) return true;
     return false;
 }
-// Explicit runtime constructors keep coalesced objects and guards consistent
-// across compilers with different support for constant vptr initialization.
 class __generic_error_category : public error_category {
 public:
-    __generic_error_category() noexcept {}
     const char* name() const noexcept override { return "generic"; }
     string message(int value) const override { return __errno_message(value); }
 };
 class __system_error_category : public error_category {
 public:
-    __system_error_category() noexcept {}
     const char* name() const noexcept override { return "system"; }
     string message(int value) const override { return __errno_message(value); }
     error_condition default_error_condition(int value) const noexcept override {
@@ -783,6 +765,17 @@ inline const error_category& system_category() noexcept {
     static __rw_c11::__system_error_category category;
     return category;
 }
+namespace __rw_c11 {
+class __iostream_error_category : public error_category {
+public:
+    const char* name() const noexcept override { return "iostream"; }
+    string message(int value) const override { return value==1?"iostream error":"Unknown iostream error"; }
+};
+}
+inline const error_category& iostream_category() noexcept {
+    static __rw_c11::__iostream_error_category category;
+    return category;
+}
 inline error_code make_error_code(errc value) noexcept { return error_code(int(value),generic_category()); }
 inline error_condition make_error_condition(errc value) noexcept { return error_condition(int(value),generic_category()); }
 namespace __rw_c11 {
@@ -794,21 +787,22 @@ template<class C,class T>
 inline basic_ostream<C,T>& operator<<(basic_ostream<C,T>& out,const error_code& code) {
     return out << code.category().name() << ':' << code.value();
 }
-class system_error : public runtime_error {
-    error_code code_;
-public:
-    system_error(error_code code,const string& text)
-        : runtime_error(__rw_c11::__system_error_message(code,text.c_str())),code_(code) {}
-    system_error(error_code code,const char* text)
-        : runtime_error(__rw_c11::__system_error_message(code,text)),code_(code) {}
-    system_error(error_code code) : runtime_error(code.message()),code_(code) {}
-    system_error(int value,const error_category& cat,const string& text)
-        : system_error(error_code(value,cat),text) {}
-    system_error(int value,const error_category& cat,const char* text)
-        : system_error(error_code(value,cat),text) {}
-    system_error(int value,const error_category& cat) : system_error(error_code(value,cat)) {}
-    const error_code& code() const noexcept { return code_; }
-};
+} // namespace std
+namespace __rw {
+inline __rw_system_error::__rw_system_error(std::error_code code,const std::string& text)
+    : std::runtime_error(std::__rw_c11::__system_error_message(code,text.c_str())),code_(code) {}
+inline __rw_system_error::__rw_system_error(std::error_code code,const char* text)
+    : std::runtime_error(std::__rw_c11::__system_error_message(code,text)),code_(code) {}
+inline __rw_system_error::__rw_system_error(std::error_code code)
+    : std::runtime_error(code.message()),code_(code) {}
+inline __rw_system_error::__rw_system_error(int value,const std::error_category& cat,const std::string& text)
+    : __rw_system_error(std::error_code(value,cat),text) {}
+inline __rw_system_error::__rw_system_error(int value,const std::error_category& cat,const char* text)
+    : __rw_system_error(std::error_code(value,cat),text) {}
+inline __rw_system_error::__rw_system_error(int value,const std::error_category& cat)
+    : __rw_system_error(std::error_code(value,cat)) {}
+}
+namespace std {
 template<> struct hash<error_code> {
     typedef error_code argument_type;
     typedef size_t result_type;
