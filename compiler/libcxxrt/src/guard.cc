@@ -16,65 +16,54 @@
  */
 #include <stdint.h>
 #include <pthread.h>
+#include <sched.h>
+#include <stdlib.h>
 
-/**
- * Returns a pointer to the low 32 bits in a 64-bit value, respecting the
- * platform's byte order.
- */
-static int32_t *low_32_bits(volatile int64_t *ptr)
+// The ABI completion byte is the first byte in memory on either endian.
+// Keep the spin lock in the other 32-bit word so a pending initializer never
+// looks complete to compiler-generated first-byte fast paths.
+static int32_t completion_mask()
 {
-	int32_t *low= (int32_t*)ptr;
-	// Test if the machine is big endian - constant propagation at compile time
-	// should eliminate this completely.
-	int one = 1;
-	if (*(char*)&one != 1)
-	{
-		low++;
-	}
-	return low;
+    const int one=1;
+    return *(const char*)&one ? 1 : 0x01000000;
 }
 
-/**
- * Acquires a lock on a guard, returning 0 if the object has already been
- * initialised, and 1 if it has not.  If the object is already constructed then
- * this function just needs to read a byte from memory and return.
- */
-extern "C" int __cxa_guard_acquire(volatile int64_t *guard_object)
+static int32_t* guard_lock(volatile int64_t* guard)
 {
-	char first_byte = (*guard_object) >> 56;
-	if (1 == first_byte) { return 0; }
-	int32_t *lock = low_32_bits(guard_object);
-	// Simple spin lock using the low 32 bits.  We assume that concurrent
-	// attempts to initialize statics are very rare, so we don't need to
-	// optimise for the case where we have lots of threads trying to acquire
-	// the lock at the same time.
-	while (!__sync_bool_compare_and_swap_4(lock, 0, 1))
-	{
-		sched_yield();
-	}
-	// We have to test the guard again, in case another thread has performed
-	// the initialisation while we were trying to acquire the lock.
-	first_byte = (*guard_object) >> 56;
-	return (1 != first_byte);
+    return (int32_t*)guard+1;
 }
 
-/**
- * Releases the lock without marking the object as initialised.  This function
- * is called if initialising a static causes an exception to be thrown.
- */
-extern "C" void __cxa_guard_abort(int64_t *guard_object)
+static bool guard_complete(volatile int64_t* guard)
 {
-	int32_t *lock = low_32_bits(guard_object);
-	*lock = 0;
-}
-/**
- * Releases the guard and marks the object as initialised.  This function is
- * called after successful initialisation of a static.
- */
-extern "C" void __cxa_guard_release(int64_t *guard_object)
-{
-	// Set the first byte to 1
-	*guard_object |= ((int64_t)1) << 56;
-	__cxa_guard_abort(guard_object);
+    int32_t mask=completion_mask();
+    return __sync_bool_compare_and_swap_4((int32_t*)guard,mask,mask);
 }
 
+extern "C" int __cxa_guard_acquire(volatile int64_t* guard)
+{
+    if (guard_complete(guard)) return 0;
+    int32_t* lock=guard_lock(guard);
+    while (!__sync_bool_compare_and_swap_4(lock,0,1)) {
+        if (guard_complete(guard)) return 0;
+        sched_yield();
+    }
+    // A waiter can win the lock after another thread published completion.
+    // It must release the lock even though it will not initialize anything.
+    if (guard_complete(guard)) {
+        if (!__sync_bool_compare_and_swap_4(lock,1,0)) abort();
+        return 0;
+    }
+    return 1;
+}
+
+extern "C" void __cxa_guard_abort(int64_t* guard)
+{
+    if (!__sync_bool_compare_and_swap_4(guard_lock(guard),1,0)) abort();
+}
+
+extern "C" void __cxa_guard_release(int64_t* guard)
+{
+    // Full-barrier publication of completed construction before unlocking.
+    if (!__sync_bool_compare_and_swap_4((int32_t*)guard,0,completion_mask())) abort();
+    __cxa_guard_abort(guard);
+}

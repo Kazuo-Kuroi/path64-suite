@@ -279,7 +279,7 @@ these paths.
 C++14 sized deletion is declared in `<new>` and implemented in libcxxrt, with
 `sized-delete.pass.cpp` checking replacement of unsized deallocators.
 
-- [ ] **`list` (partially modernized):**
+- [x] (Codex) **`list` C++11 interfaces:**
   * [x] (Codex) Rvalue insertion and allocator-aware emplacement, including
     immobile values, allocator construction hooks and failed-node reuse.
   * [x] (Codex) Move construction and assignment, allocator-extended copy/move
@@ -293,16 +293,25 @@ C++14 sized deletion is declared in `<new>` and implemented in libcxxrt, with
     iterator-returning range/count insertion. Range-insertion rollback destroys
     only newly constructed values. Assignment builds replacement storage before
     modifying the destination, preserving aliased fill values on exceptions.
-  * [x] (Codex) Allocation-free move construction, conditionally noexcept from
-    the allocator. Moved-from lists have a null sentinel; first insertion creates
-    storage with the current allocator. Empty queries, destruction, assignment,
-    swap and list operations handle that state. Allocators need not be assigned
-    or reconstructed to reset a source. `list-insertion.pass.cpp` now verifies
-    moves while allocation is disabled and failure/retry of source reuse.
+  * [x] (Codex) An embedded link-only sentinel makes default/allocator
+    construction, moves and splice allocation-free (subject to allocator
+    construction). Empty and moved-from lists keep a valid end node, without
+    default-constructing an element or resetting allocator subobjects.
   * [x] (Codex) Value-initialized iterators, bounded buffer requests, capacity
     queries/swap exception specifications, and `remove(c.front())` lifetime.
-  * [ ] Buffered splice/merge node-transfer semantics and their move-only/
-    constant-time guarantees still need work; this is not a completed list audit.
+  * [x] (Codex) Buffered splice/merge now relink existing nodes, including
+    immobile values and rvalue/const-iterator overloads. Whole-list and single
+    splice are constant-time; self-range splice avoids traversal, while a range
+    between distinct lists counts its elements for the cached sizes. Merge is
+    stable, meets the comparison bound and keeps both lists valid if comparison
+    throws. Sort/reverse use the same relinking path without moving values.
+    Each reserved node (live or cached) and the originating pool chain hold
+    references to shared pool storage. Atomic pool counts keep nodes alive after
+    source destruction and permit distinct lists to release pools concurrently.
+    The allocator performing final release must compare equal to the allocating
+    allocator, as required for splice/merge. No allocator is stored per node.
+    **C++11 list/node ABI changed:** rebuild C++11/14 clients; do not exchange
+    these lists with the legacy C++98 representation. C++98 storage is retained.
 
 The default pooled list passes **54/60** applicable reference tests with both
 compilers in C++14 at `-O2` (three later-standard exclusions). Three remaining
@@ -314,8 +323,12 @@ allocates buffer descriptors and pooled nodes. Three insertion RUN failures
 pool has unused nodes. With `_RWSTD_NO_LIST_NODE_BUFFER`, the same unmodified
 reference sources pass **60/60** with both compilers at C++14 `-O2`. These
 results describe distinct storage modes; the six default-mode failures remain
-recorded. Original ownership, propagation, rollback, moved-from reuse and
-length-error checks pass with both compilers across C++11/14 at `-O0`/`-O2`.
+recorded. Original ownership, propagation, rollback, moved-from reuse, transfer identity,
+source/destination destruction order, immobile stable merges/sorts, comparator
+exceptions and length-error checks pass with both compilers across C++11/14
+at `-O0`/`-O2`. Four mixed compiler C++11-provider/C++14-consumer checks pass
+at both optimization levels. Concurrent destruction tests split pools among
+four lists and destroy the original pool owner before releasing them.
 
 The other containers below still need their C++11 extensions.
 
@@ -619,6 +632,37 @@ The remaining Phase 3 algorithm reference gaps still require `<random>`;
 Phase 2 list modernization remains separate, as described above.
 
 ## Infrastructure
+
+- [x] (Codex) **Static-guard runtime ABI and contention:** completion uses
+  the first byte in memory on either endian, with the spin lock in a separate
+  word. A waiter that finds completed initialization after acquiring the lock
+  releases it before returning. Atomic publication makes construction visible
+  before completion. `static-guard.pass.cpp` checks pending/completed bytes,
+  direct ABI abort/retry, 32 rounds with eight contenders, and compiler-generated
+  local statics. Both runtime variants rebuild; the optimized system-error
+  concurrency regression also passes 50 consecutive executions.
+- [ ] **Failed local-static initialization (psclang):** `Emit_guarded_init`
+  creates an abort symbol but does not attach an unwind cleanup invoking it.
+  After a throwing initializer, a second attempt therefore hangs on the pending
+  guard. The runtime's explicit abort/retry works; host Clang inserts the missing
+  cleanup and retries correctly. Reproducer: a local static initialized by
+  `++attempts == 1 ? throw 7 : 19`, caught by the caller and then accessed again.
+  Connect abort cleanup during initializer lowering; wrapping it after its EH
+  regions have already been built is insufficient.
+
+- [x] (Codex) **Union destructor lowering (psclang):** a union destructor
+  destroys variants only through explicit user code. Enclosing classes skip
+  anonymous-union storage while still invoking named union members' user-written
+  destructors. `compiler-union-destruction.pass.cpp` covers inactive anonymous
+  storage, explicit active-member destruction and nested named unions. This
+  fixes undefined anonymous-union destructor calls exposed by unbuffered nodes.
+- [x] (Codex) **Shared exception-message counters:** use atomic, rather than
+  thread-local, increment/decrement macros for heap-owned message counts.
+  TLS builds previously expanded those operations to plain integer updates.
+  The failure regression now runs four concurrent allocation-free copy/assign
+  loops against one message, as well as the cross-thread exception checks.
+  Shared/static runtime libraries are rebuilt; the full original target passes
+  **52/52** in C++11 and **53/53** in C++14 at `-O0`/`-O2`.
 
 - [x] (Codex) **Container length-error diagnostics:** list growth and the
   modern vector/vector<bool>/deque guards pass both strings required by the

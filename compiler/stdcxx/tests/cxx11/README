@@ -202,8 +202,8 @@ UNWIND_CONSUMER_ONLY support mixed compiler links; it also runs in C++98.
 list-insertion.pass.cpp checks move-only and immobile emplacement, output
 insertion adapters, const-iterator insertion, allocator construction hooks,
 node reuse after exceptions and buffer ownership during moves. Moves transfer
-storage without allocation. A moved-from list lazily allocates its sentinel
-on reuse; allocation failure leaves it empty and reusable.
+storage without allocation. The embedded sentinel remains valid after moves;
+allocation failure during source reuse leaves the source empty and reusable.
 compiler-empty-assignment.pass.cpp checks empty-base copy/move assignment,
 including operand effects, assignment-result references and explicit operator
 calls, without overwriting overlapping derived storage. It also runs in C++98.
@@ -216,7 +216,32 @@ buffering enabled and disabled. The unmodified libc++ list suite passes 54/60
 in the default pooled mode and 60/60 with _RWSTD_NO_LIST_NODE_BUFFER (C++14 -O2,
 both compilers; three reference exclusions). The six pooled-mode failures are
 allocation-granularity/budget assumptions, detailed in the TODO; they are not
-silently excluded by lcxx.py. Buffered node-transfer semantics remain open.
+silently excluded by lcxx.py. Buffered splice/merge now preserve node identity;
+shared pool references retain nodes after their source container is destroyed.
+The C++11 list/node ABI changed; rebuild clients and keep C++98 lists separate.
 container-length-errors.pass.cpp checks oversized vector, vector<bool>, deque
 and list operations throw length_error with a valid message and retain the
 original contents. This exercises the diagnostic formatting paths too.
+
+list-transfer.pass.cpp checks allocation-free default construction/splice,
+const-iterator and rvalue overloads, saved iterators/addresses, immobile stable
+merge/sort/reverse, merge comparison bounds and comparator exceptions. It checks
+both source/destination destruction orders, reuses nodes from dead source pools,
+and destroys four partitions sharing pool storage concurrently. Compile
+list-transfer-provider.cpp with one compiler in C++11, and the regression with
+TRANSFER_CONSUMER_ONLY using the other compiler in C++14, for mixed ownership
+checks. Both directions pass at -O0/-O2 with the new headers.
+compiler-union-destruction.pass.cpp checks named and anonymous union lifetimes:
+only explicit user code destroys active variants, while enclosing objects still
+destroy their ordinary members. It covers the destructor link failure exposed
+by unbuffered list nodes.
+ios-failure.pass.cpp also checks four concurrent copy/assignment loops while
+allocation is disabled; heap-shared message counts must remain atomic in TLS
+builds.
+
+static-guard.pass.cpp checks the ABI completion byte, explicit abort/retry,
+32 rounds of eight contending threads, and publication of a compiler-generated
+local static. Runtime guard completion and lock state must occupy distinct
+words; returning after a contended completed initialization must unlock.
+Automatic guard-abort cleanup when a psclang initializer throws remains a
+separate TODO; the direct ABI test does not claim that compiler path works.
