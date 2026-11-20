@@ -1,0 +1,6 @@
+# Paths relative to the approved libc++ 8.0.1 test/std tree.
+# Original *.pass.cpp regressions are always included by check.py.
+iterators
+diagnostics/syserr
+numerics/numeric.ops
+utilities/template.bitset

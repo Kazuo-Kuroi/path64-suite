@@ -8,6 +8,30 @@ Tests for the C++11 library (doc/stdcxx-cxx11.md, doc/stdcxx-cxx11-TODO.md)
   export LIBCXX_SRC=DIR PATH64_STAGE=BUILD/Xcompiler
   ./lcxx.py -v utilities/tuple
 
+Regular native Linux x86-64 regression target:
+  ninja -C BUILD stdcxx-check
+
+This runs every original *.pass.cpp in C++11/C++14 at -O0/-O2. It fails for
+unexpected compile/run failures or timeouts, and saves JSON under
+BUILD/libstdcxx/check-results. It builds the staged compiler/runtime first.
+Optionally configure the approved libc++ 8.0.1 reference checkpoint:
+  cmake -S . -B BUILD -DPATH64_STDCXX_REFERENCE=/path/to/libcxx-8.0.1
+  ninja -C BUILD stdcxx-check
+
+checkpoint.txt lists reference paths expected to pass. Reference markers still
+exclude unavailable language modes/locales and expected Clang-4 failures. No
+reference sources are copied into the repository. Set PATH64_STDCXX_CHECK_JOBS
+in CMake to control parallel compiler processes (default 4).
+check.py also accepts --host, --manifest and --output for direct runs. Host
+Clang cannot run the compiler-specific invalid-new[] bound test unchanged;
+--host is primarily for comparing selected reference/library tests via lcxx.py.
+lcxx.py --strict gives CI exit status; exploratory runs retain the existing
+zero status on test failures. Missing paths and empty suites always fail.
+Original tests passed by absolute path do not require a libc++ checkout.
+Compilation defaults to a 120-second limit (--compile-timeout); timeouts stop
+compiler/test process groups. test_runner.py checks strict status, exclusions,
+timeouts, duplicate selection and invalid selections with a fake compiler.
+
 Original regression tests can be passed by absolute path:
   ./lcxx.py "$PWD/compiler-lifetime.pass.cpp" "$PWD/compiler-virtual-base.pass.cpp"
   ./lcxx.py "$PWD/vector-exceptions.pass.cpp" "$PWD/vector-bool.pass.cpp"
@@ -174,3 +198,12 @@ clients with the changed exception ABI before running these tests.
 compiler-unwind-registers.pass.cpp checks x86-64 callee-saved registers across
 exception unwinding, including optimized code. UNWIND_PROVIDER_ONLY and
 UNWIND_CONSUMER_ONLY support mixed compiler links; it also runs in C++98.
+
+list-insertion.pass.cpp checks move-only and immobile emplacement, output
+insertion adapters, const-iterator insertion, allocator construction hooks,
+node reuse after exceptions and buffer ownership during moves. The buffered
+list move constructor allocates a source sentinel, so noexcept moves and the
+remaining C++11 list APIs are still separate work.
+compiler-empty-assignment.pass.cpp checks empty-base copy/move assignment,
+including operand effects, assignment-result references and explicit operator
+calls, without overwriting overlapping derived storage. It also runs in C++98.

@@ -100,20 +100,22 @@ Open work includes:
 | C++ ABI runtime and unwinder | libcxxrt and libunwind supply exception handling and ABI support; libcxxrt also supplies C++14 sized deletion, synchronized new-handler access, the C++11 allocation-error class and reference-counted exception propagation. x86-64 has compiler/runtime regression coverage. IRIX has the limitations above. |
 | Fortran, OpenMP, profiling, optional math and debugger components | Sources and build switches remain. These components are outside the current minimal C/C++ audit configuration; historical product support is not a current validation claim. |
 
-The algorithm reference suite currently passes 115/145 runner-selected tests.
 The exception ABI has changed: rebuild `libstl` and all C++ clients together.
 `ios_base::failure` now includes the common system-error base and stored code,
 including failures thrown by C++98 stream implementations. Exception messages
 use shared ownership so copies do not allocate. Objects built against the
 previous exception headers/runtime are incompatible with this transition.
 
+The algorithm reference suite currently passes 115/145 runner-selected tests.
 Its remaining compile failures are 28 missing-`<random>` dependencies and two
 unmarked C++17 tests. Move-only `sort`, heap operations, `partial_sort` and
 `stable_partition`, `nth_element` and `stable_sort` are covered by original
 tests, including packed-bit iterators, stable ordering and temporary-buffer
 exception cleanup. C++11 math overloads and the C library header wrappers
-have Linux x86-64 reference and integration coverage. The iterator suite has one
-list-dependent insertion failure. These are selected suites, not a
+have Linux x86-64 reference and integration coverage. All 157 applicable iterator
+references in C++11 and 158 in C++14 pass. List has move insertion, emplacement
+and a node-transferring move constructor; its remaining C++11 APIs and noexcept
+move guarantee are unfinished. These are selected suites, not a
 whole-library conformance result.
 
 The saved constructor-initializer unwind failure is fixed, with expanded
@@ -188,7 +190,12 @@ cmake --build build-linux --target install --parallel 8
 ```
 
 `PATH64_ENABLE_TESTING=OFF` disables the suite's legacy testing/bootstrap
-integration. The standalone C++ reference-test runner can still be used.
+integration. With the Clang front end enabled on native Linux x86-64,
+`cmake --build build-linux --target stdcxx-check` runs the original C++11/14
+regressions at `-O0` and `-O2`, independently of that legacy switch. Set
+`PATH64_STDCXX_REFERENCE` to the approved libc++ 8.0.1 source tree to add the
+reference checkpoint. Results go in `build-linux/libstdcxx/check-results`;
+unexpected failures make the target fail.
 
 ### Optional Clang front end and C++11/14
 

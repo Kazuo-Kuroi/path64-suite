@@ -279,7 +279,15 @@ these paths.
 C++14 sized deletion is declared in `<new>` and implemented in libcxxrt, with
 `sized-delete.pass.cpp` checking replacement of unsized deallocators.
 
-The other containers below still need their C++11 extensions; `list` is next.
+`list` now has rvalue insertion, allocator-aware emplacement and a move
+constructor that transfers its existing nodes and buffers. The source remains
+empty and reusable, including after replacement-sentinel allocation fails.
+Its legacy buffered representation allocates an empty sentinel during a move,
+so the move constructor is not yet `noexcept`. Move assignment, allocator-extended
+constructors, initializer-list interfaces and the rest of list modernization
+remain open. `list-insertion.pass.cpp` covers move-only/immobile values, allocator
+construction hooks, stable addresses, failed construction and allocator moves.
+The other containers below still need their C++11 extensions.
 
 Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
 - move constructor and move assignment (allocator propagation through
@@ -322,7 +330,7 @@ psclang and host Clang at `-O0` and `-O2`. This batch has no runtime failures;
 the 31 compile failures are classified below. Reference markers exclude 25
 C++11 and 24 C++14 tests.
 
-- [ ] **`<iterator>`:**
+- [x] (Codex) **`<iterator>`:**
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
     (`iterator.range/begin-end.pass.cpp`);
   * [x] (Codex) `next`, `prev`;
@@ -332,14 +340,15 @@ C++11 and 24 C++14 tests.
     cv-correct pointer traits;
   * [x] (Codex) Move insertion through all three output adapters, constexpr
     input-stream iterator default constructors, stream-buffer iterator
-    reference typedefs. Front insertion is checked independently with deque;
-    its reference test still requires C++11 move insertion in `list`.
+    reference typedefs. List now supports the move-only front-insertion
+    reference, including passing an empty list by value without element copies.
   * [x] (Codex) psclang short-circuit operand materialization and conditional
     temporary cleanup: stream-buffer iterator runtime tests now pass.
     `compiler-short-circuit.pass.cpp` covers skipped calls, nested operands,
     full-expression lifetime, constructor failures and unwind cleanup.
-  * `iterators` (161 tests): 156/157 applicable in C++11 and 157/158 in
-    C++14; the list-dependent front-insertion test remains.
+  * `iterators` (161 tests): 157/157 applicable in C++11 and 158/158 in
+    C++14. The two new original list/empty-base regressions pass alongside
+    these references with both compilers at `-O0` and `-O2`.
 - [ ] **`<algorithm>`:**
   * [x] (Codex) `all_of`, `any_of`, `none_of`, `find_if_not`;
   * [x] (Codex) `move`, `move_backward` (including the deque-specific cases);
@@ -442,7 +451,7 @@ C++11 and 24 C++14 tests.
   callback checks pass with psclang and host Clang in C++11/C++14 at `-O0`/`-O2`.
   Shared/static libcxxrt builds on Linux x86-64 and cross-builds for IRIX n32.
   Invalid-bound `new[]` exception selection is also implemented; see below.
-- [ ] **`<ios>`, `<istream>`, `<ostream>`:**
+- [x] (Codex) **`<ios>`, `<istream>`, `<ostream>`:**
   * [x] (Codex) constrained rvalue insertion/extraction, preserving derived types;
   * [x] (Codex) protected stream-base moves/swaps, stream-buffer copy/swap,
     and string/file buffer and stream moves, assignments and nonmember swaps.
@@ -566,7 +575,27 @@ Eight C++98 register-unwind links and four mixed links each for constant vptrs
 and system errors pass. Both compilers also pass the no-exceptions header probe.
 These results require the coordinated exception ABI rebuild described above.
 
+### Iterator completion and regular regression checkpoint (2026-11-20)
+
+The iterator references plus original list and empty-base checks pass **159/159**
+in C++11 and **160/160** in C++14 with psclang and host Clang at `-O0`/`-O2`
+(four/three reference exclusions). The new CMake `stdcxx-check` target passes
+all originals: **47/47** in C++11 and **48/48** in C++14 at both optimization
+levels. Runner self-checks cover unexpected failures, timeouts, exclusions,
+invalid selections and reference-manifest failures across the matrix.
+The empty-base regression also passes in C++98, and list insertion passes with
+node buffering disabled, with both compilers at both optimization levels.
+The remaining Phase 3 algorithm reference gaps still require `<random>`;
+Phase 2 list modernization remains separate, as described above.
+
 ## Infrastructure
+
+- [x] (Codex) **Empty-base trivial assignment (psclang):** copy/move
+  assignment of an empty class evaluates both operands and returns the lhs
+  reference without writing object bytes. Empty bases may overlap derived
+  members; copying their nominal complete-object size corrupts those members.
+  This was exposed by list allocator assignment. Original coverage checks
+  overloaded and explicit calls, side effects and nontrivial empty assignments.
 
 - [x] (Codex) **Virtual-call redeclarations and object expressions:** canonical
   declarations identify vtable slots, including member-pointer constants and
@@ -632,8 +661,16 @@ These results require the coordinated exception ABI rebuild described above.
   C++98/11/14 copy counts, destruction order, value/void returns, loop exits,
   empty handlers, throwing parameter destructors and termination on copy failure.
 
-- [ ] **Regular runs.** Run `lcxx.py` from a test target, or a nightly
-  job, with a list of the tests expected to pass, so regressions show.
+- [x] (Codex) **Regular runs.** `ninja -C BUILD stdcxx-check` runs the
+  original regressions in C++11/C++14 at `-O0`/`-O2` on native Linux x86-64.
+  Set CMake's `PATH64_STDCXX_REFERENCE` to the approved libc++ 8.0.1 source
+  tree to include `tests/cxx11/checkpoint.txt`: iterator, system-error,
+  numeric-operation and bitset suites. Per-configuration JSON reports go in
+  `BUILD/libstdcxx/check-results`. Unexpected compile/runtime failures and
+  timeouts fail the target; reference exclusions/XFAILs remain separate.
+  Missing selections and empty suites are errors. Original tests can run
+  without a reference checkout. Compilation and execution have bounded
+  process-group timeouts; runner self-checks verify failure reporting.
 - [ ] **`-std=c++14` and `-O2` across the board.** Completed batches record
   their C++11/C++14 optimization matrix above; extend it to the remaining work.
 - [ ] **IRIX (n32, big-endian).** The C++11 headers are untested there.

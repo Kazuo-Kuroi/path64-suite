@@ -199,6 +199,33 @@ path64_add_dependencies_from_multitarget(compiler-stage-libs-CXX stdcxx-static)
 add_custom_target(stdcxx-headers-stage ALL DEPENDS ${stdcxx_stage_headers})
 add_dependencies(compiler-stage-libs-CXX stdcxx-headers-stage)
 
+# These are executable Linux x86-64 checks, not cross-compilation checks.
+list(FIND PATH64_ENABLE_TARGETS "x86_64" stdcxx_check_target)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT CMAKE_CROSSCOMPILING
+   AND CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$"
+   AND NOT stdcxx_check_target EQUAL -1 AND TARGET clangfe-x8664)
+    find_program(PATH64_STDCXX_PYTHON NAMES python3)
+    set(PATH64_STDCXX_REFERENCE "" CACHE PATH
+        "Approved libc++ 8.0.1 sources for the optional stdcxx reference checkpoint")
+    set(PATH64_STDCXX_CHECK_JOBS "4" CACHE STRING
+        "Parallel compiler processes used by stdcxx-check")
+    if(PATH64_STDCXX_PYTHON)
+        add_custom_target(stdcxx-check
+            COMMAND ${PATH64_STDCXX_PYTHON}
+                    ${PATH64_LIBSTDCXX_SOURCE}/tests/cxx11/test_runner.py
+            COMMAND ${PATH64_STDCXX_PYTHON}
+                    ${PATH64_LIBSTDCXX_SOURCE}/tests/cxx11/check.py
+                    --stage ${PATH64_STAGE_DIR}
+                    --reference "${PATH64_STDCXX_REFERENCE}"
+                    --output ${CMAKE_CURRENT_BINARY_DIR}/check-results
+                    -j ${PATH64_STDCXX_CHECK_JOBS}
+            DEPENDS compiler-stage-libs-CXX clangfe-x8664 stdcxx-headers-stage
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Checking stdcxx in C++11/C++14 at -O0/-O2"
+            VERBATIM)
+    endif()
+endif()
+
 set(inc_dir ${CMAKE_INSTALL_PREFIX}/include/${PSC_FULL_VERSION}/stl)
 
 install(DIRECTORY ${PATH64_STAGE_DIR}/include/${PSC_FULL_VERSION}/stl/
