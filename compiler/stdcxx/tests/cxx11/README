@@ -267,3 +267,11 @@ char/wchar traits, portable named characters, blank/word/digit classes and
 custom locale facets. It does not claim parser or matcher coverage.
 The random/regex TODO checkpoint records missing adapters, the legacy blank
 mask and the implementation-specific regex_error text reference difference.
+
+random-adapters.pass.cpp checks discard-block boundaries, full-width independent
+bits, rejected nonzero-minimum draws and exact shuffle table indexing without
+an overflowing multiplication. Adapter round trips exercise hex flags, unusual
+fill/width, transactional failed/throwing input and formatting restoration.
+regex-submatch.pass.cpp checks constexpr defaults, unmatched ranges, embedded
+NULs, list iterators, comparisons and narrow/wide stream insertion. It covers
+non-owning capture ranges; match_results and matching remain separate work.

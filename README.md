@@ -115,8 +115,9 @@ The algorithm reference suite now passes 137/145 runner-selected tests in
 C++14 at both optimization levels. Adding the first `<random>` components
 unblocked these references; remaining gaps include constexpr min/max-element
 operations, move-only `inplace_merge` and two unmarked C++17 tests. `<random>`
-currently supplies seed sequences, three engine families, uniform/Bernoulli
-sampling and `shuffle`. `<regex>` has constants, diagnostics and locale traits;
+currently supplies seed sequences, three engine families and their adapters,
+uniform/Bernoulli sampling and `shuffle`. `<regex>` has constants, diagnostics,
+locale traits and `sub_match` capture ranges;
 its parser and matching engine remain pending. Move-only `sort`, heap operations, `partial_sort` and
 `stable_partition`, `nth_element` and `stable_sort` are covered by original
 tests, including packed-bit iterators, stable ordering and temporary-buffer

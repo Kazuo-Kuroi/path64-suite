@@ -46,9 +46,9 @@ the reference for the design. Its test suite is the conformance test.
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
 New partial headers are `<random>` (seed sequences, congruential/Mersenne
-Twister/subtract-with-carry engines, uniform integer/real and Bernoulli
-sampling) and `<regex>` (constants, errors and locale traits). Engine adapters,
-other distributions, random_device and regex parsing/matching are still open;
+Twister/subtract-with-carry engines and adapters, uniform integer/real and
+Bernoulli sampling) and `<regex>` (constants, errors, locale traits and sub_match
+capture ranges). Other distributions, random_device and regex parsing/matching are still open;
 these headers do not yet claim whole-header conformance.
 
 The libc++ tuple-extension test `PR31384` differs from stdcxx and the
@@ -671,3 +671,31 @@ Random adapters, random_device, other distributions and the regex parser,
 matching/results/iteration/replacement APIs remain separate TODO work. The
 regex traits provide portable named characters and locale facets; full primary
 collation and locale-specific multicharacter elements remain open.
+
+### Random adapters and regex capture ranges (2026-11-20)
+
+The header-only random implementation now includes discard-block,
+independent-bits and shuffle-order engines, plus ranlux24, ranlux48 and knuth_b.
+Shuffle-order indexing computes its scaled integer quotient exactly, including
+full-width generators, without overflowing a product or using floating point.
+The independent-bits engine implements the standard draw partition/rejection
+sequence. Adapter serialization saves/restores decimal stream grammar and
+formatting; failed or throwing extraction preserves the prior engine state.
+The two previously blocked uniform-distribution evaluation references compile
+and pass with the new aliases.
+
+Regex capture ranges now provide the sub_match API and narrow/wide aliases,
+including constexpr defaults, length/string conversion, comparisons against
+captures/strings/pointers/characters and stream insertion. Unmatched ranges
+behave as empty strings. Capture ranges do not implement match_results or
+regex parsing/matching; the locale blank-mask gap also remains open.
+The adapter/predefined-engine/uniform and capture reference batch passes
+100/100 with both compilers in C++14 at O0/O2; its adapter/predefined-engine/
+capture subset passes 63/63 with both compilers in C++11 at both levels.
+Original checks add full-width arithmetic, narrow-generator rejection, unusual
+stream formatting, extraction rollback, embedded NULs and list iterators.
+
+The original matrix passes 58/58 in C++11 and 59/59 in C++14 at both levels.
+An initial stream-flags compiler crash in C++14 O2 did not recur in four
+isolated runs or the full affected-configuration rerun; neither changed header
+is included by that test. This observation remains recorded in the TODO.

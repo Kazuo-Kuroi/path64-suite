@@ -4,7 +4,7 @@ iterators
 diagnostics/syserr
 numerics/numeric.ops
 utilities/template.bitset
-# Random engines and seed sequences (uniform eval requires pending adapters).
+# Random engines and seed sequences.
 numerics/rand/rand.eng
 numerics/rand/rand.util/rand.util.seedseq
 # Regex foundations; matcher and legacy ctype blank work remain separate.
@@ -14,3 +14,8 @@ re/re.const/re.matchflag/match_flag_type.pass.cpp
 re/re.traits/isctype.pass.cpp
 re/re.traits/value.pass.cpp
 re/re.traits/length.pass.cpp
+# Random adapters unblock full uniform-distribution evaluation references.
+numerics/rand/rand.adapt
+numerics/rand/rand.predef
+numerics/rand/rand.dis/rand.dist.uni
+re/re.submatch

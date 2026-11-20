@@ -7,6 +7,9 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
+#include <utility>
+#include <iterator>
+#include <ostream>
 namespace std {
 namespace regex_constants {
 enum syntax_option_type {
@@ -150,6 +153,72 @@ public:
     locale_type getloc() const { return __locale; }
 private: static constexpr char_class_type __word=1ULL<<32, __blank=1ULL<<33;
 };
+// Capture ranges are non-owning. An unmatched range behaves as an empty string
+// even if its iterators still refer to nonempty input.
+template<class _I> class sub_match : public pair<_I,_I> {
+public:
+    typedef _I iterator;
+    typedef typename iterator_traits<_I>::value_type value_type;
+    typedef typename iterator_traits<_I>::difference_type difference_type;
+    typedef basic_string<value_type> string_type;
+    bool matched;
+    constexpr sub_match() : pair<_I,_I>(),matched(false) {}
+    difference_type length() const { return matched?std::distance(this->first,this->second):0; }
+    string_type str() const { return matched?string_type(this->first,this->second):string_type(); }
+    operator string_type() const { return str(); }
+    int compare(const sub_match& __other) const { return str().compare(__other.str()); }
+    int compare(const string_type& __other) const { return str().compare(__other); }
+    int compare(const value_type* __other) const { return str().compare(__other); }
+};
+typedef sub_match<const char*> csub_match;
+typedef sub_match<const wchar_t*> wcsub_match;
+typedef sub_match<string::const_iterator> ssub_match;
+typedef sub_match<wstring::const_iterator> wssub_match;
+template<class _I> bool operator==(const sub_match<_I>& __x,const sub_match<_I>& __y) { return __x.compare(__y)==0; }
+template<class _I,class _C,class _T,class _A> bool operator==(const sub_match<_I>& __x,const basic_string<_C,_T,_A>& __y) { return __x.compare(typename sub_match<_I>::string_type(__y.begin(),__y.end()))==0; }
+template<class _I,class _C,class _T,class _A> bool operator==(const basic_string<_C,_T,_A>& __x,const sub_match<_I>& __y) { return 0==__y.compare(typename sub_match<_I>::string_type(__x.begin(),__x.end())); }
+template<class _I> bool operator==(const sub_match<_I>& __x,const typename sub_match<_I>::value_type* __y) { return __x.compare(__y)==0; }
+template<class _I> bool operator==(const typename sub_match<_I>::value_type* __x,const sub_match<_I>& __y) { return 0==__y.compare(__x); }
+template<class _I> bool operator==(const sub_match<_I>& __x,typename sub_match<_I>::value_type __y) { return __x.compare(typename sub_match<_I>::string_type(1,__y))==0; }
+template<class _I> bool operator==(typename sub_match<_I>::value_type __x,const sub_match<_I>& __y) { return 0==__y.compare(typename sub_match<_I>::string_type(1,__x)); }
+template<class _I> bool operator!=(const sub_match<_I>& __x,const sub_match<_I>& __y) { return __x.compare(__y)!=0; }
+template<class _I,class _C,class _T,class _A> bool operator!=(const sub_match<_I>& __x,const basic_string<_C,_T,_A>& __y) { return __x.compare(typename sub_match<_I>::string_type(__y.begin(),__y.end()))!=0; }
+template<class _I,class _C,class _T,class _A> bool operator!=(const basic_string<_C,_T,_A>& __x,const sub_match<_I>& __y) { return 0!=__y.compare(typename sub_match<_I>::string_type(__x.begin(),__x.end())); }
+template<class _I> bool operator!=(const sub_match<_I>& __x,const typename sub_match<_I>::value_type* __y) { return __x.compare(__y)!=0; }
+template<class _I> bool operator!=(const typename sub_match<_I>::value_type* __x,const sub_match<_I>& __y) { return 0!=__y.compare(__x); }
+template<class _I> bool operator!=(const sub_match<_I>& __x,typename sub_match<_I>::value_type __y) { return __x.compare(typename sub_match<_I>::string_type(1,__y))!=0; }
+template<class _I> bool operator!=(typename sub_match<_I>::value_type __x,const sub_match<_I>& __y) { return 0!=__y.compare(typename sub_match<_I>::string_type(1,__x)); }
+template<class _I> bool operator<(const sub_match<_I>& __x,const sub_match<_I>& __y) { return __x.compare(__y)<0; }
+template<class _I,class _C,class _T,class _A> bool operator<(const sub_match<_I>& __x,const basic_string<_C,_T,_A>& __y) { return __x.compare(typename sub_match<_I>::string_type(__y.begin(),__y.end()))<0; }
+template<class _I,class _C,class _T,class _A> bool operator<(const basic_string<_C,_T,_A>& __x,const sub_match<_I>& __y) { return 0<__y.compare(typename sub_match<_I>::string_type(__x.begin(),__x.end())); }
+template<class _I> bool operator<(const sub_match<_I>& __x,const typename sub_match<_I>::value_type* __y) { return __x.compare(__y)<0; }
+template<class _I> bool operator<(const typename sub_match<_I>::value_type* __x,const sub_match<_I>& __y) { return 0<__y.compare(__x); }
+template<class _I> bool operator<(const sub_match<_I>& __x,typename sub_match<_I>::value_type __y) { return __x.compare(typename sub_match<_I>::string_type(1,__y))<0; }
+template<class _I> bool operator<(typename sub_match<_I>::value_type __x,const sub_match<_I>& __y) { return 0<__y.compare(typename sub_match<_I>::string_type(1,__x)); }
+template<class _I> bool operator<=(const sub_match<_I>& __x,const sub_match<_I>& __y) { return __x.compare(__y)<=0; }
+template<class _I,class _C,class _T,class _A> bool operator<=(const sub_match<_I>& __x,const basic_string<_C,_T,_A>& __y) { return __x.compare(typename sub_match<_I>::string_type(__y.begin(),__y.end()))<=0; }
+template<class _I,class _C,class _T,class _A> bool operator<=(const basic_string<_C,_T,_A>& __x,const sub_match<_I>& __y) { return 0<=__y.compare(typename sub_match<_I>::string_type(__x.begin(),__x.end())); }
+template<class _I> bool operator<=(const sub_match<_I>& __x,const typename sub_match<_I>::value_type* __y) { return __x.compare(__y)<=0; }
+template<class _I> bool operator<=(const typename sub_match<_I>::value_type* __x,const sub_match<_I>& __y) { return 0<=__y.compare(__x); }
+template<class _I> bool operator<=(const sub_match<_I>& __x,typename sub_match<_I>::value_type __y) { return __x.compare(typename sub_match<_I>::string_type(1,__y))<=0; }
+template<class _I> bool operator<=(typename sub_match<_I>::value_type __x,const sub_match<_I>& __y) { return 0<=__y.compare(typename sub_match<_I>::string_type(1,__x)); }
+template<class _I> bool operator>(const sub_match<_I>& __x,const sub_match<_I>& __y) { return __x.compare(__y)>0; }
+template<class _I,class _C,class _T,class _A> bool operator>(const sub_match<_I>& __x,const basic_string<_C,_T,_A>& __y) { return __x.compare(typename sub_match<_I>::string_type(__y.begin(),__y.end()))>0; }
+template<class _I,class _C,class _T,class _A> bool operator>(const basic_string<_C,_T,_A>& __x,const sub_match<_I>& __y) { return 0>__y.compare(typename sub_match<_I>::string_type(__x.begin(),__x.end())); }
+template<class _I> bool operator>(const sub_match<_I>& __x,const typename sub_match<_I>::value_type* __y) { return __x.compare(__y)>0; }
+template<class _I> bool operator>(const typename sub_match<_I>::value_type* __x,const sub_match<_I>& __y) { return 0>__y.compare(__x); }
+template<class _I> bool operator>(const sub_match<_I>& __x,typename sub_match<_I>::value_type __y) { return __x.compare(typename sub_match<_I>::string_type(1,__y))>0; }
+template<class _I> bool operator>(typename sub_match<_I>::value_type __x,const sub_match<_I>& __y) { return 0>__y.compare(typename sub_match<_I>::string_type(1,__x)); }
+template<class _I> bool operator>=(const sub_match<_I>& __x,const sub_match<_I>& __y) { return __x.compare(__y)>=0; }
+template<class _I,class _C,class _T,class _A> bool operator>=(const sub_match<_I>& __x,const basic_string<_C,_T,_A>& __y) { return __x.compare(typename sub_match<_I>::string_type(__y.begin(),__y.end()))>=0; }
+template<class _I,class _C,class _T,class _A> bool operator>=(const basic_string<_C,_T,_A>& __x,const sub_match<_I>& __y) { return 0>=__y.compare(typename sub_match<_I>::string_type(__x.begin(),__x.end())); }
+template<class _I> bool operator>=(const sub_match<_I>& __x,const typename sub_match<_I>::value_type* __y) { return __x.compare(__y)>=0; }
+template<class _I> bool operator>=(const typename sub_match<_I>::value_type* __x,const sub_match<_I>& __y) { return 0>=__y.compare(__x); }
+template<class _I> bool operator>=(const sub_match<_I>& __x,typename sub_match<_I>::value_type __y) { return __x.compare(typename sub_match<_I>::string_type(1,__y))>=0; }
+template<class _I> bool operator>=(typename sub_match<_I>::value_type __x,const sub_match<_I>& __y) { return 0>=__y.compare(typename sub_match<_I>::string_type(1,__x)); }
+template<class _C,class _T,class _I>
+basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const sub_match<_I>& __match) { return __out<<__match.str(); }
+
 }
 #endif
 #endif

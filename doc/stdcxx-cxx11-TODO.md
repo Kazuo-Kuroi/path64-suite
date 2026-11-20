@@ -609,8 +609,8 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling and shuffle. Remaining engines/adapters/distributions tracked below. |
-| `<regex>` | `re` (167) | In progress (Codex): constants, regex_error and locale traits. Parser/matcher/results/replacement remain open. |
+| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device and remaining distributions are open. |
+| `<regex>` | `re` (167) | In progress (Codex): constants, regex_error, locale traits and sub_match capture ranges. Parser/matcher/results/replacement remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
 | `<codecvt>` | `localization/locale.stdcvt` (24) | Implemented: original `codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`; 24/24 references pass with both compilers. |
@@ -632,11 +632,17 @@ remains a WIP port.
   locale-aware `regex_traits<char/wchar_t>`. The traits include portable named
   collating characters, character classes, case translation and digit values;
   custom ctype facets and blank-vs-newline behavior have original coverage.
-- [ ] Random adapters (`discard_block_engine`, `independent_bits_engine`,
-  `shuffle_order_engine`) and their ranlux/Knuth aliases; `random_device` and
-  the remaining distributions. Two uniform distribution evaluation references
-  cannot compile until those engine aliases exist.
-- [ ] Regex parsing/matching, captures/results, iteration and replacement, all
+- [x] (Codex) Random adapters (`discard_block_engine`, `independent_bits_engine`,
+  `shuffle_order_engine`) and their ranlux/Knuth aliases. Exact shuffle table
+  indexing handles full-width ranges without floating-point rounding or int128.
+  The independent-bits adapter follows the standard chunk/rejection sequence.
+  Adapters save/restore decimal stream formatting and preserve state if input
+  fails or throws. Both previously blocked uniform evaluation references pass.
+- [x] (Codex) Regex `sub_match` capture ranges, narrow/wide aliases, conversion,
+  length, all comparisons and stream insertion. Unmatched captures compare as
+  empty strings; original tests cover embedded NULs and list iterators.
+- [ ] `random_device` and the remaining random distributions.
+- [ ] Regex parsing/matching, match_results, iteration and replacement, all
   grammar modes and locale-specific primary/multicharacter collation. The
   legacy `ctype_base` lacks `blank`, blocking one trait reference; the original
   traits test still checks blank classification. Regex diagnostic wording is
@@ -654,6 +660,26 @@ The full original target passes **56/56** in C++11 and **57/57** in C++14 at
 C++98 GCC-front-end probes and both runtime-library targets remain clear.
 Execution coverage is native Linux x86-64; the new components remain header-only
 and do not complete either Phase 4 header.
+
+### Random adapters and regex captures checkpoint (2026-11-20)
+
+The adapter/predefined-engine/uniform-distribution and sub_match reference
+batch passes **100/100** with both compilers in C++14 at `-O0`/`-O2`.
+The adapter/predefined-engine/capture subset passes **63/63** with both compilers
+in C++11 at both levels. Both new originals pass across the same full matrix.
+The previous foundation checkpoint's
+missing-adapter compile failures are resolved; its remaining regex trait blank
+mask and exact diagnostic-text differences remain open. `random-adapters.pass.cpp`
+checks overflowing table-index products, full-width/narrow generators, rejection,
+seed/discard equivalence, unusual stream flags/fill and failed/throwing input
+rollback. `regex-submatch.pass.cpp` checks constexpr default captures, unmatched
+ranges, embedded NULs, non-pointer bidirectional iterators and formatted output.
+No parser or matcher is claimed by these capture-range checks.
+The original matrix passes **58/58** in C++11 and **59/59** in C++14 at both
+levels. One initial C++14 O2 run crashed compiling `stream-flags.pass.cpp`,
+which does not include either changed header. An isolated rerun, three repeats
+and the full affected-configuration rerun all pass; the crash remains an
+unreproduced compiler observation, not a claimed fix.
 
 The system-error/category and existing stream/numeric/Unicode checkpoint passes
 171/171 with both compilers at C++14 `-O2` (nine exclusions). Original tests

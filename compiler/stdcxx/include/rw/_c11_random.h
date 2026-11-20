@@ -10,6 +10,7 @@
 #include <istream>
 #include <ostream>
 #include <cmath>
+#include <utility>
 #include <rw/_c11_random_bits.h>
 namespace std {
 namespace __rw_random {
@@ -258,6 +259,166 @@ public:
 typedef subtract_with_carry_engine<uint_fast32_t,24,10,24> ranlux24_base;
 typedef subtract_with_carry_engine<uint_fast64_t,48,5,12> ranlux48_base;
 
+namespace __rw_random {
+// Formatted engine I/O has a decimal, whitespace-separated grammar, independent
+// of caller flags. Restore formatting even if a stream exception interrupts it.
+template<class _Stream> class __format_guard {
+    _Stream& __stream;
+    ios_base::fmtflags __flags;
+    typename _Stream::char_type __fill;
+public:
+    __format_guard(_Stream& __s,ios_base::fmtflags __f)
+        : __stream(__s),__flags(__s.flags()),__fill(__s.fill()) {
+        typename _Stream::char_type __space=__s.widen(' ');
+        __s.flags(__f); __s.fill(__space);
+    }
+    ~__format_guard() { __stream.flags(__flags); __stream.fill(__fill); }
+    __format_guard(const __format_guard&)=delete;
+    __format_guard& operator=(const __format_guard&)=delete;
+};
+// Compute floor(k*v/r) exactly, without overflowing k*v or requiring int128.
+// A zero denominator denotes 2^64, the full-width generator range.
+inline size_t __scaled_index(size_t __k,unsigned long long __v,unsigned long long __r) {
+    size_t __q=0; unsigned long long __rem=0;
+    size_t __bit=1;
+    while (__bit<=__k/2) __bit<<=1;
+    for (;__bit;__bit>>=1) {
+        __q*=2;
+        if (!__r) { bool __carry=(__rem>>63)!=0; __rem+=__rem; __q+=__carry; }
+        else if (__rem>=__r-__rem) { __rem-=__r-__rem; ++__q; }
+        else __rem+=__rem;
+        if (__k&__bit) {
+            if (!__r) { unsigned long long __sum=__rem+__v; __q+=__sum<__rem; __rem=__sum; }
+            else if (__rem>=__r-__v) { __rem-=__r-__v; ++__q; }
+            else __rem+=__v;
+        }
+    }
+    return __q;
+}
+}
+template<class _E,size_t __p,size_t __r> class discard_block_engine {
+    _E __engine;
+    size_t __used;
+    void __initialize() { __used=0; }
+public:
+    typedef typename _E::result_type result_type;
+    static_assert(__r>0 && __r<=__p,"invalid discard block");
+    static constexpr size_t block_size=__p,used_block=__r;
+    discard_block_engine() : __engine() { __initialize(); }
+    explicit discard_block_engine(result_type __seed) : __engine(__seed) { __initialize(); }
+    explicit discard_block_engine(const _E& __e) : __engine(__e) { __initialize(); }
+    explicit discard_block_engine(_E&& __e) : __engine(std::move(__e)) { __initialize(); }
+    template<class _S,typename enable_if<!is_convertible<_S,result_type>::value && !is_convertible<_S,_E>::value && !is_same<_S,discard_block_engine>::value,int>::type =0>
+    explicit discard_block_engine(_S& __seq) : __engine(__seq) { __initialize(); }
+    void seed() { __engine.seed(); __initialize(); }
+    void seed(result_type __seed) { __engine.seed(__seed); __initialize(); }
+    template<class _S,typename enable_if<!is_convertible<_S,result_type>::value,int>::type =0>
+    void seed(_S& __seq) { __engine.seed(__seq); __initialize(); }
+    const _E& base() const noexcept { return __engine; }
+    static constexpr result_type min() { return _E::min(); }
+    static constexpr result_type max() { return _E::max(); }
+    result_type operator()() {
+        if (__used==__r) { __engine.discard(__p-__r); __used=0; }
+        ++__used; return __engine();
+    }
+    void discard(unsigned long long __n) { while (__n--) (*this)(); }
+    friend bool operator==(const discard_block_engine& __x,const discard_block_engine& __y) { return __x.__engine==__y.__engine && __x.__used==__y.__used; }
+    friend bool operator!=(const discard_block_engine& __x,const discard_block_engine& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const discard_block_engine& __e) { __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::left); __out<<__e.__engine<<__out.widen(' ')<<__e.__used; return __out; }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,discard_block_engine& __e) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        discard_block_engine __copy=__e; if (__in>>__copy.__engine>>__copy.__used) __e=__copy; return __in;
+    }
+};
+template<class _E,size_t __p,size_t __r> constexpr size_t discard_block_engine<_E,__p,__r>::block_size;
+template<class _E,size_t __p,size_t __r> constexpr size_t discard_block_engine<_E,__p,__r>::used_block;
+template<class _E,size_t __w,class _U> class independent_bits_engine {
+    _E __engine;
+
+public:
+    typedef _U result_type;
+    static_assert(is_unsigned<_U>::value && __w>0 && __w<=numeric_limits<_U>::digits,"invalid independent bit width");
+    independent_bits_engine() : __engine() {}
+    explicit independent_bits_engine(result_type __seed) : __engine(__seed) {}
+    explicit independent_bits_engine(const _E& __e) : __engine(__e) {}
+    explicit independent_bits_engine(_E&& __e) : __engine(std::move(__e)) {}
+    template<class _S,typename enable_if<!is_convertible<_S,result_type>::value && !is_convertible<_S,_E>::value && !is_same<_S,independent_bits_engine>::value,int>::type =0>
+    explicit independent_bits_engine(_S& __seq) : __engine(__seq) {}
+    void seed() { __engine.seed(); }
+    void seed(result_type __seed) { __engine.seed(__seed); }
+    template<class _S,typename enable_if<!is_convertible<_S,result_type>::value,int>::type =0>
+    void seed(_S& __seq) { __engine.seed(__seq); }
+    const _E& base() const noexcept { return __engine; }
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return __rw_random::__mask<_U>(__w); }
+    result_type operator()() {
+        typedef unsigned long long _Wide;
+        const _Wide __range=_Wide((_E::max)())-_Wide((_E::min)())+1;
+        if (!__range) return result_type(__engine())&max();
+        unsigned __bits=0; for (_Wide __x=__range;__x>1;__x>>=1) ++__bits;
+        size_t __draws=(__w+__bits-1)/__bits, __small=__w/__draws;
+        _Wide __limit=(__range>>__small)<<__small;
+        if (__range-__limit>__limit/__draws) { ++__draws; __small=__w/__draws; }
+        const size_t __shorts=__draws-__w%__draws;
+        result_type __value=0;
+        for (size_t __i=0;__i<__draws;++__i) {
+            unsigned __take=unsigned(__small+(__i>=__shorts));
+            _Wide __bound=__take==64?0:(__range>>__take)<<__take, __sample;
+            do { __sample=_Wide(__engine())-_Wide((_E::min)()); } while (__bound && __sample>=__bound);
+            __value=__take>=numeric_limits<result_type>::digits?0:result_type(__value<<__take);
+            __value|=result_type(__sample)&__rw_random::__mask<result_type>(__take);
+        }
+        return __value;
+    }
+    void discard(unsigned long long __n) { while (__n--) (*this)(); }
+    friend bool operator==(const independent_bits_engine& __x,const independent_bits_engine& __y) { return __x.__engine==__y.__engine; }
+    friend bool operator!=(const independent_bits_engine& __x,const independent_bits_engine& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const independent_bits_engine& __e) { __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::left); return __out<<__e.__engine; }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,independent_bits_engine& __e) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        independent_bits_engine __copy=__e; if (__in>>__copy.__engine) __e=__copy; return __in;
+    }
+};
+template<class _E,size_t __k> class shuffle_order_engine {
+    _E __engine;
+    typename _E::result_type __table[__k],__last;
+    void __initialize() { for (size_t __i=0;__i<__k;++__i) __table[__i]=__engine();
+        __last=__engine(); }
+public:
+    typedef typename _E::result_type result_type;
+    static_assert(__k>0,"empty shuffle table");
+    static constexpr size_t table_size=__k;
+    shuffle_order_engine() : __engine() { __initialize(); }
+    explicit shuffle_order_engine(result_type __seed) : __engine(__seed) { __initialize(); }
+    explicit shuffle_order_engine(const _E& __e) : __engine(__e) { __initialize(); }
+    explicit shuffle_order_engine(_E&& __e) : __engine(std::move(__e)) { __initialize(); }
+    template<class _S,typename enable_if<!is_convertible<_S,result_type>::value && !is_convertible<_S,_E>::value && !is_same<_S,shuffle_order_engine>::value,int>::type =0>
+    explicit shuffle_order_engine(_S& __seq) : __engine(__seq) { __initialize(); }
+    void seed() { __engine.seed(); __initialize(); }
+    void seed(result_type __seed) { __engine.seed(__seed); __initialize(); }
+    template<class _S,typename enable_if<!is_convertible<_S,result_type>::value,int>::type =0>
+    void seed(_S& __seq) { __engine.seed(__seq); __initialize(); }
+    const _E& base() const noexcept { return __engine; }
+    static constexpr result_type min() { return _E::min(); }
+    static constexpr result_type max() { return _E::max(); }
+    result_type operator()() {
+        const unsigned long long __range=static_cast<unsigned long long>((_E::max)())-static_cast<unsigned long long>((_E::min)())+1;
+        size_t __index=__rw_random::__scaled_index(__k,static_cast<unsigned long long>(__last)-static_cast<unsigned long long>((_E::min)()),__range);
+        __last=__table[__index]; __table[__index]=__engine(); return __last;
+    }
+    void discard(unsigned long long __n) { while (__n--) (*this)(); }
+    friend bool operator==(const shuffle_order_engine& __x,const shuffle_order_engine& __y) { for (size_t __i=0;__i<__k;++__i) if (__x.__table[__i]!=__y.__table[__i]) return false; return __x.__engine==__y.__engine && __x.__last==__y.__last; }
+    friend bool operator!=(const shuffle_order_engine& __x,const shuffle_order_engine& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const shuffle_order_engine& __e) { __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::left); __out<<__e.__engine; for (size_t __i=0;__i<__k;++__i) __out<<__out.widen(' ')<<__e.__table[__i]; __out<<__out.widen(' ')<<__e.__last; return __out; }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,shuffle_order_engine& __e) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        shuffle_order_engine __copy=__e; if (!(__in>>__copy.__engine)) return __in; for (size_t __i=0;__i<__k;++__i) if (!(__in>>__copy.__table[__i])) return __in; if (__in>>__copy.__last) __e=__copy; return __in;
+    }
+};
+template<class _E,size_t __k> constexpr size_t shuffle_order_engine<_E,__k>::table_size;
+typedef discard_block_engine<ranlux24_base,223,23> ranlux24;
+typedef discard_block_engine<ranlux48_base,389,11> ranlux48;
+typedef shuffle_order_engine<minstd_rand0,256> knuth_b;
 typedef minstd_rand default_random_engine;
 template<class _Real,size_t __bits,class _G> _Real generate_canonical(_G& __g) {
     const unsigned __wanted=__bits<unsigned(numeric_limits<_Real>::digits)?unsigned(__bits):unsigned(numeric_limits<_Real>::digits);
