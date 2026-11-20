@@ -48,7 +48,9 @@ list<_TypeT, _Allocator>::
 {
     if (_C_node) {
         clear ();
+#ifndef _RWSTD_CXX11
         _C_put_node (_C_node);
+#endif
         _RWSTD_NODE_LIST_FREE ();
     }
 }
@@ -91,6 +93,9 @@ void list<_TypeT, _Allocator>::_C_add_buffer (bool __is_list_empty)
 #endif
     _C_buf_pointer __tmp =
         _C_buf_alloc_type (*this).allocate (1, (void*)_C_buflist);
+#ifdef _RWSTD_CXX11
+    ::new ((void*)__tmp) _C_nodebuf;
+#endif
 
     _TRY {
         __tmp->_C_buffer = 
@@ -98,10 +103,21 @@ void list<_TypeT, _Allocator>::_C_add_buffer (bool __is_list_empty)
                                                 (void*)_C_last);
     }
     _CATCH (...) {
+#ifdef _RWSTD_CXX11
+        __tmp->~_C_nodebuf();
+#endif
         _C_buf_alloc_type (*this).deallocate (__tmp, 1);
         _RETHROW;
     }
 
+#ifdef _RWSTD_CXX11
+    // The list owns one reference; each reserved live/free node owns another.
+    __tmp->_C_refs=1;
+    for (size_type i=0; i<__next_buffer_size; ++i) {
+        ::new ((void*)(__tmp->_C_buffer+i)) _C_list_node;
+        __tmp->_C_buffer[i]._C_owner=__tmp;
+    }
+#endif
     __tmp->_C_next_buf = _C_buflist;
     __tmp->_C_bufsize  = __next_buffer_size;
 
@@ -114,6 +130,19 @@ void list<_TypeT, _Allocator>::_C_add_buffer (bool __is_list_empty)
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::_C_free_buffers ()
 {
+#ifdef _RWSTD_CXX11
+    // Cached nodes may originate in lists already destroyed after a splice.
+    while (_C_free_list) {
+        _C_link_type node=_C_free_list;
+        _C_free_list=node->_C_next;
+        _C_release_pool(static_cast<_C_buf_pointer>(static_cast<_C_list_node*>(node)->_C_owner));
+    }
+    while (_C_buflist) {
+        _C_buf_pointer pool=_C_buflist;
+        _C_buflist=pool->_C_next_buf;
+        _C_release_pool(pool);
+    }
+#else
     while ((void*)_C_buflist) {
         _C_buf_pointer __tmp = _C_buflist;
         _C_buflist = _C_buflist->_C_next_buf;
@@ -121,6 +150,7 @@ void list<_TypeT, _Allocator>::_C_free_buffers ()
                                                __tmp->_C_bufsize);
         _C_buf_alloc_type (*this).deallocate (__tmp, 1);
     }
+#endif
     _C_free_list  = 0;
     _C_next_avail = 0;
     _C_last       = 0;
@@ -133,12 +163,17 @@ template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::_C_transfer (iterator __it, iterator __first, 
                                            iterator __last, list& __x)
 {
+#ifdef _RWSTD_CXX11
+    size_type count=0;
+    if (this!=std::addressof(__x) && __first!=__last) {
+        if (__first==__x.begin() && __last==__x.end()) count=__x.size();
+        else if (_ITER_NODE(__first)->_C_next==_ITER_NODE(__last)) count=1;
+        else count=size_type(std::distance(__first,__last));
+    }
+    _C_link_nodes(_ITER_NODE(__it),_ITER_NODE(__first),_ITER_NODE(__last),__x,count);
+#else
     _RWSTD_ASSERT_RANGE (begin (), __it);
     _RWSTD_ASSERT_RANGE (__first, __last);
-#ifdef _RWSTD_CXX11
-    if (__first==__last) return;
-    if (!_C_node) { _C_init(true); __it=end(); }
-#endif
 
     if (this == &__x) {
         (*(_C_link_type ((*_ITER_NODE (__last))._C_prev)))._C_next =
@@ -158,6 +193,7 @@ void list<_TypeT, _Allocator>::_C_transfer (iterator __it, iterator __first,
         insert (__it, __first, __last);
         __x.erase (__first, __last);
     }
+#endif
 }
 
 
@@ -207,13 +243,10 @@ list<_TypeT, _Allocator>::operator= (const list<_TypeT, _Allocator>& __rhs)
 }
 
 
+#ifndef _RWSTD_CXX11
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::splice (iterator __it, list &__x)
 {
-#ifdef _RWSTD_CXX11
-    if (__x.empty()) return;
-    if (!_C_node) { _C_init(true); __it=end(); }
-#endif
     // assert 23.2.2.4, p3
     _RWSTD_ASSERT (&__x != this);
     _RWSTD_ASSERT_RANGE (begin (), __it);
@@ -256,10 +289,6 @@ void list<_TypeT, _Allocator>::splice (iterator __it, list &__x)
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::splice (iterator __i, list &__x, iterator __j)
 {
-#ifdef _RWSTD_CXX11
-    if (__j==__x.end()) return;
-    if (!_C_node) { _C_init(true); __i=end(); }
-#endif
     _RWSTD_ASSERT_RANGE (begin (), __i);
     _RWSTD_ASSERT_RANGE (__x.begin (), __j);
     
@@ -316,9 +345,6 @@ splice (iterator __i, list &__x, iterator __j, iterator __k)
 
     if (__j == __k)
         return;
-#ifdef _RWSTD_CXX11
-    if (!_C_node) { _C_init(true); __i=end(); }
-#endif
 
 #if !defined (_RWSTD_NO_LIST_NODE_BUFFER)
         insert (__i, __j, __k);
@@ -367,6 +393,8 @@ splice (iterator __i, list &__x, iterator __j, iterator __k)
     }
 #endif  //  _RWSTD_NO_LIST_NODE_BUFFER
 }
+
+#endif
 
 template <class _TypeT, class _Allocator>
 void list<_TypeT, _Allocator>::remove (const_reference __val)

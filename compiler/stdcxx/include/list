@@ -84,6 +84,18 @@ struct __rw_list_allocator {
 };
 #endif
 
+#ifdef _RWSTD_CXX11
+struct __rw_list_link {
+    __rw_list_link* _C_next;
+    __rw_list_link* _C_prev;
+};
+template<class _TypeT> struct __rw_list_node : __rw_list_link {
+    void* _C_owner;
+    union { _TypeT _C_data; };
+    __rw_list_node() noexcept : _C_owner(0) {}
+    ~__rw_list_node() {} // value lifetime is managed by allocator_traits
+};
+#else
 template <class _TypeT>
 struct __rw_list_node
 {
@@ -92,6 +104,7 @@ struct __rw_list_node
     _TypeT           _C_data;   // client data
 }; 
 
+#endif
 
 
 template <class _TypeT, class _DiffT, class _Pointer, class _Reference>
@@ -122,7 +135,11 @@ public:
     typedef __rw_list_iter <value_type, difference_type,
                             value_type*, value_type&>      _C_mutable_iter;
 
-    typedef  __rw_list_node<value_type>*                   _C_link_type;
+#ifdef _RWSTD_CXX11
+    typedef __rw_list_link* _C_link_type;
+#else
+    typedef __rw_list_node<value_type>* _C_link_type;
+#endif
     
     __rw_list_iter () : _C_node(0) { }
 
@@ -155,7 +172,11 @@ public:
     }
     
     reference operator* () const {
+#ifdef _RWSTD_CXX11
+        return static_cast<__rw_list_node<value_type>*>(_C_node)->_C_data;
+#else
         return (*_C_node)._C_data;
+#endif
     }
 
     _RWSTD_OPERATOR_ARROW (pointer operator-> () const);
@@ -220,7 +241,7 @@ public:
     typedef typename _C_traits::pointer pointer;
     typedef typename _C_traits::const_pointer const_pointer;
     typedef __rw_list_node<value_type> _C_list_node;
-    typedef _C_list_node* _C_link_type;
+    typedef __rw_list_link* _C_link_type;
     typedef __rw_list_allocator<allocator_type,_C_list_node> _C_node_alloc_type;
     typedef __rw_list_allocator<allocator_type,value_type> _C_value_alloc_type;
 #else
@@ -319,7 +340,12 @@ protected:
 
         _C_pointer   _C_next_buf;
         size_type    _C_bufsize;
+#ifdef _RWSTD_CXX11
+        _C_list_node* _C_buffer;
+        _RWSTD_SIZE_T _C_refs;
+#else
         _C_link_type _C_buffer;
+#endif
     };
 
     typedef typename _C_nodebuf::_C_alloc_type _C_buf_alloc_type;
@@ -334,8 +360,14 @@ protected:
 #endif   // _RWSTD_USE_LIST_NODE_BUFFER
 
 
-    _C_link_type        _C_next_avail;
-    _C_link_type        _C_last;
+#ifdef _RWSTD_CXX11
+    __rw_list_link _C_end_link;
+    _C_list_node* _C_next_avail;
+    _C_list_node* _C_last;
+#else
+    _C_link_type _C_next_avail;
+    _C_link_type _C_last;
+#endif
     _C_link_type        _C_node;
     size_type           _C_length;
 
@@ -370,7 +402,14 @@ protected:
         }
         if (_C_next_avail == _C_last)
             _C_add_buffer (__empty_list);
+#ifdef _RWSTD_CXX11
+        _C_list_node* node=_C_next_avail++;
+        _C_buf_pointer pool=static_cast<_C_buf_pointer>(node->_C_owner);
+        __sync_add_and_fetch(&pool->_C_refs,static_cast<_RWSTD_SIZE_T>(1));
+        return node;
+#else
         return _C_next_avail++;
+#endif
     }
 
     void _C_put_node (_C_link_type __link) {
@@ -388,11 +427,23 @@ protected:
         insert (b,e,v)
 
     _C_link_type _C_get_node (bool = false) {
+#ifdef _RWSTD_CXX11
+        _C_list_node* node=_C_node_alloc_type(*this).allocate(1);
+        ::new ((void*)node) _C_list_node;
+        return node;
+#else
         return _C_node_alloc_type (*this).allocate (1, (void*)_C_last);
+#endif
     }
 
     void _C_put_node (_C_link_type __link) {
+#ifdef _RWSTD_CXX11
+        _C_list_node* node=static_cast<_C_list_node*>(__link);
+        node->~_C_list_node();
+        _C_node_alloc_type(*this).deallocate(node,1);
+#else
         _C_node_alloc_type (*this).deallocate (__link, 1);
+#endif
     }
 
 #endif // _RWSTD_NO_LIST_NODE_BUFFER
@@ -418,8 +469,11 @@ protected:
 
     // here and only here is _C_node initialized
     void _C_init (bool __empty_list = false) {
+#ifdef _RWSTD_CXX11
+        _C_node=std::addressof(_C_end_link);
+#else
         _C_node = _C_get_node (__empty_list);
-
+#endif
         (*_C_node)._C_next = _C_node;
         (*_C_node)._C_prev = _C_node; 
     }
@@ -432,8 +486,9 @@ protected:
 public:
 
 #ifdef _RWSTD_CXX11
-    list() : list(allocator_type()) {}
-    explicit list(const allocator_type& __alloc)
+    list() noexcept(is_nothrow_default_constructible<allocator_type>::value)
+        : list(allocator_type()) {}
+    explicit list(const allocator_type& __alloc) noexcept
 #else
     explicit list (const allocator_type& __alloc = allocator_type ())
 #endif
@@ -501,12 +556,12 @@ public:
 #endif
 
 #ifdef _RWSTD_CXX11
-    // Transfer the complete buffer owner. A moved-from list has no sentinel;
-    // its first insertion materializes one using its current allocator.
+    // Transfer buffer ownership and reconnect the chain to its embedded end.
     list(list&& rhs) noexcept(is_nothrow_move_constructible<allocator_type>::value)
         : allocator_type(std::move(static_cast<allocator_type&>(rhs))),
           _RWSTD_NODE_BUFFER_INIT(0,0)
           _C_next_avail(0), _C_last(0), _C_node(0), _C_length(0) {
+        _C_init(true);
         _C_swap_data(rhs);
     }
     list(list&& rhs, const allocator_type& a) : list(a) {
@@ -568,7 +623,7 @@ public:
         noexcept
 #endif
     {
-        return _C_make_iter (_C_node ? _C_node->_C_next : _C_link_type(0));
+        return _C_make_iter (_C_node->_C_next);
     }
 
     const_iterator begin () const
@@ -576,7 +631,7 @@ public:
         noexcept
 #endif
     {
-        return _C_make_iter (_C_node ? _C_node->_C_next : _C_link_type(0));
+        return _C_make_iter (_C_node->_C_next);
     }
 
     iterator end ()
@@ -724,12 +779,11 @@ public:
     iterator emplace (const_iterator __it, _Args&&... __args) {
         _RWSTD_ASSERT_RANGE (begin (), __it);
         _C_check_growth(1);
-        if (!_C_node) { _C_init(true); __it=cend(); }
         _C_link_type __node = _C_get_node (false);
         _TRY {
             allocator_type& __alloc = *this;
             allocator_traits<allocator_type>::construct (
-                __alloc, std::addressof (__node->_C_data),
+                __alloc, std::addressof (static_cast<_C_list_node*>(__node)->_C_data),
                 std::forward<_Args>(__args)...);
         } _CATCH (...) {
             _C_put_node (__node);
@@ -783,7 +837,6 @@ public:
     typename enable_if<!is_integral<_InputIterator>::value,iterator>::type
     insert(const_iterator position, _InputIterator first, _InputIterator last) {
         if (first==last) return _C_make_iter(_ITER_NODE(position));
-        if (!_C_node) { _C_init(true); position=cend(); }
         iterator end=_C_make_iter(_ITER_NODE(position)), result=end;
         _TRY {
             for (; first!=last; ++first) {
@@ -796,7 +849,6 @@ public:
     iterator insert(const_iterator position, size_type n, const_reference value) {
         _C_check_growth(n);
         if (!n) return _C_make_iter(_ITER_NODE(position));
-        if (!_C_node) { _C_init(true); position=cend(); }
         iterator end=_C_make_iter(_ITER_NODE(position)), result=end;
         _TRY {
             while (n--) {
@@ -877,10 +929,10 @@ protected:
     void _C_release_storage() noexcept {
         if (_C_node) {
             clear();
-            _C_put_node(_C_node);
             _RWSTD_NODE_LIST_FREE();
         }
-        _C_node=0; _C_length=0; _C_next_avail=0; _C_last=0;
+        _C_length=0; _C_next_avail=0; _C_last=0;
+        _C_init(true);
     }
     void _C_move_assign(list& rhs, true_type) {
         _C_release_storage();
@@ -904,13 +956,45 @@ protected:
     void _C_swap_allocator(list& rhs, false_type) {
         _RWSTD_ASSERT(get_allocator()==rhs.get_allocator());
     }
-    void _C_swap_data (list& __rhs) noexcept {
-        std::swap (_C_node, __rhs._C_node);
-        std::swap (_C_length, __rhs._C_length);
-        _RWSTD_NODE_LIST_SWAP (__rhs);
-        std::swap (_C_next_avail, __rhs._C_next_avail);
-        std::swap (_C_last, __rhs._C_last);
+#ifndef _RWSTD_NO_LIST_NODE_BUFFER
+    void _C_release_pool(_C_buf_pointer pool) noexcept {
+        if (__sync_sub_and_fetch(&pool->_C_refs,static_cast<_RWSTD_SIZE_T>(1))==0) {
+            _C_node_alloc_type(*this).deallocate(pool->_C_buffer,pool->_C_bufsize);
+            pool->~_C_nodebuf();
+            _C_buf_alloc_type(*this).deallocate(pool,1);
+        }
     }
+#endif
+    void _C_link_nodes(_C_link_type position, _C_link_type first,
+                       _C_link_type last, list& source, size_type count) noexcept {
+        if (first==last || position==first || position==last) return;
+        if (this!=std::addressof(source)) {
+            _RWSTD_ASSERT(get_allocator()==source.get_allocator());
+            _C_length+=count; source._C_length-=count;
+        }
+        _C_link_type tail=last->_C_prev;
+        first->_C_prev->_C_next=last;
+        last->_C_prev=first->_C_prev;
+        first->_C_prev=position->_C_prev;
+        position->_C_prev->_C_next=first;
+        tail->_C_next=position;
+        position->_C_prev=tail;
+    }
+    void _C_swap_data (list& rhs) noexcept {
+        if (this==std::addressof(rhs)) return;
+        bool left_empty=empty(), right_empty=rhs.empty();
+        std::swap(_C_node->_C_next,rhs._C_node->_C_next);
+        std::swap(_C_node->_C_prev,rhs._C_node->_C_prev);
+        if (right_empty) _C_node->_C_next=_C_node->_C_prev=_C_node;
+        else { _C_node->_C_next->_C_prev=_C_node; _C_node->_C_prev->_C_next=_C_node; }
+        if (left_empty) rhs._C_node->_C_next=rhs._C_node->_C_prev=rhs._C_node;
+        else { rhs._C_node->_C_next->_C_prev=rhs._C_node; rhs._C_node->_C_prev->_C_next=rhs._C_node; }
+        std::swap(_C_length,rhs._C_length);
+        _RWSTD_NODE_LIST_SWAP(rhs);
+        std::swap(_C_next_avail,rhs._C_next_avail);
+        std::swap(_C_last,rhs._C_last);
+    }
+
 #endif
     
     void _C_transfer (iterator, iterator, iterator, list&);
@@ -948,6 +1032,28 @@ protected:
 
 public:
 
+#ifdef _RWSTD_CXX11
+    void splice(const_iterator position, list& source) noexcept {
+        _RWSTD_ASSERT(this!=std::addressof(source));
+        _C_link_nodes(_ITER_NODE(position),source._C_node->_C_next,source._C_node,
+                      source,source.size());
+    }
+    void splice(const_iterator position, list&& source) noexcept { splice(position,source); }
+    void splice(const_iterator position, list& source, const_iterator item) noexcept {
+        const_iterator next=item; ++next;
+        _C_link_nodes(_ITER_NODE(position),_ITER_NODE(item),_ITER_NODE(next),source,1);
+    }
+    void splice(const_iterator position, list&& source, const_iterator item) noexcept {
+        splice(position,source,item);
+    }
+    void splice(const_iterator position, list& source, const_iterator first,
+                const_iterator last) noexcept {
+        size_type count=this==std::addressof(source) ? 0 : size_type(std::distance(first,last));
+        _C_link_nodes(_ITER_NODE(position),_ITER_NODE(first),_ITER_NODE(last),source,count);
+    }
+    void splice(const_iterator position, list&& source, const_iterator first,
+                const_iterator last) noexcept { splice(position,source,first,last); }
+#else
     // 23.2.2.4, p4
     void splice (iterator, list&);
 
@@ -957,11 +1063,16 @@ public:
     // 23.2.2.4, p11
     void splice (iterator, list&, iterator, iterator);
 
+#endif
     void remove (const_reference);
 
     void unique ();
 
     void merge (list&);
+#ifdef _RWSTD_CXX11
+    void merge(list&& source) { merge(source); }
+    template<class _Compare> void merge(list&& source, _Compare compare) { merge(source,compare); }
+#endif
 
     void reverse ();
 
@@ -1112,7 +1223,7 @@ list<_TypeT, _Allocator>::erase (iterator __it)
 
 #ifdef _RWSTD_CXX11
     _C_traits::destroy(static_cast<allocator_type&>(*this),
-                       std::addressof(_ITER_NODE(__it)->_C_data));
+                       std::addressof(static_cast<_C_list_node*>(_ITER_NODE(__it))->_C_data));
 #else
     _RWSTD_VALUE_ALLOC (_C_value_alloc_type, *this,
                         destroy (_RWSTD_VALUE_ALLOC (_C_value_alloc_type,
