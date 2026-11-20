@@ -1257,6 +1257,12 @@ WhirlFuncBuilder::ConvertFunction(GlobalDecl gd, ST_IDX st_idx) {
     }
     // call field's destructor
     for (const FieldDecl *Field : record_decl->fields()) {
+      // A union destructor only runs its user-written body. Anonymous unions
+      // likewise have no member destructor for an enclosing class to invoke.
+      // Named union members still call their explicitly defined destructor.
+      if (record_decl->isUnion() ||
+          (Field->isAnonymousStructOrUnion() && Field->getType()->isUnionType()))
+        continue;
       if (!Field->getType()->isRecordType())
         continue;
       fld_decl = Field->getType()->getAsCXXRecordDecl();
