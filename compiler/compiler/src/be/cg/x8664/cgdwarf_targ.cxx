@@ -53,25 +53,71 @@
 #include "calls.h"
 #include "cgemit.h"
 #include "data_layout.h"
+#include "stblock.h"
 #include "cgdwarf_targ.h"
+
+static OP *Pending_Save;
 
 // call per-PU
 void
 Init_Unwind_Info (BOOL trace)
 {
-  return;
+  Pending_Save = NULL;
 }
 
 void
 Emit_Unwind_Directives_For_OP(OP *op, FILE *f)
 {
-  return;
+  // Frame-pointer prologues save GRA's callee-saved registers with stores.
+  // The push/pop path in calls.cxx handles frameless functions only. Describe
+  // these stores too, or an exception can silently corrupt the caller's state.
+  if (Pending_Save) {
+    OP *save = Pending_Save;
+    Pending_Save = NULL;
+    INT value = OP_find_opnd_use(save, OU_storeval);
+    INT offset = OP_find_opnd_use(save, OU_offset);
+    INT base = OP_find_opnd_use(save, OU_base);
+    if (value >= 0 && offset >= 0 && base >= 0 &&
+        TNs_Are_Equivalent(OP_opnd(save, base), FP_TN)) {
+      TN *source = OP_opnd(save, value);
+      TN *displacement = OP_opnd(save, offset);
+      for (INT i = 0; i < Cgdwarf_Num_Callee_Saved_Regs(); ++i) {
+        TN *reg = Cgdwarf_Nth_Callee_Saved_Reg(i);
+        ST *slot = Cgdwarf_Nth_Callee_Saved_Reg_Location(i);
+        if (!slot || !TNs_Are_Equivalent(source, reg)) continue;
+        ST *slot_base;
+        INT64 slot_offset;
+        Base_Symbol_And_Offset_For_Addressing(slot, 0, &slot_base, &slot_offset);
+        if (slot_base != FP_Sym) continue;
+        INT64 actual_offset;
+        if (TN_has_value(displacement)) actual_offset = TN_value(displacement);
+        else if (TN_is_symbol(displacement)) {
+          ST *actual_base;
+          Base_Symbol_And_Offset_For_Addressing(TN_var(displacement),
+              TN_offset(displacement), &actual_base, &actual_offset);
+          if (actual_base != FP_Sym) continue;
+        } else continue;
+        if (actual_offset != slot_offset) continue;
+        INT number = REGISTER_machine_id(TN_register_class(reg), TN_register(reg));
+        if (number == 1) number = 3; // rbx / ebx
+        if (Is_Target_32bit()) {
+          if (number == 5) number = 6; // esi
+          else if (number == 4) number = 7; // edi
+        }
+        fprintf(f, "\t.cfi_offset %d, %lld\n", number,
+                (long long)(slot_offset - (Is_Target_64bit() ? 16 : 8)));
+        break;
+      }
+    }
+  }
+  if (Gen_Frame_Pointer && op && OP_bb(op) && BB_entry(OP_bb(op)) && OP_store(op))
+    Pending_Save = op;
 }
 
 void
 Finalize_Unwind_Info(void)
 {
-  return;
+  Pending_Save = NULL;
 }
 
 
