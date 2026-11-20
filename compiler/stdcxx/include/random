@@ -1,0 +1,8 @@
+// Original Path64 C++11 random-number interfaces.
+#ifndef _RWSTD_RANDOM_INCLUDED
+#define _RWSTD_RANDOM_INCLUDED
+#include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#include <rw/_c11_random.h>
+#endif
+#endif

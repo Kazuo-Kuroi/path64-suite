@@ -257,3 +257,13 @@ before calls with EH regions, high-bit bitwise/exchange updates, successful and
 failed CAS, consumed results and destructor unwinding. It also checks that
 optimized post-atomic reads see the updated value rather than a pre-atomic
 store. Runs in C++98/11/14 at -O0/-O2.
+
+random-foundation.pass.cpp checks engine reference outputs, copy/discard/stream
+state, deterministic seed sequences, overflowing congruential multiplication,
+full signed/unsigned integer ranges, narrow and nonzero-minimum generators,
+rejection, singleton ranges, real/Bernoulli bounds and shuffle permutations.
+regex-foundation.pass.cpp checks flag bitmasks, regex_error copying/code,
+char/wchar traits, portable named characters, blank/word/digit classes and
+custom locale facets. It does not claim parser or matcher coverage.
+The random/regex TODO checkpoint records missing adapters, the legacy blank
+mask and the implementation-specific regex_error text reference difference.

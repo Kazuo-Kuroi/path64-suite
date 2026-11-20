@@ -111,9 +111,13 @@ metadata so splice and merge preserve nodes after source destruction. Rebuild
 all C++11/14 list users. Earlier binaries and C++98 list objects are incompatible
 with this representation; the separate C++98 implementation remains available.
 
-The algorithm reference suite currently passes 115/145 runner-selected tests.
-Its remaining compile failures are 28 missing-`<random>` dependencies and two
-unmarked C++17 tests. Move-only `sort`, heap operations, `partial_sort` and
+The algorithm reference suite now passes 137/145 runner-selected tests in
+C++14 at both optimization levels. Adding the first `<random>` components
+unblocked these references; remaining gaps include constexpr min/max-element
+operations, move-only `inplace_merge` and two unmarked C++17 tests. `<random>`
+currently supplies seed sequences, three engine families, uniform/Bernoulli
+sampling and `shuffle`. `<regex>` has constants, diagnostics and locale traits;
+its parser and matching engine remain pending. Move-only `sort`, heap operations, `partial_sort` and
 `stable_partition`, `nth_element` and `stable_sort` are covered by original
 tests, including packed-bit iterators, stable ordering and temporary-buffer
 exception cleanup. C++11 math overloads and the C library header wrappers

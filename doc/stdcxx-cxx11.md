@@ -36,7 +36,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<vector>` | Normal and packed-bool C++11 constructors, allocator propagation, moves, initializer lists, emplacement and modifiers; bool proxy swaps and hashing | vector: 51/54 (three raw-pointer-incompatible reference tests; see TODO); vector.bool: 42/42 (C++11), 44/44 (C++14) |
 | `<deque>` | C++11 constructors, allocator propagation, moves, initializer lists, emplacement, modern modifiers and map compaction | deque: 61/61 |
 | `<iterator>` | Range access, move/reverse adapters and factories, move insertion, SFINAE-safe traits, constexpr input-iterator defaults | iterator reference tests: 156/157 (C++11), 157/158 (C++14); remaining test needs list move insertion |
-| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition, selection and stable sorting | 115/145; 28 missing-random dependencies and 2 C++17 clamp tests remain |
+| `<algorithm>` | Predicate/move algorithms, copy additions, query algorithms, min/max additions, bounded comparisons, move-only compaction, rotation, sort, heaps, partial sort, stable partition, selection and stable sorting | 137/145 in C++14 at O0/O2; constexpr element queries, inplace_merge and C++17 clamp gaps remain |
 | `<string>` | Numeric formatting/parsing, UTF-16/32 aliases and traits, string hashes | conversions: 10/10; char.traits: 64/64 applicable |
 | `<numeric>` | `iota`, move assignment in adjacent differences, safe inner-product iterator increments | numeric.ops: 9/9 applicable tests |
 | `<exception>` | Exception handles, current/make/rethrow operations, nested exceptions, handler getters | propagation/nested: 10/10; original ownership/catch checks: 2/2 |
@@ -44,6 +44,12 @@ the reference for the design. Its test suite is the conformance test.
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
 | `<cmath>` | C99 functions and suffixed forms, arithmetic overloads, boolean classification and comparison predicates | c.math: 3/3 |
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
+
+New partial headers are `<random>` (seed sequences, congruential/Mersenne
+Twister/subtract-with-carry engines, uniform integer/real and Bernoulli
+sampling) and `<regex>` (constants, errors and locale traits). Engine adapters,
+other distributions, random_device and regex parsing/matching are still open;
+these headers do not yet claim whole-header conformance.
 
 The libc++ tuple-extension test `PR31384` differs from stdcxx and the
 system C++ library. The remaining C++11 library work includes
@@ -638,3 +644,30 @@ The full original regression target passes 54/54 in C++11 and 55/55 in C++14
 at both optimization levels. The IRIX backend rebuilds with the shared fix.
 This does not implement the remaining Phase 4 `<atomic>` header or complete
 native ordered-atomic lowering. Execution coverage is Linux x86-64.
+
+### Random and regex foundation checkpoint (2026-11-20)
+
+The original header-only random implementation adds seed_seq, minstd/MT/ranlux
+base engines, stream state, unbiased uniform sampling, canonical real generation,
+Bernoulli trials and shuffle. Overflow-safe modular multiplication supports
+full-width congruential parameters. Engine/seed/canonical references pass 45/45
+with psclang in C++14 at both levels. The selected random and regex foundations
+pass 106/110: two missing-adapter distribution compile failures, one missing
+legacy ctype_base::blank compile failure, and a regex_error diagnostic-text
+difference remain recorded, alongside seven locale exclusions. The validated
+subset plus two originals passes 108/108 with both compilers at C++14 O0/O2.
+Original tests
+check full signed/unsigned ranges, narrow/nonzero-minimum generators, rejected
+samples, state round trips, shuffling and custom locale facets.
+
+Adding random unblocks algorithm references: 137/145 now pass at both levels,
+up from 115/145. Remaining failures cover C++14 constexpr element queries,
+move-only/self-move inplace_merge and C++17 clamp references. The original
+suite passes 56/56 in C++11 and 57/57 in C++14 at both levels; both new originals
+also pass with host Clang across that matrix. C++98 probes and both runtime
+library targets remain clear. Runtime execution is Linux x86-64.
+
+Random adapters, random_device, other distributions and the regex parser,
+matching/results/iteration/replacement APIs remain separate TODO work. The
+regex traits provide portable named characters and locale facets; full primary
+collation and locale-specific multicharacter elements remain open.

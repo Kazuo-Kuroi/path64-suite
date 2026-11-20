@@ -1,0 +1,155 @@
+// Original Path64 C++11 regex foundation. Matching engine remains in progress.
+#ifndef _RWSTD_REGEX_INCLUDED
+#define _RWSTD_REGEX_INCLUDED
+#include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#include <locale>
+#include <string>
+#include <stdexcept>
+#include <vector>
+namespace std {
+namespace regex_constants {
+enum syntax_option_type {
+    ECMAScript=0,icase=1,nosubs=2,optimize=4,collate=8,
+    basic=16,extended=32,awk=64,grep=128,egrep=256
+};
+enum match_flag_type {
+    match_default=0,match_not_bol=1,match_not_eol=2,match_not_bow=4,
+    match_not_eow=8,match_any=16,match_not_null=32,match_continuous=64,
+    match_prev_avail=128,format_default=0,format_sed=256,
+    format_no_copy=512,format_first_only=1024
+};
+#define _RWSTD_REGEX_BITOPS(_T) \
+inline constexpr _T operator|(_T __a,_T __b) { return _T(unsigned(__a)|unsigned(__b)); } \
+inline constexpr _T operator&(_T __a,_T __b) { return _T(unsigned(__a)&unsigned(__b)); } \
+inline constexpr _T operator^(_T __a,_T __b) { return _T(unsigned(__a)^unsigned(__b)); } \
+inline constexpr _T operator~(_T __a) { return _T(~unsigned(__a)); } \
+inline _T& operator|=(_T& __a,_T __b) { return __a=__a|__b; } \
+inline _T& operator&=(_T& __a,_T __b) { return __a=__a&__b; } \
+inline _T& operator^=(_T& __a,_T __b) { return __a=__a^__b; }
+_RWSTD_REGEX_BITOPS(syntax_option_type)
+_RWSTD_REGEX_BITOPS(match_flag_type)
+#undef _RWSTD_REGEX_BITOPS
+enum error_type {
+    error_collate=1,error_ctype,error_escape,error_backref,error_brack,error_paren,
+    error_brace,error_badbrace,error_range,error_space,error_badrepeat,
+    error_complexity,error_stack
+};
+}
+class regex_error : public runtime_error {
+    regex_constants::error_type __code;
+    static const char* __message(regex_constants::error_type __value) {
+        using namespace regex_constants;
+        switch (__value) {
+        case error_collate: return "invalid regex collating element";
+        case error_ctype: return "invalid regex character class";
+        case error_escape: return "invalid or trailing regex escape";
+        case error_backref: return "invalid regex back reference";
+        case error_brack: return "unbalanced regex brackets";
+        case error_paren: return "unbalanced regex parentheses";
+        case error_brace: return "unbalanced regex braces";
+        case error_badbrace: return "invalid regex repetition bounds";
+        case error_range: return "invalid regex character range";
+        case error_space: return "insufficient memory to compile regex";
+        case error_badrepeat: return "regex repetition has no preceding expression";
+        case error_complexity: return "regex match complexity limit exceeded";
+        case error_stack: return "insufficient memory to match regex";
+        }
+        return "unknown regex error";
+    }
+public:
+    explicit regex_error(regex_constants::error_type __value)
+        : runtime_error(__message(__value)),__code(__value) {}
+    regex_constants::error_type code() const { return __code; }
+};
+template<class _C> class regex_traits {
+    locale __locale;
+    const ctype<_C>& __ctype() const { return use_facet<ctype<_C> >(__locale); }
+    template<class _I> string __name(_I __first,_I __last) const {
+        string __value;
+        for (;__first!=__last;++__first) __value+=__ctype().narrow(__ctype().tolower(*__first),'\0');
+        return __value;
+    }
+public:
+    typedef _C char_type;
+    typedef basic_string<_C> string_type;
+    typedef locale locale_type;
+    typedef unsigned long long char_class_type;
+    static size_t length(const _C* __text) { return char_traits<_C>::length(__text); }
+    _C translate(_C __value) const { return __value; }
+    _C translate_nocase(_C __value) const { return __ctype().tolower(__value); }
+    template<class _I> string_type transform(_I __first,_I __last) const {
+        string_type __text(__first,__last);
+        const _C* __p=__text.c_str();
+        return use_facet<collate<_C> >(__locale).transform(__p,__p+__text.size());
+    }
+    template<class _I> string_type transform_primary(_I __first,_I __last) const {
+        string_type __text;
+        for (;__first!=__last;++__first) __text+=translate_nocase(*__first);
+        return transform(__text.begin(),__text.end());
+    }
+    template<class _I> string_type lookup_collatename(_I __first,_I __last) const {
+        string_type __text(__first,__last);
+        if (__text.size()==1) return __text;
+        // Portable POSIX symbolic names; locale-specific multicharacter
+        // collation elements will be added with the matching engine.
+        struct __entry { const char* __name; unsigned __value; };
+        static const __entry __names[]={
+            {"nul",0},{"alert",7},{"backspace",8},{"tab",9},{"newline",10},
+            {"vertical-tab",11},{"form-feed",12},{"carriage-return",13},
+            {"space",32},{"exclamation-mark",33},{"quotation-mark",34},
+            {"number-sign",35},{"dollar-sign",36},{"percent-sign",37},
+            {"ampersand",38},{"apostrophe",39},{"left-parenthesis",40},
+            {"right-parenthesis",41},{"asterisk",42},{"plus-sign",43},
+            {"comma",44},{"hyphen-minus",45},{"hyphen",45},{"full-stop",46},
+            {"period",46},{"slash",47},{"solidus",47},{"zero",48},{"one",49},
+            {"two",50},{"three",51},{"four",52},{"five",53},{"six",54},
+            {"seven",55},{"eight",56},{"nine",57},{"colon",58},{"semicolon",59},
+            {"less-than-sign",60},{"equals-sign",61},{"greater-than-sign",62},
+            {"question-mark",63},{"commercial-at",64},{"left-square-bracket",91},
+            {"backslash",92},{"reverse-solidus",92},{"right-square-bracket",93},
+            {"circumflex-accent",94},{"circumflex",94},{"low-line",95},
+            {"underscore",95},{"grave-accent",96},{"left-brace",123},
+            {"left-curly-bracket",123},{"vertical-line",124},{"right-brace",125},
+            {"right-curly-bracket",125},{"tilde",126}
+        };
+        string __key=__name(__text.begin(),__text.end());
+        for (size_t __i=0;__i<sizeof(__names)/sizeof(*__names);++__i)
+            if (__key==__names[__i].__name) return string_type(1,__ctype().widen(char(__names[__i].__value)));
+        return string_type();
+    }
+    template<class _I> char_class_type lookup_classname(_I __first,_I __last,bool __icase=false) const {
+        string __key=__name(__first,__last); char_class_type __mask=0;
+        if (__key=="alnum") __mask=ctype_base::alnum;
+        else if (__key=="alpha") __mask=ctype_base::alpha;
+        else if (__key=="blank") __mask=__blank;
+        else if (__key=="cntrl") __mask=ctype_base::cntrl;
+        else if (__key=="digit" || __key=="d") __mask=ctype_base::digit;
+        else if (__key=="graph") __mask=ctype_base::graph;
+        else if (__key=="lower") __mask=ctype_base::lower;
+        else if (__key=="print") __mask=ctype_base::print;
+        else if (__key=="punct") __mask=ctype_base::punct;
+        else if (__key=="space" || __key=="s") __mask=ctype_base::space;
+        else if (__key=="upper") __mask=ctype_base::upper;
+        else if (__key=="xdigit") __mask=ctype_base::xdigit;
+        else if (__key=="w") __mask=ctype_base::alnum|ctype_base::upper|ctype_base::lower|__word;
+        if (__icase && (__mask&(ctype_base::lower|ctype_base::upper))) __mask|=ctype_base::lower|ctype_base::upper;
+        return __mask;
+    }
+    bool isctype(_C __value,char_class_type __mask) const {
+        return ((__mask&__blank) && (__value==__ctype().widen(' ') || __value==__ctype().widen('\t'))) ||
+            ((__mask&__word) && __value==__ctype().widen('_')) ||
+            __ctype().is(ctype_base::mask(__mask&~(__word|__blank)),__value);
+    }
+    int value(_C __value,int __radix) const {
+        char __c=__ctype().narrow(__value,'\0');
+        int __n=__c>='0' && __c<='9'?__c-'0':__c>='a' && __c<='f'?__c-'a'+10:__c>='A' && __c<='F'?__c-'A'+10:-1;
+        return __n>=0 && __n<__radix?__n:-1;
+    }
+    locale_type imbue(locale_type __loc) { locale_type __old=__locale; __locale=__loc; return __old; }
+    locale_type getloc() const { return __locale; }
+private: static constexpr char_class_type __word=1ULL<<32, __blank=1ULL<<33;
+};
+}
+#endif
+#endif

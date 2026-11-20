@@ -50,6 +50,9 @@
 #include <rw/_pair.h>
 #include <rw/_rawiter.h>
 #include <rw/_defs.h>
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_random_bits.h>
+#endif
 
 
 #ifdef _INLINE_RECURSIVE
@@ -1564,6 +1567,19 @@ inline bool none_of (_InputIter __first, _InputIter __last, _Predicate __pred)
     return !std::any_of (__first, __last, __pred);
 }
 
+#endif
+
+#ifdef _RWSTD_CXX11
+// Original Fisher-Yates shuffle with unbiased rejection sampling, including
+// generators narrower than the iterator difference type.
+template<class _RandomAccessIter,class _URBG>
+void shuffle(_RandomAccessIter __first,_RandomAccessIter __last,_URBG&& __g) {
+    typedef typename iterator_traits<_RandomAccessIter>::difference_type _D;
+    for (_D __n=__last-__first;__n>1;--__n) {
+        _D __index=_D(__rw_random::__below(__g,static_cast<unsigned long long>(__n)));
+        std::iter_swap(__first+(__n-1),__first+__index);
+    }
+}
 #endif
 
 }   // namespace std

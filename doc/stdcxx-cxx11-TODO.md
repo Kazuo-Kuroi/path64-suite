@@ -10,13 +10,13 @@ numbers) in the same change that does it.
 
 The TODO is not nearly complete as a whole. Most Phase 1–3 implementation
 items are checked off, with recorded tuple/vector reference limitations and
-pooled-list allocation-test differences. Phase 3 `shuffle` and its remaining
-algorithm reference coverage depend on `<random>`.
+pooled-list allocation-test differences. The first random batch implements
+`shuffle` and unblocks algorithm references, exposing the remaining constexpr
+and move-only `inplace_merge` gaps described below.
 
 Phase 4 still contains substantial new work: forward/unordered containers,
 ratio/chrono, atomics, threading/synchronization/futures, random, regex,
-typeindex and scoped allocators. The C Unicode wrappers also need their
-remaining coverage. IRIX n32/big-endian validation and the decision about
+typeindex and scoped allocators. IRIX n32/big-endian validation and the decision about
 C++11 runtime-library additions remain open. The phase tables below distinguish
 implemented headers from planned work; unchecked checkbox counts alone omit
 most of that scope.
@@ -418,7 +418,8 @@ C++11 and 24 C++14 tests.
   * [x] (Codex) Move-only `remove`, `remove_if`, `unique`, and `rotate`;
     C++11 `rotate` return value; overloaded-comma protection in transforms,
     replacement copies, range swaps, lexical comparisons and permutations.
-  * `shuffle` (pending `<random>`);
+  * [x] (Codex) `shuffle`, with unbiased Fisher-Yates sampling across narrow
+    and full-width URBG ranges; lvalue and temporary generators are accepted.
   * [x] (Codex) C++14 `equal`/`mismatch` with four iterators;
   * [x] (Codex) Move-only `sort`, heap operations and `partial_sort`;
     pivot partitioning avoids copying or comparing moved-from values.
@@ -437,12 +438,14 @@ C++11 and 24 C++14 tests.
     left-run ties; undersized/failed allocations use rotation-based merging.
     Original tests cover stable identity ordering, both comparator directions,
     packed-bit proxies, comparison bounds and throwing moves/comparisons.
-  * `algorithms` (150 tests): 115/145 runner-selected tests pass. The remaining
-    30 compile failures are 28 missing `<random>` dependencies and two
-    unmarked C++17 `clamp` tests. Five tests are excluded by reference markers.
-    The `stable_sort` and `nth_element` reference tests require `<random>`;
-    their move-only implementations have original regression coverage. The
-    overall item remains open.
+  * `algorithms` (150 tests): **137/145** runner-selected tests pass in C++14
+    at `-O0`/`-O2` with psclang after adding `<random>` (previously 115/145).
+    Five references are excluded. Seven compile failures remain: two unmarked
+    C++17 `clamp` tests, four C++14 constexpr min/max-element tests and the
+    move-only comparator `inplace_merge` test. The ordinary `inplace_merge`
+    reference runs but detects self-move assignment. The newly exposed
+    constexpr and merge failures were previously masked by missing `<random>`.
+    The overall item remains open.
 - [x] (Codex) **`<numeric>`:** `iota`; move assignment in
   `adjacent_difference` and safe iterator increments in `inner_product`.
   `numerics/numeric.ops`: 9/9 applicable tests; 16 later-standard tests
@@ -606,12 +609,51 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | engines and distributions, header-only |
-| `<regex>` | `re` (167) | large; needs locale `regex_traits` |
+| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling and shuffle. Remaining engines/adapters/distributions tracked below. |
+| `<regex>` | `re` (167) | In progress (Codex): constants, regex_error and locale traits. Parser/matcher/results/replacement remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
 | `<codecvt>` | `localization/locale.stdcvt` (24) | Implemented: original `codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`; 24/24 references pass with both compilers. |
 | `<cuchar>` | | |
+
+### Random and regex foundation checkpoint (2026-11-20)
+
+- [x] (Codex) Original `seed_seq`, `linear_congruential_engine`,
+  `mersenne_twister_engine` and `subtract_with_carry_engine`, including standard
+  minstd, MT and ranlux base aliases, seeding, discard, comparison and stream
+  state. Congruential multiplication handles overflowing products without
+  128-bit arithmetic. Common minstd parameters retain a native multiply path.
+- [x] (Codex) Original `uniform_int_distribution`, `uniform_real_distribution`,
+  `bernoulli_distribution`, `generate_canonical` and `shuffle`. Rejection
+  sampling handles nonzero generator minima, narrow generators and full-width
+  unsigned/signed destination ranges. Original tests cover high bits, rejection,
+  deterministic engine outputs, round trips, bounds and permutation identity.
+- [x] (Codex) Original regex bitmask/error constants, `regex_error` and
+  locale-aware `regex_traits<char/wchar_t>`. The traits include portable named
+  collating characters, character classes, case translation and digit values;
+  custom ctype facets and blank-vs-newline behavior have original coverage.
+- [ ] Random adapters (`discard_block_engine`, `independent_bits_engine`,
+  `shuffle_order_engine`) and their ranlux/Knuth aliases; `random_device` and
+  the remaining distributions. Two uniform distribution evaluation references
+  cannot compile until those engine aliases exist.
+- [ ] Regex parsing/matching, captures/results, iteration and replacement, all
+  grammar modes and locale-specific primary/multicharacter collation. The
+  legacy `ctype_base` lacks `blank`, blocking one trait reference; the original
+  traits test still checks blank classification. Regex diagnostic wording is
+  implementation-defined: our per-code messages differ from libc++'s exact
+  text, so its exact-message test remains a recorded RUN difference.
+
+The selected new references pass **106/110** in C++14 at both levels with
+psclang: 98 random and eight regex passes, three compile failures and one
+exact-message RUN difference; seven locale-dependent references are excluded.
+All 45 engine/seed/canonical references pass at both levels with psclang.
+The validated subset plus the two new originals passes **108/108** with both
+psclang and host Clang at C++14 `-O0`/`-O2` (seven locale exclusions).
+The full original target passes **56/56** in C++11 and **57/57** in C++14 at
+`-O0`/`-O2`. The two new originals pass with both compilers across that matrix.
+C++98 GCC-front-end probes and both runtime-library targets remain clear.
+Execution coverage is native Linux x86-64; the new components remain header-only
+and do not complete either Phase 4 header.
 
 The system-error/category and existing stream/numeric/Unicode checkpoint passes
 171/171 with both compilers at C++14 `-O2` (nine exclusions). Original tests
@@ -643,8 +685,9 @@ levels. Runner self-checks cover unexpected failures, timeouts, exclusions,
 invalid selections and reference-manifest failures across the matrix.
 The empty-base regression also passes in C++98, and list insertion passes with
 node buffering disabled, with both compilers at both optimization levels.
-The remaining Phase 3 algorithm reference gaps still require `<random>`;
-Phase 2 list modernization remains separate, as described above.
+This is a historical iterator checkpoint. The random foundation checkpoint
+above supersedes the missing-`<random>` algorithm gaps; current list status
+is recorded in Phase 2.
 
 ## Infrastructure
 
