@@ -123,7 +123,8 @@ void vector<_TypeT, _Allocator>::_C_insert_modern (
     if (__first == __last) return;
     size_type __n = size_type (std::distance (__first, __last));
     _RWSTD_REQUIRES (__n <= max_size () - size (),
-                     (_RWSTD_ERROR_LENGTH_ERROR, "vector insert", __n, max_size ()));
+                     (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("vector insert"),
+                      static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
     if (__n > capacity () - size ()) {
         vector __tmp (get_allocator ());
         __tmp._C_allocate (_C_grow_capacity (size () + __n));

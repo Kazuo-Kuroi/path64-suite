@@ -493,7 +493,8 @@ public:
     iterator insert (const_iterator __pos, size_type __n, const_reference __value) {
         size_type __off = empty () ? 0 : size_type (__pos - cbegin ());
         _RWSTD_REQUIRES (__n <= max_size () - size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "vector insert", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("vector insert"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
         _C_insert_n (empty () ? begin () : begin () + __off, __n, __value);
         return empty () ? begin () : begin () + __off;
     }
@@ -573,7 +574,8 @@ private:
     template <class _ForwardIter> void _C_insert_modern (size_type, _ForwardIter, _ForwardIter, forward_iterator_tag);
     size_type _C_grow_capacity (size_type __n) const {
         _RWSTD_REQUIRES (__n <= max_size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "vector capacity", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("vector capacity"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
         size_type __cap = capacity ();
         if (__cap > max_size () / 2) return max_size ();
         return (std::max)(__n, size_type (2 * __cap));
@@ -602,7 +604,8 @@ private:
     }
     void _C_allocate (size_type __n) {
         _RWSTD_REQUIRES (__n <= max_size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "vector allocation", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("vector allocation"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
         if (__n) {
             _C_alloc._C_begin = _C_alloc.allocate (__n);
             _C_alloc._C_end = _C_alloc._C_begin;
@@ -1575,7 +1578,8 @@ private:
     unsigned int* _C_bit_alloc (size_type __n) {
 #ifdef _RWSTD_CXX11
         _RWSTD_REQUIRES (__n <= max_size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "vector<bool> allocation", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("vector<bool> allocation"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
         if (!__n) return 0;
         _C_value_alloc_type __a (get_allocator ());
         typename _C_word_traits::pointer __p = _C_word_traits::allocate (__a, _C_words (__n));
@@ -1909,7 +1913,8 @@ public:
     iterator insert (const_iterator __pos, size_type __n, const bool& __value) {
         size_type __off = empty () ? 0 : size_type (__pos - cbegin ());
         _RWSTD_REQUIRES (__n <= max_size () - size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "vector<bool> insert", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("vector<bool> insert"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
         if (__n) {
             size_type __old = size ();
             if (__old + __n > capacity ()) reserve (_C_grow_capacity (__old + __n));

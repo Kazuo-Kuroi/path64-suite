@@ -201,9 +201,22 @@ UNWIND_CONSUMER_ONLY support mixed compiler links; it also runs in C++98.
 
 list-insertion.pass.cpp checks move-only and immobile emplacement, output
 insertion adapters, const-iterator insertion, allocator construction hooks,
-node reuse after exceptions and buffer ownership during moves. The buffered
-list move constructor allocates a source sentinel, so noexcept moves and the
-remaining C++11 list APIs are still separate work.
+node reuse after exceptions and buffer ownership during moves. Moves transfer
+storage without allocation. A moved-from list lazily allocates its sentinel
+on reuse; allocation failure leaves it empty and reusable.
 compiler-empty-assignment.pass.cpp checks empty-base copy/move assignment,
 including operand effects, assignment-result references and explicit operator
 calls, without overwriting overlapping derived storage. It also runs in C++98.
+
+list-modern.pass.cpp checks allocator selection/propagation, copy/move and
+allocator-extended constructors, initializer lists, const-iterator modifiers,
+aliased assignment, minimal allocators, exact allocation ownership, rollback,
+noexcept moves and operations on the empty moved-from state. It runs with node
+buffering enabled and disabled. The unmodified libc++ list suite passes 54/60
+in the default pooled mode and 60/60 with _RWSTD_NO_LIST_NODE_BUFFER (C++14 -O2,
+both compilers; three reference exclusions). The six pooled-mode failures are
+allocation-granularity/budget assumptions, detailed in the TODO; they are not
+silently excluded by lcxx.py. Buffered node-transfer semantics remain open.
+container-length-errors.pass.cpp checks oversized vector, vector<bool>, deque
+and list operations throw length_error with a valid message and retain the
+original contents. This exercises the diagnostic formatting paths too.

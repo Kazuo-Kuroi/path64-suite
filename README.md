@@ -113,9 +113,10 @@ unmarked C++17 tests. Move-only `sort`, heap operations, `partial_sort` and
 tests, including packed-bit iterators, stable ordering and temporary-buffer
 exception cleanup. C++11 math overloads and the C library header wrappers
 have Linux x86-64 reference and integration coverage. All 157 applicable iterator
-references in C++11 and 158 in C++14 pass. List has move insertion, emplacement
-and a node-transferring move constructor; its remaining C++11 APIs and noexcept
-move guarantee are unfinished. These are selected suites, not a
+references in C++11 and 158 in C++14 pass. List supports allocator propagation,
+initializer lists, emplacement, const-iterator modifiers and allocation-free
+moves with the allocator's noexcept guarantee. Its buffered node-transfer
+semantics remain unfinished. These are selected suites, not a
 whole-library conformance result.
 
 The saved constructor-initializer unwind failure is fixed, with expanded

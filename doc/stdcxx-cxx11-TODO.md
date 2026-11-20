@@ -279,14 +279,44 @@ these paths.
 C++14 sized deletion is declared in `<new>` and implemented in libcxxrt, with
 `sized-delete.pass.cpp` checking replacement of unsized deallocators.
 
-`list` now has rvalue insertion, allocator-aware emplacement and a move
-constructor that transfers its existing nodes and buffers. The source remains
-empty and reusable, including after replacement-sentinel allocation fails.
-Its legacy buffered representation allocates an empty sentinel during a move,
-so the move constructor is not yet `noexcept`. Move assignment, allocator-extended
-constructors, initializer-list interfaces and the rest of list modernization
-remain open. `list-insertion.pass.cpp` covers move-only/immobile values, allocator
-construction hooks, stable addresses, failed construction and allocator moves.
+- [ ] **`list` (partially modernized):**
+  * [x] (Codex) Rvalue insertion and allocator-aware emplacement, including
+    immobile values, allocator construction hooks and failed-node reuse.
+  * [x] (Codex) Move construction and assignment, allocator-extended copy/move
+    constructors, copy-assignment propagation and allocator selection on copy.
+    Equal allocators transfer node/buffer ownership; unequal nonpropagating
+    moves construct values in destination-owned storage. Propagating swaps
+    exchange allocator owners together with their buffers. Minimal and fancy
+    pointer allocators no longer need the legacy reference/pointer typedefs.
+  * [x] (Codex) Initializer-list construction, assignment and insertion;
+    default insertion without copying; const-iterator insertion/erasure and
+    iterator-returning range/count insertion. Range-insertion rollback destroys
+    only newly constructed values. Assignment builds replacement storage before
+    modifying the destination, preserving aliased fill values on exceptions.
+  * [x] (Codex) Allocation-free move construction, conditionally noexcept from
+    the allocator. Moved-from lists have a null sentinel; first insertion creates
+    storage with the current allocator. Empty queries, destruction, assignment,
+    swap and list operations handle that state. Allocators need not be assigned
+    or reconstructed to reset a source. `list-insertion.pass.cpp` now verifies
+    moves while allocation is disabled and failure/retry of source reuse.
+  * [x] (Codex) Value-initialized iterators, bounded buffer requests, capacity
+    queries/swap exception specifications, and `remove(c.front())` lifetime.
+  * [ ] Buffered splice/merge node-transfer semantics and their move-only/
+    constant-time guarantees still need work; this is not a completed list audit.
+
+The default pooled list passes **54/60** applicable reference tests with both
+compilers in C++14 at `-O2` (three later-standard exclusions). Three remaining
+RUN failures (`list.cons/input_iterator`, `size_type`, `size_value_alloc`)
+assume a shared allocation budget sized for individual nodes; stdcxx also
+allocates buffer descriptors and pooled nodes. Three insertion RUN failures
+(`list.modifiers/insert_iter_iter_iter`, `insert_iter_size_value`,
+`insert_iter_value`) assume insertion must call `operator new`, even when a
+pool has unused nodes. With `_RWSTD_NO_LIST_NODE_BUFFER`, the same unmodified
+reference sources pass **60/60** with both compilers at C++14 `-O2`. These
+results describe distinct storage modes; the six default-mode failures remain
+recorded. Original ownership, propagation, rollback, moved-from reuse and
+length-error checks pass with both compilers across C++11/14 at `-O0`/`-O2`.
+
 The other containers below still need their C++11 extensions.
 
 Add the C++11 members to stdcxx's own containers, under `_RWSTD_CXX11`:
@@ -589,6 +619,15 @@ The remaining Phase 3 algorithm reference gaps still require `<random>`;
 Phase 2 list modernization remains separate, as described above.
 
 ## Infrastructure
+
+- [x] (Codex) **Container length-error diagnostics:** list growth and the
+  modern vector/vector<bool>/deque guards pass both strings required by the
+  legacy error formatter and explicitly match its unsigned argument types.
+  Previously, a size was consumed as a string pointer, crashing in vsnprintf.
+  `container-length-errors.pass.cpp` checks oversized construction, insertion,
+  resize and assignment, retained contents, and nonempty exception messages.
+  The full original checkpoint now passes **49/49** in C++11 and **50/50** in
+  C++14 at both optimization levels through `stdcxx-check`.
 
 - [x] (Codex) **Empty-base trivial assignment (psclang):** copy/move
   assignment of an empty class evaluates both operands and returns the lhs

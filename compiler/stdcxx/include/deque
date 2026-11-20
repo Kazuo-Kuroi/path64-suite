@@ -534,7 +534,8 @@ public:
     }
     void assign (size_type __n, const_reference __value) {
         _RWSTD_REQUIRES (__n <= max_size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "deque assign", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("deque assign"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
         deque __tmp (get_allocator ());
         while (__n--) __tmp.emplace_back (__value);
         _C_swap_data (__tmp);
@@ -973,7 +974,8 @@ private:
     };
     void _C_check_growth (size_type __n) const {
         _RWSTD_REQUIRES (__n <= max_size () - size (),
-                         (_RWSTD_ERROR_LENGTH_ERROR, "deque growth", __n, max_size ()));
+                         (_RWSTD_ERROR_LENGTH_ERROR, _RWSTD_FUNC("deque growth"),
+                          static_cast<unsigned>(__n), static_cast<unsigned>(max_size())));
     }
     void _C_swap_data (deque& __rhs) noexcept {
         std::swap (_C_beg, __rhs._C_beg);
