@@ -1239,6 +1239,320 @@ public:
         _Int __k; double __p; if (__in>>__k>>__p) __d.param(param_type(__k,__p)); return __in;
     }
 };
+namespace __rw_random {
+// Upper-bound selection skips zero-mass bins, including at canonical zero.
+inline size_t __weighted_index(const vector<long double>& __cdf,long double __u) {
+    size_t __lo=0,__hi=__cdf.size();
+    while (__lo<__hi) { size_t __mid=__lo+(__hi-__lo)/2; if (__u<__cdf[__mid]) __hi=__mid; else __lo=__mid+1; }
+    return __lo<__cdf.size()?__lo:__cdf.size()-1;
+}
+inline void __cumulative(vector<long double>& __cdf) {
+    long double __total=0;
+    for (size_t __i=0;__i<__cdf.size();++__i) __total+=__cdf[__i];
+    long double __sum=0;
+    for (size_t __i=0;__i<__cdf.size();++__i) { __sum+=__cdf[__i]/__total; __cdf[__i]=__sum; }
+    __cdf.back()=1;
+}
+template<class _S,class _R> bool __read_vector(_S& __in,vector<_R>& __values) {
+    size_t __n;
+    if (!(__in>>__n)) return false;
+    if (!__n || __n>__values.max_size()) { __in.setstate(ios_base::failbit); return false; }
+    for (size_t __i=0;__i<__n;++__i) { _R __v; if (!(__in>>__v)) return false; __values.push_back(__v); }
+    return true;
+}
+template<class _S,class _R> void __write_vector(_S& __out,const vector<_R>& __values) {
+    __out<<__values.size();
+    for (size_t __i=0;__i<__values.size();++__i) __out<<__out.widen(' ')<<__values[__i];
+}
+template<class _R,bool _Linear> struct __piecewise {
+    vector<_R> __bounds,__density;
+    vector<long double> __cdf;
+    __piecewise() { __bounds.push_back(0); __bounds.push_back(1); __density.assign(_Linear?2:1,_R(1)); __rebuild(); }
+    template<class _B,class _W> __piecewise(_B __first,_B __last,_W __weights) {
+        for (;__first!=__last;++__first) __bounds.push_back(*__first);
+        if (__bounds.size()<2) { *this=__piecewise(); return; }
+        vector<long double> __raw;
+        for (size_t __i=0;__i<__bounds.size()-(_Linear?0:1);++__i) { __raw.push_back(*__weights); ++__weights; }
+        __normalize(__raw);
+    }
+    template<class _F> void __function(_F __f) {
+        if (__bounds.size()<2) { *this=__piecewise(); return; }
+        vector<long double> __raw;
+        for (size_t __i=0;__i<__bounds.size()-(_Linear?0:1);++__i)
+            __raw.push_back(__f(_Linear?__bounds[__i]:_R((static_cast<long double>(__bounds[__i])+__bounds[__i+1])/2)));
+        __normalize(__raw);
+    }
+    void __normalize(const vector<long double>& __raw) {
+        __density.resize(__raw.size());
+        long double __scale=0;
+        for (size_t __i=0;__i<__density.size();++__i) if (__raw[__i]>__scale) __scale=__raw[__i];
+        long double __width=0,__sum=0;
+        for (size_t __i=0;__i+1<__bounds.size();++__i) {
+            long double __w=static_cast<long double>(__bounds[__i+1])-__bounds[__i];
+            if (__w>__width) __width=__w;
+        }
+        if (_Linear) {
+            for (size_t __i=0;__i+1<__bounds.size();++__i)
+                __sum+=(__raw[__i]/__scale+__raw[__i+1]/__scale)/2*((static_cast<long double>(__bounds[__i+1])-__bounds[__i])/__width);
+            for (size_t __i=0;__i<__density.size();++__i) __density[__i]=_R((__raw[__i]/__scale)/__sum/__width);
+        } else {
+            for (size_t __i=0;__i<__density.size();++__i) __sum+=__raw[__i]/__scale;
+            for (size_t __i=0;__i<__density.size();++__i)
+                __density[__i]=_R((__raw[__i]/__scale)/__sum/(static_cast<long double>(__bounds[__i+1])-__bounds[__i]));
+        }
+        __rebuild();
+    }
+    void __rebuild() {
+        __cdf.clear();
+        for (size_t __i=0;__i+1<__bounds.size();++__i) {
+            long double __height=__density[__i];
+            if (_Linear) __height=(__height+__density[__i+1])/2;
+            __cdf.push_back(__height*(static_cast<long double>(__bounds[__i+1])-__bounds[__i]));
+        }
+        __cumulative(__cdf);
+    }
+    bool __valid() const {
+        if (__bounds.size()<2 || __density.size()!=__bounds.size()-(_Linear?0:1)) return false;
+        bool __positive=false;
+        for (size_t __i=0;__i<__bounds.size();++__i)
+            if (!std::isfinite(__bounds[__i]) || (__i && !(__bounds[__i]>__bounds[__i-1]))) return false;
+        for (size_t __i=0;__i<__density.size();++__i) {
+            if (!std::isfinite(__density[__i]) || __density[__i]<0) return false;
+            if (__density[__i]>0) __positive=true;
+        }
+        return __positive;
+    }
+    template<class _G> _R __sample(_G& __g) const {
+        long double __u=generate_canonical<_R,numeric_limits<_R>::digits>(__g);
+        size_t __i=__weighted_index(__cdf,__u);
+        long double __left=__i?__cdf[__i-1]:0;
+        long double __t=(__u-__left)/(__cdf[__i]-__left);
+        if (__t<0) __t=0; if (__t>1) __t=1;
+        if (_Linear) {
+            // Invert a trapezoid's integral. Scaling and rationalization avoid
+            // overflow in squared heights and cancellation on near-flat slopes.
+            long double __a=__density[__i],__b=__density[__i+1];
+            long double __scale=__a>__b?__a:__b; __a/=__scale; __b/=__scale;
+            if (__t==0) __t=0;
+            else __t=__t*(__a+__b)/(__a+std::sqrt((1-__t)*__a*__a+__t*__b*__b));
+        }
+        if (__t<0) __t=0; if (__t>1) __t=1;
+        // Convex interpolation also handles wide intervals straddling zero.
+        _R __result=_R((1-__t)*__bounds[__i]+__t*__bounds[__i+1]);
+        if (__result>=__bounds[__i+1]) __result=std::nextafter(__bounds[__i+1],__bounds[__i]);
+        return __result;
+    }
+};
+}
+template<class _Int=int> class discrete_distribution {
+    static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
+public:
+    typedef _Int result_type;
+    class param_type {
+        vector<double> __prob;
+        vector<long double> __cdf;
+        friend class discrete_distribution;
+        void __rebuild() { __cdf.assign(__prob.begin(),__prob.end()); __rw_random::__cumulative(__cdf); }
+        void __normalize() {
+            if (__prob.empty()) __prob.push_back(1);
+            long double __scale=0,__sum=0;
+            for (size_t __i=0;__i<__prob.size();++__i) if (__prob[__i]>__scale) __scale=__prob[__i];
+            for (size_t __i=0;__i<__prob.size();++__i) __sum+=__prob[__i]/__scale;
+            for (size_t __i=0;__i<__prob.size();++__i) __prob[__i]=double((__prob[__i]/__scale)/__sum);
+            __rebuild();
+        }
+    public:
+        typedef discrete_distribution distribution_type;
+        param_type() : __prob(1,1),__cdf(1,1) {}
+        template<class _I> param_type(_I __first,_I __last) {
+            for (;__first!=__last;++__first) __prob.push_back(*__first);
+            __normalize();
+        }
+        param_type(initializer_list<double> __weights) : param_type(__weights.begin(),__weights.end()) {}
+        template<class _F> param_type(size_t __n,double __xmin,double __xmax,_F __f) {
+            if (!__n) __n=1;
+            for (size_t __i=0;__i<__n;++__i) {
+                long double __t=(static_cast<long double>(__i)+0.5L)/__n;
+                __prob.push_back(__f(double((1-__t)*__xmin+__t*__xmax)));
+            }
+            __normalize();
+        }
+        vector<double> probabilities() const { return __prob; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__prob==__y.__prob; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private:
+    param_type __param;
+    template<class _S> void __write(_S& __out) const { __rw_random::__write_vector(__out,__param.__prob); }
+    template<class _S> void __read(_S& __in) {
+        param_type __next; __next.__prob.clear();
+        if (!__rw_random::__read_vector(__in,__next.__prob)) return;
+        bool __positive=false;
+        for (size_t __i=0;__i<__next.__prob.size();++__i) {
+            double __p=__next.__prob[__i];
+            if (!std::isfinite(__p) || __p<0) { __in.setstate(ios_base::failbit); return; }
+            if (__p>0) __positive=true;
+        }
+        if (!__positive) { __in.setstate(ios_base::failbit); return; }
+        __next.__rebuild(); __param=std::move(__next);
+    }
+public:
+    discrete_distribution() {}
+    template<class _I> discrete_distribution(_I __first,_I __last) : __param(__first,__last) {}
+    discrete_distribution(initializer_list<double> __weights) : __param(__weights) {}
+    template<class _F> discrete_distribution(size_t __n,double __xmin,double __xmax,_F __f) : __param(__n,__xmin,__xmax,__f) {}
+    explicit discrete_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    result_type min() const { return 0; }
+    result_type max() const { return _Int(__param.__prob.size()-1); }
+    vector<double> probabilities() const { return __param.probabilities(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        if (__p.__prob.size()==1) return 0;
+        return _Int(__rw_random::__weighted_index(__p.__cdf,generate_canonical<double,numeric_limits<double>::digits>(__g)));
+    }
+    friend bool operator==(const discrete_distribution& __x,const discrete_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const discrete_distribution& __x,const discrete_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const discrete_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(17); __d.__write(__out); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,discrete_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        __d.__read(__in); return __in;
+    }
+};
+template<class _Real=double> class piecewise_constant_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        __rw_random::__piecewise<_Real,false> __data;
+        friend class piecewise_constant_distribution;
+    public:
+        typedef piecewise_constant_distribution distribution_type;
+        param_type() {}
+        template<class _B,class _W> param_type(_B __first,_B __last,_W __weights) : __data(__first,__last,__weights) {}
+        template<class _F> param_type(initializer_list<_Real> __bounds,_F __f) {
+            __data.__bounds.assign(__bounds.begin(),__bounds.end()); __data.__function(__f);
+        }
+        template<class _F> param_type(size_t __n,_Real __xmin,_Real __xmax,_F __f) {
+            if (!__n) __n=1;
+            __data.__bounds.clear();
+            for (size_t __i=0;__i<__n;++__i) {
+                long double __t=static_cast<long double>(__i)/__n;
+                __data.__bounds.push_back(_Real((1-__t)*__xmin+__t*__xmax));
+            }
+            __data.__bounds.push_back(__xmax); __data.__function(__f);
+        }
+        vector<_Real> intervals() const { return __data.__bounds; }
+        vector<_Real> densities() const { return __data.__density; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__data.__bounds==__y.__data.__bounds && __x.__data.__density==__y.__data.__density; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private:
+    param_type __param;
+    template<class _S> void __write(_S& __out) const {
+        __rw_random::__write_vector(__out,__param.__data.__bounds); __out<<__out.widen(' ');
+        __rw_random::__write_vector(__out,__param.__data.__density);
+    }
+    template<class _S> void __read(_S& __in) {
+        param_type __next; __next.__data.__bounds.clear(); __next.__data.__density.clear();
+        if (!__rw_random::__read_vector(__in,__next.__data.__bounds) || !__rw_random::__read_vector(__in,__next.__data.__density)) return;
+        if (!__next.__data.__valid()) { __in.setstate(ios_base::failbit); return; }
+        __next.__data.__rebuild(); __param=std::move(__next);
+    }
+public:
+    piecewise_constant_distribution() {}
+    template<class _B,class _W> piecewise_constant_distribution(_B __first,_B __last,_W __weights) : __param(__first,__last,__weights) {}
+    template<class _F> piecewise_constant_distribution(initializer_list<_Real> __bounds,_F __f) : __param(__bounds,__f) {}
+    template<class _F> piecewise_constant_distribution(size_t __n,_Real __xmin,_Real __xmax,_F __f) : __param(__n,__xmin,__xmax,__f) {}
+    explicit piecewise_constant_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    result_type min() const { return __param.__data.__bounds.front(); }
+    result_type max() const { return __param.__data.__bounds.back(); }
+    vector<_Real> intervals() const { return __param.intervals(); }
+    vector<_Real> densities() const { return __param.densities(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) { return __p.__data.__sample(__g); }
+    friend bool operator==(const piecewise_constant_distribution& __x,const piecewise_constant_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const piecewise_constant_distribution& __x,const piecewise_constant_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const piecewise_constant_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000); __d.__write(__out); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,piecewise_constant_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        __d.__read(__in); return __in;
+    }
+};
+template<class _Real=double> class piecewise_linear_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        __rw_random::__piecewise<_Real,true> __data;
+        friend class piecewise_linear_distribution;
+    public:
+        typedef piecewise_linear_distribution distribution_type;
+        param_type() {}
+        template<class _B,class _W> param_type(_B __first,_B __last,_W __weights) : __data(__first,__last,__weights) {}
+        template<class _F> param_type(initializer_list<_Real> __bounds,_F __f) {
+            __data.__bounds.assign(__bounds.begin(),__bounds.end()); __data.__function(__f);
+        }
+        template<class _F> param_type(size_t __n,_Real __xmin,_Real __xmax,_F __f) {
+            if (!__n) __n=1;
+            __data.__bounds.clear();
+            for (size_t __i=0;__i<__n;++__i) {
+                long double __t=static_cast<long double>(__i)/__n;
+                __data.__bounds.push_back(_Real((1-__t)*__xmin+__t*__xmax));
+            }
+            __data.__bounds.push_back(__xmax); __data.__function(__f);
+        }
+        vector<_Real> intervals() const { return __data.__bounds; }
+        vector<_Real> densities() const { return __data.__density; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__data.__bounds==__y.__data.__bounds && __x.__data.__density==__y.__data.__density; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private:
+    param_type __param;
+    template<class _S> void __write(_S& __out) const {
+        __rw_random::__write_vector(__out,__param.__data.__bounds); __out<<__out.widen(' ');
+        __rw_random::__write_vector(__out,__param.__data.__density);
+    }
+    template<class _S> void __read(_S& __in) {
+        param_type __next; __next.__data.__bounds.clear(); __next.__data.__density.clear();
+        if (!__rw_random::__read_vector(__in,__next.__data.__bounds) || !__rw_random::__read_vector(__in,__next.__data.__density)) return;
+        if (!__next.__data.__valid()) { __in.setstate(ios_base::failbit); return; }
+        __next.__data.__rebuild(); __param=std::move(__next);
+    }
+public:
+    piecewise_linear_distribution() {}
+    template<class _B,class _W> piecewise_linear_distribution(_B __first,_B __last,_W __weights) : __param(__first,__last,__weights) {}
+    template<class _F> piecewise_linear_distribution(initializer_list<_Real> __bounds,_F __f) : __param(__bounds,__f) {}
+    template<class _F> piecewise_linear_distribution(size_t __n,_Real __xmin,_Real __xmax,_F __f) : __param(__n,__xmin,__xmax,__f) {}
+    explicit piecewise_linear_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    result_type min() const { return __param.__data.__bounds.front(); }
+    result_type max() const { return __param.__data.__bounds.back(); }
+    vector<_Real> intervals() const { return __param.intervals(); }
+    vector<_Real> densities() const { return __param.densities(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) { return __p.__data.__sample(__g); }
+    friend bool operator==(const piecewise_linear_distribution& __x,const piecewise_linear_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const piecewise_linear_distribution& __x,const piecewise_linear_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const piecewise_linear_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000); __d.__write(__out); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,piecewise_linear_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        __d.__read(__in); return __in;
+    }
+};
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::multiplier;
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::increment;
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::modulus;

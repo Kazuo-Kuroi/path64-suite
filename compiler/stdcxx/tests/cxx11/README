@@ -318,3 +318,16 @@ stream rollback/precision, wide streams and zero canonical endpoints.
 The six chi-squared/Student-t/extreme-value eval/eval_param reference files
 remain separately recorded RUNs for kurtosis thresholds. System-library eval
 controls fail chi-squared kurtosis and Student-t skewness; extreme-value passes.
+
+random-weighted-distributions.pass.cpp checks discrete histograms and piecewise
+CDF bins over three seeds, nonuniform widths, zero-mass gaps, rising/falling/
+nearly flat linear densities, single-pass input, function evaluation locations,
+large weights before narrowing, wide intervals and adjacent floating endpoints.
+All real types have exact serialized round trips, wide streams, parameter
+replacement, formatting restoration and failed/throwing extraction checks.
+Malformed sizes, boundaries and densities leave parameters unchanged.
+
+iostream-subnormal.pass.cpp checks positive/negative subnormal extraction for
+float/double/long double through narrow/wide streams, signed zero on complete
+underflow, and retained malformed/overflow failures. It guards the shared
+num_get fix needed for exact weighted-distribution subnormal round trips.

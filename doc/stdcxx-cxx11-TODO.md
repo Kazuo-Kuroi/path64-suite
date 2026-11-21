@@ -388,6 +388,11 @@ psclang and host Clang at `-O0` and `-O2`. This batch has no runtime failures;
 the 31 compile failures are classified below. Reference markers exclude 25
 C++11 and 24 C++14 tests.
 
+- [ ] **`<limits>` follow-up discovered during weighted-distribution tests:**
+  `numeric_limits::max_digits10` and `lowest()` are absent; audit the remaining
+  C++11/14 numeric-limits additions and constexpr observers. The new extraction
+  regression uses the existing digits-based serialization precision meanwhile.
+
 - [x] (Codex) **`<iterator>`:**
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
     (`iterator.range/begin-end.pass.cpp`);
@@ -609,7 +614,7 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal and geometric/binomial/Poisson/gamma/negative-binomial and Weibull/extreme-value/chi-squared/Cauchy/Fisher-F/Student-t distributions are implemented; other distributions remain open. |
+| `<random>` | `numerics/rand` (493) | All C++11 seed/engine/adapter/distribution APIs, POSIX random_device and shuffle are implemented (Codex). The weighted distribution checkpoint completes the template inventory; earlier fixed-sample higher-moment RUN differences remain open. This is not a whole-header conformance claim. |
 | `<regex>` | `re` (167) | In progress (Codex): constants, errors, traits, capture/results formatting and an initial ECMAScript search/match kernel. regex_iterator and regex_replace are implemented. Other grammar modes, lookahead and token iterators remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
@@ -658,7 +663,13 @@ remains a WIP port.
 - [x] (Codex) Weibull, extreme-value, chi-squared, Cauchy, Fisher-F and
   Student-t distributions, including all three real types, parameter overrides,
   transactional streams and independent CDF/moment coverage.
-- [ ] Remaining random distributions: discrete and the two piecewise distributions.
+- [x] (Codex) Discrete, piecewise-constant and piecewise-linear distributions: all
+  constructors/parameter APIs, normalized weights/densities, logarithmic bin
+  selection, parameter overrides and transactional streams.
+- [ ] Random validation follow-up: resolve the 16 previously recorded fixed-sample
+  higher-moment reference RUN differences (six integer, four gamma/negative-
+  binomial and six continuous). All C++11 distribution templates are present;
+  their presence does not by itself establish whole-header conformance.
 - [x] (Codex) Initial ECMAScript `basic_regex`, `regex_search`/`regex_match`,
   match_results storage/access/formatting and string/iterator overloads.
   Supported syntax includes literals, dot, classes/ranges and shorthands,
@@ -855,6 +866,54 @@ Clang in C++11/C++14 at O0/O2. No third-party implementation code was imported.
 Discrete and the two piecewise distributions remain open, alongside the other
 Phase 4 headers and the remaining regex items. The full original suite passes
 **66/66 C++11 and 67/67 C++14**, at O0/O2. Execution coverage is Linux x86-64.
+
+### Weighted distributions checkpoint (2026-11-20)
+
+Original discrete_distribution, piecewise_constant_distribution and
+piecewise_linear_distribution complete the C++11 distribution template
+inventory. They provide default/range/initializer/function/parameter
+constructors, observers, parameter overrides, equality/reset and narrow/wide
+streaming. Single-pass input is consumed once. Empty/single-boundary piecewise
+ranges use the default unit interval; a zero requested interval count uses one
+interval over the supplied endpoints.
+
+Discrete and piecewise-constant weights specify probability mass; constant
+densities account for interval widths. Piecewise-linear weights specify endpoint
+heights and are normalized by trapezoidal area. See the standard formulas for
+[discrete](https://eel.is/c++draft/rand.dist.samp.discrete),
+[piecewise-constant](https://eel.is/c++draft/rand.dist.samp.pconst) and
+[piecewise-linear](https://eel.is/c++draft/rand.dist.samp.plinear) distributions.
+Normalization scales weights before summation and before narrowing to a real
+result type. Cached cumulative masses support logarithmic interval selection,
+skipping zero-mass bins at canonical zero. A rationalized quadratic inversion
+samples linear densities, including rising, falling and nearly flat segments;
+rounded samples are kept below their selected interval's upper boundary.
+
+Stream extraction validates sizes, finite increasing boundaries and nonnegative
+nonzero density/weight vectors before committing a replacement. Failed or
+throwing reads preserve the previous parameters. Stored normalized values are
+restored directly, avoiding a second normalization that could change equality.
+Original regressions check multi-seed histograms/CDFs, all three real types,
+parameter overrides, function evaluation points, single-pass input, overflow-
+resistant normalization, adjacent endpoints and transactional narrow/wide I/O.
+Subnormal round trips exposed an existing shared num_get defect: ERANGE from
+strtof/strtod/strtold replaced a converted subnormal or signed zero with the
+smallest normal value. The validator now preserves that conversion result;
+the strtod-to-float fallback also stops clamping representable subnormals.
+Overflow handling remains covered. Both runtime libraries were rebuilt, and
+an independent iostream regression covers all floating types in narrow/wide
+streams. See the [numeric extraction rules](https://eel.is/c++draft/facet.num.get.virtuals).
+No third-party implementation code was imported.
+
+The weighted reference subtree passes **73/73** with psclang and host Clang
+in C++14 at O2, with no exclusions. The original weighted regression passes
+with both compilers in C++11/C++14 at O0/O2. After rebuilding both runtime
+libraries, the full original suite passes **68/68 C++11 and 69/69 C++14**,
+at O0/O2; the weighted and subnormal fixtures also pass the full host matrix.
+
+The earlier 16 fixed-sample higher-moment reference differences remain open;
+this batch adds no new statistical exclusions. Phase 4 still has substantial
+container, time, threading and regex work. Execution coverage is Linux x86-64.
 
 ## Infrastructure
 

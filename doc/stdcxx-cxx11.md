@@ -45,13 +45,12 @@ the reference for the design. Its test suite is the conformance test.
 | `<cmath>` | C99 functions and suffixed forms, arithmetic overloads, boolean classification and comparison predicates | c.math: 3/3 |
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
-New partial headers are `<random>` (engines, adapters, entropy, uniform,
-Bernoulli, exponential, normal, lognormal, geometric, binomial, Poisson, gamma,
-negative-binomial, Weibull, extreme-value, chi-squared, Cauchy, Fisher-F and
-Student-t sampling) and `<regex>` (traits, captures/results,
-an initial ECMAScript search/match kernel, iteration and replacement). Remaining
-distributions, other regex grammars, lookahead and token iterators are
-still open; these headers do not claim whole-header conformance.
+New headers under validation are `<random>` (seed sequences, engines/adapters,
+POSIX entropy, all C++11 distribution templates and shuffle) and `<regex>`
+(traits, captures/results, an initial ECMAScript search/match kernel,
+iteration and replacement). Fixed-sample random statistical reference
+differences, other regex grammars, lookahead and token iterators remain open;
+these headers do not claim whole-header conformance.
 
 The libc++ tuple-extension test `PR31384` differs from stdcxx and the
 system C++ library. The remaining C++11 library work includes
@@ -838,3 +837,51 @@ Clang in C++11/C++14 at O0/O2. No third-party implementation code was imported.
 Discrete and the two piecewise distributions remain open, alongside the other
 Phase 4 headers and the remaining regex items. The full original suite passes
 **66/66 C++11 and 67/67 C++14**, at O0/O2. Execution coverage is Linux x86-64.
+
+### Weighted distributions checkpoint (2026-11-20)
+
+Original discrete_distribution, piecewise_constant_distribution and
+piecewise_linear_distribution complete the C++11 distribution template
+inventory. They provide default/range/initializer/function/parameter
+constructors, observers, parameter overrides, equality/reset and narrow/wide
+streaming. Single-pass input is consumed once. Empty/single-boundary piecewise
+ranges use the default unit interval; a zero requested interval count uses one
+interval over the supplied endpoints.
+
+Discrete and piecewise-constant weights specify probability mass; constant
+densities account for interval widths. Piecewise-linear weights specify endpoint
+heights and are normalized by trapezoidal area. See the standard formulas for
+[discrete](https://eel.is/c++draft/rand.dist.samp.discrete),
+[piecewise-constant](https://eel.is/c++draft/rand.dist.samp.pconst) and
+[piecewise-linear](https://eel.is/c++draft/rand.dist.samp.plinear) distributions.
+Normalization scales weights before summation and before narrowing to a real
+result type. Cached cumulative masses support logarithmic interval selection,
+skipping zero-mass bins at canonical zero. A rationalized quadratic inversion
+samples linear densities, including rising, falling and nearly flat segments;
+rounded samples are kept below their selected interval's upper boundary.
+
+Stream extraction validates sizes, finite increasing boundaries and nonnegative
+nonzero density/weight vectors before committing a replacement. Failed or
+throwing reads preserve the previous parameters. Stored normalized values are
+restored directly, avoiding a second normalization that could change equality.
+Original regressions check multi-seed histograms/CDFs, all three real types,
+parameter overrides, function evaluation points, single-pass input, overflow-
+resistant normalization, adjacent endpoints and transactional narrow/wide I/O.
+Subnormal round trips exposed an existing shared num_get defect: ERANGE from
+strtof/strtod/strtold replaced a converted subnormal or signed zero with the
+smallest normal value. The validator now preserves that conversion result;
+the strtod-to-float fallback also stops clamping representable subnormals.
+Overflow handling remains covered. Both runtime libraries were rebuilt, and
+an independent iostream regression covers all floating types in narrow/wide
+streams. See the [numeric extraction rules](https://eel.is/c++draft/facet.num.get.virtuals).
+No third-party implementation code was imported.
+
+The weighted reference subtree passes **73/73** with psclang and host Clang
+in C++14 at O2, with no exclusions. The original weighted regression passes
+with both compilers in C++11/C++14 at O0/O2. After rebuilding both runtime
+libraries, the full original suite passes **68/68 C++11 and 69/69 C++14**,
+at O0/O2; the weighted and subnormal fixtures also pass the full host matrix.
+
+The earlier 16 fixed-sample higher-moment reference differences remain open;
+this batch adds no new statistical exclusions. Phase 4 still has substantial
+container, time, threading and regex work. Execution coverage is Linux x86-64.

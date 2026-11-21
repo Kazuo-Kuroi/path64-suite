@@ -224,3 +224,6 @@ numerics/rand/rand.dis/rand.dist.pois/rand.dist.pois.weibull/param_eq.pass.cpp
 numerics/rand/rand.dis/rand.dist.pois/rand.dist.pois.weibull/param_types.pass.cpp
 numerics/rand/rand.dis/rand.dist.pois/rand.dist.pois.weibull/set_param.pass.cpp
 numerics/rand/rand.dis/rand.dist.pois/rand.dist.pois.weibull/types.pass.cpp
+
+# Discrete and piecewise distributions: complete selected reference subtree.
+numerics/rand/rand.dis/rand.dist.samp

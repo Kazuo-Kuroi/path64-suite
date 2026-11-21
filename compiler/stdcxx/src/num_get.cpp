@@ -262,7 +262,7 @@ static unsigned long __rw_get_roman (const char *str)
 // validates a floating point value and errno value
 template <class FloatT>
 inline FloatT
-__rw_validate (FloatT val, FloatT fmin, FloatT finf, char sign, int &err)
+__rw_validate (FloatT val, FloatT fmin, FloatT finf, char /* sign */, int &err)
 {
     if (ERANGE == err) {
 
@@ -276,9 +276,9 @@ __rw_validate (FloatT val, FloatT fmin, FloatT finf, char sign, int &err)
             val = finf;
             err = _RWSTD_IOS_FAILBIT;
         }
-        else {   // val >= fmin && val <= max
-            // benign underflow: store +/-fmin, clear failbit
-            val = '-' == sign ? -(fmin) : (fmin);
+        else {
+            // ERANGE also reports representable subnormals. Retain the C
+            // conversion result, including signed zero on complete underflow.
             err = 0;
         }
     }
@@ -632,18 +632,6 @@ __rw_get_num (void *pval, const char *buf, int type, int flags,
                 // store positive infinity and set failbit
                 d   = __rw_flt_infinity;
                 err = _RWSTD_IOS_FAILBIT;
-            }
-            else if (d > 0.0 && d < double (_RWSTD_FLT_MIN)) {
-                // positive underflow (magnitude is too small to represent)
-                // store FLT_MIN and clear failbit
-                d   = _RWSTD_FLT_MIN;
-                err = 0;
-            }
-            else if (d < 0.0 && d > -double (_RWSTD_FLT_MIN)) {
-                // negative underflow (magnitude is too small to represent)
-                // store -FLT_MIN and clear failbit
-                d   = -_RWSTD_FLT_MIN;
-                err = 0;
             }
             else
                 err = 0;
