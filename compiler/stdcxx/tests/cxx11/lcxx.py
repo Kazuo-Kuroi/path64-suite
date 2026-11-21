@@ -18,7 +18,7 @@ TIMEOUT, UNSUPPORTED (libc++'s UNSUPPORTED/REQUIRES markers exclude it for
 this -std), XFAIL (libc++ marks it XFAIL for clang-3 or clang-4, as
 psclang is Clang 4.0.1).
 """
-import argparse, concurrent.futures as cf, json, os, re, signal, subprocess, tempfile
+import argparse, concurrent.futures as cf, json, os, re, shlex, signal, subprocess, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -79,6 +79,8 @@ def run_one0(a, src, rel, work):
         cmd = [os.path.join(a.stage, "bin", "pathCC"), "-fpsclang",
                "-std=" + a.std, "-" + a.O, "-I", a.support, src, "-o", exe,
                "-lpthread", "-lm"]
+    for flags in re.findall(r"^//\s*PATH64_FLAGS:\s*(.*)$", open(src, errors="replace").read(4000), re.M):
+        cmd.extend(shlex.split(flags))
     try:
         p = run_command(cmd, a.compile_timeout)
     except subprocess.TimeoutExpired:

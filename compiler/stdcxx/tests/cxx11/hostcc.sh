@@ -7,7 +7,9 @@
 : "${PATH64_STAGE:?set PATH64_STAGE to BUILD/Xcompiler}"
 I=$(ls -d "$PATH64_STAGE"/include/*/ | head -1)
 L="$PATH64_STAGE/lib/x8664/64"
-exec clang++ -nostdinc++ -nostdlib++ -isystem "$I" -isystem "$I/stl" \
+# The bundled unwinder needs frame pointers through optimized cleanup frames,
+# matching pathCC's exception-enabled x86 driver default.
+exec clang++ -fno-omit-frame-pointer -nostdinc++ -nostdlib++ -isystem "$I" -isystem "$I/stl" \
     -isystem "$I/stl/ansi" '-D__STDCXX_CONFIG=<__stl_config-x86_64.h>' \
     -D_RWSTD_POSIX_THREADS -w "$@" "$L/libstl.a" "$L/libcxxrt.a" \
     "$L/libmv.a" "$L/libmpath.a" "$L/libpscrt.a" "$L/libeh.a" \

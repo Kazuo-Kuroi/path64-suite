@@ -275,3 +275,20 @@ fill/width, transactional failed/throwing input and formatting restoration.
 regex-submatch.pass.cpp checks constexpr defaults, unmatched ranges, embedded
 NULs, list iterators, comparisons and narrow/wide stream insertion. It covers
 non-owning capture ranges; match_results and matching remain separate work.
+
+random-sources-distributions.pass.cpp checks POSIX entropy descriptor ownership,
+interrupted/short/EOF/error reads (Linux injection), cached normal values,
+parameter changes, serialization rollback and sample moments. Tokens other
+than /dev/urandom are rejected; entropy() reports an unknown estimate (zero).
+regex-search.pass.cpp checks the initial ECMAScript matcher/results/formatting,
+including captures, repetition, flags, byte/wide/list input and bounded resource
+failure. It does not claim other grammar modes, lookahead, iterators or replace.
+compiler-memory-intrinsics.pass.cpp covers optimized memory dependencies for
+memcmp/strcmp/strlen and preceding writes; it is also C++98-compatible.
+The host wrapper retains frame pointers for bundled-unwinder compatibility.
+
+compiler-noexcept-library.pass.cpp uses // PATH64_FLAGS: -fno-exceptions to
+exercise retained system-header try/catch ASTs without generating handlers or
+accessing absent exception metadata. The runner passes these source-specific
+flags to either compiler. The test also asserts that preprocessing advertises
+the same exception mode as lowering; driver probes cover RTTI flags as well.

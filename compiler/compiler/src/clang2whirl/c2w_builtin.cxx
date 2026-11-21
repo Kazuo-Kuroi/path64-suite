@@ -287,8 +287,10 @@ WhirlExprBuilder::GenerateIntrinsic(const CallExpr *expr, TY_IDX rtype, INTRINSI
   WN* intrn = WN_Create_Intrinsic(opr,
                                   Mtype_comparison(TY_mtype(rtype)), MTYPE_V,
                                   iopc, args_num, kids);
-  if (!is_op)
+  if (!is_op) {
     WN_Set_Linenum(intrn, GetSrcPos());
+    WN_Set_Call_Default_Flags(intrn);
+  }
   unsigned builtin_id=expr->getDirectCallee()->getBuiltinID();
   bool sync_barriers=builtin_id>=Builtin::BI__sync_fetch_and_add &&
                      builtin_id<=Builtin::BI__sync_swap_16;
@@ -361,6 +363,10 @@ WhirlExprBuilder::ConvertBuiltinExpr(const CallExpr *expr, const FunctionDecl *d
     bool is_op = (INTRN_has_no_side_effects(iopc) &&
                   INTRN_return_kind(iopc) != IRETURN_V) ?
                  TRUE : FALSE;
+    // Read-only does not mean independent of memory. These operations need
+    // call mu/chi information so local stores and preceding writes are seen.
+    if (iopc==INTRN_MEMCMP || iopc==INTRN_STRCMP || iopc==INTRN_STRLEN)
+      is_op=FALSE;
     return GenerateIntrinsic(expr, ty, iopc, is_op, retv);
   }
 

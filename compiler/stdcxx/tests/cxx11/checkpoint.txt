@@ -19,3 +19,14 @@ numerics/rand/rand.adapt
 numerics/rand/rand.predef
 numerics/rand/rand.dis/rand.dist.uni
 re/re.submatch
+# POSIX entropy and stateful real distributions.
+numerics/rand/rand.device
+numerics/rand/rand.dis/rand.dist.pois/rand.dist.pois.exp
+numerics/rand/rand.dis/rand.dist.norm/rand.dist.norm.normal
+numerics/rand/rand.dis/rand.dist.norm/rand.dist.norm.lognormal
+# Regex constructor/results checks that do not require pending grammar modes.
+re/re.regex/types.pass.cpp
+re/re.results/types.pass.cpp
+re/re.results/re.results.const
+re/re.results/re.results.form
+re/re.results/re.results.acc/position.pass.cpp

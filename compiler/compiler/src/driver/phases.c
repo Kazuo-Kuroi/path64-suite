@@ -301,6 +301,17 @@ is_psclang_cfe_option (const char *name)
 	return FALSE;
 }
 
+// These C++ semantic options also control predefined macros in system headers.
+// The preprocessor and frontend must agree on their values.
+static boolean
+is_psclang_cpp_cfe_option (const char *name)
+{
+    return strcmp(name, "-fexceptions") == 0 ||
+           strcmp(name, "-fno-exceptions") == 0 ||
+           strcmp(name, "-frtti") == 0 ||
+           strcmp(name, "-fno-rtti") == 0;
+}
+
 static void
 copy_phase_options (string_list_t *phase_list, phases_t phase)
 {
@@ -341,7 +352,10 @@ copy_phase_options (string_list_t *phase_list, phases_t phase)
 			else
 			    matches_phase = option_matches_phase(iflag, phase);
 
-			if (!matches_phase && phase == P_psclang &&
+			if (!matches_phase &&
+                            (phase == P_psclang ||
+                             (phase == P_psclang_cpp &&
+                              is_psclang_cpp_cfe_option(get_option_name(iflag)))) &&
 			    option_matches_phase(iflag, P_c_gfe) &&
 			    is_psclang_cfe_option(get_option_name(iflag)))
 			    matches_phase = TRUE;

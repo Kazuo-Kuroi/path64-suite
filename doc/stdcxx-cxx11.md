@@ -45,11 +45,11 @@ the reference for the design. Its test suite is the conformance test.
 | `<cmath>` | C99 functions and suffixed forms, arithmetic overloads, boolean classification and comparison predicates | c.math: 3/3 |
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
-New partial headers are `<random>` (seed sequences, congruential/Mersenne
-Twister/subtract-with-carry engines and adapters, uniform integer/real and
-Bernoulli sampling) and `<regex>` (constants, errors, locale traits and sub_match
-capture ranges). Other distributions, random_device and regex parsing/matching are still open;
-these headers do not yet claim whole-header conformance.
+New partial headers are `<random>` (engines, adapters, entropy, uniform,
+Bernoulli, exponential, normal and lognormal sampling) and `<regex>` (traits,
+captures/results and an initial ECMAScript search/match kernel). Remaining
+distributions, other regex grammars, lookahead, iterators and replacement are
+still open; these headers do not claim whole-header conformance.
 
 The libc++ tuple-extension test `PR31384` differs from stdcxx and the
 system C++ library. The remaining C++11 library work includes
@@ -699,3 +699,57 @@ The original matrix passes 58/58 in C++11 and 59/59 in C++14 at both levels.
 An initial stream-flags compiler crash in C++14 O2 did not recur in four
 isolated runs or the full affected-configuration rerun; neither changed header
 is included by that test. This observation remains recorded in the TODO.
+
+### Entropy, stateful sampling and initial regex matching (2026-11-20)
+
+Original header-only additions include POSIX random_device and exponential,
+normal and lognormal distributions. The entropy source accepts /dev/urandom,
+owns a close-on-exec descriptor, retries interrupted/short reads and throws
+system_error on open/read failure. It reports an unknown entropy estimate
+(zero) and supplies no deterministic substitute. Cached normal samples survive
+copying/serialization; reset clears them. Distribution extraction preserves
+prior state on failure and restores formatting/precision across exceptions.
+
+The original regex instruction compiler and ordered VM now support a subset
+of ECMAScript: classes/ranges, shorthands, literals/escapes, dot, anchors, word
+boundaries, alternatives, captures/noncapturing groups, backreferences and
+bounded/unbounded greedy/lazy repeats. Empty iterations terminate; explicit
+pattern/code/work/saved-state limits report regex_error. Match/search fill
+allocator-aware match_results, preserving iterator-based captures, prefixes,
+suffixes and positions; results format default and sed replacement strings.
+Failed pattern assignment preserves the prior program, and moved-from regex
+objects remain usable. Other grammars, lookahead, iterators and regex_replace
+remain open, as do complete syntax/collation conformance. No whole-header
+conformance is claimed. Element positions follow the distance-to-first-iterator
+rule in the [element-access specification](https://eel.is/c++draft/re.results.acc).
+
+The entropy/distribution references pass 57/57. The validated combined subset
+passes 111/111 with both compilers in C++14 at O0/O2, with nine exclusions.
+The new originals, including the explicit exception-disabled probe, pass with
+both compilers in C++11/14 at both levels. A broad
+80-test regex constructor/results/algorithm sample records remaining failures;
+some reference files have disabled bodies, so counts do not prove grammar
+support. Original checks cover short/interrupted/error reads, fd zero, cached
+samples, stream rollback, captures/formatting, byte/wide/list input and resource
+exhaustion. Execution coverage remains Linux x86-64.
+
+The work also fixes psclang memory-reading builtin lowering: memcmp/strcmp/
+strlen require memory-reference dependencies through intrinsic calls, and
+intrinsic calls need conservative effect flags. The reduced optimized memcmp
+failure and subsequent string/memory writes have an original regression.
+Optimized host regex error cleanup requires frame pointers with the bundled
+unwinder; hostcc.sh now retains them, as the PathScale driver already does.
+This does not fix the underlying frameless-unwind limitation.
+
+Exception-disabled library use exposed two more mismatches: psclang was lowering
+header catch handlers despite absent exception tables, and the driver did not
+forward exception/RTTI flags to preprocessing. Disabled-EH try lowering now
+keeps only normal body scopes, and macro-changing options reach both phases.
+The original exception-disabled source runs automatically using PATH64_FLAGS
+metadata; runner self-checks verify that flags are honored.
+
+The final original target passes 62/62 in C++11 and 63/63 in C++14 at both
+optimization levels. All four runner self-checks pass. The explicit disabled-EH
+regression passes with both compilers across the language/optimization matrix;
+C++98 memory-intrinsic probes pass with psclang, host Clang and the GCC frontend.
+The IRIX driver rebuilds; IRIX C++11 runtime execution remains unvalidated.

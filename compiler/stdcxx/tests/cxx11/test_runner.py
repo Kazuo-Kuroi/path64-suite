@@ -12,6 +12,9 @@ RUNNER = Path(__file__).resolve().with_name('lcxx.py')
 COMPILER = '''#!/usr/bin/env python3
 import pathlib, sys, time
 source = pathlib.Path(next(arg for arg in sys.argv if arg.endswith('.pass.cpp')))
+if source.stem.startswith('requires_flag') and '-fno-exceptions' not in sys.argv:
+    print('error: missing requested compiler flag')
+    sys.exit(1)
 if source.stem.startswith('compile_timeout'):
     time.sleep(5)
 if source.stem.startswith('compile_fail'):
@@ -66,6 +69,13 @@ class RunnerChecks(unittest.TestCase):
                                  'compile_fail_expected.pass.cpp')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.run_checks('.').returncode, 0)
+
+    def test_source_specific_flags(self):
+        self.add_source('requires_flag', '// PATH64_FLAGS: -fno-exceptions\n')
+        result = self.run_checks('--strict', 'requires_flag.pass.cpp')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.add_source('requires_flag')
+        self.assertEqual(self.run_checks('--strict', 'requires_flag.pass.cpp').returncode, 1)
 
     def test_timeouts_and_missing_selection(self):
         self.add_source('compile_timeout')

@@ -609,8 +609,8 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device and remaining distributions are open. |
-| `<regex>` | `re` (167) | In progress (Codex): constants, regex_error, locale traits and sub_match capture ranges. Parser/matcher/results/replacement remain open. |
+| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal distributions and the earlier engines/samplers are implemented; other distributions remain open. |
+| `<regex>` | `re` (167) | In progress (Codex): constants, errors, traits, capture/results formatting and an initial ECMAScript search/match kernel. Other grammar modes, lookahead, iterators and replacement remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
 | `<codecvt>` | `localization/locale.stdcvt` (24) | Implemented: original `codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`; 24/24 references pass with both compilers. |
@@ -641,9 +641,30 @@ remains a WIP port.
 - [x] (Codex) Regex `sub_match` capture ranges, narrow/wide aliases, conversion,
   length, all comparisons and stream insertion. Unmatched captures compare as
   empty strings; original tests cover embedded NULs and list iterators.
-- [ ] `random_device` and the remaining random distributions.
-- [ ] Regex parsing/matching, match_results, iteration and replacement, all
-  grammar modes and locale-specific primary/multicharacter collation. The
+- [x] (Codex) Header-only POSIX `random_device`, accepting `/dev/urandom`,
+  owning a close-on-exec descriptor and reading complete result words across
+  interruptions/short reads. Read/open errors throw `system_error`; entropy()
+  conservatively reports zero, and no deterministic fallback is provided.
+  Tests cover descriptor zero, EOF/error propagation and destructor errno.
+- [x] (Codex) Exponential, normal and lognormal distributions, including
+  parameters, cached normal samples, reset/equality and transactional stream
+  state. Real serialization preserves precision and formatting. Statistical
+  references and original cached-sample/state/error regressions cover them.
+- [ ] Remaining random distributions: binomial, negative-binomial, geometric,
+  Poisson, gamma, Weibull, extreme-value, chi-squared, Cauchy, Fisher-F,
+  Student-t, discrete and the two piecewise distributions.
+- [x] (Codex) Initial ECMAScript `basic_regex`, `regex_search`/`regex_match`,
+  match_results storage/access/formatting and string/iterator overloads.
+  Supported syntax includes literals, dot, classes/ranges and shorthands,
+  anchors, word boundaries, alternatives, capturing/noncapturing groups,
+  backreferences and greedy/lazy bounded/unbounded repetition. Empty-loop
+  guards and work/saved-state/code-size limits bound resource use. Assignment
+  from a failing pattern preserves the previous expression. This is a subset,
+  not a whole-header or whole-grammar conformance claim.
+- [ ] Other grammar modes, lookahead, regex iterators/token iterators,
+  regex_replace, complete syntax validation and locale-specific
+  primary/multicharacter collation. Unsupported modes/lookahead currently
+  throw regex_error. The
   legacy `ctype_base` lacks `blank`, blocking one trait reference; the original
   traits test still checks blank classification. Regex diagnostic wording is
   implementation-defined: our per-code messages differ from libc++'s exact
@@ -681,6 +702,35 @@ which does not include either changed header. An isolated rerun, three repeats
 and the full affected-configuration rerun all pass; the crash remains an
 unreproduced compiler observation, not a claimed fix.
 
+### Entropy, stateful distributions and initial regex search (2026-11-20)
+
+The entropy/exponential/normal/lognormal reference batch passes **57/57**.
+A combined 111-test validated subset, including regex and three new originals,
+passes with both compilers in C++14 at `-O0`/`-O2` (nine exclusions). The original `random-sources-distributions.pass.cpp` injects interrupted,
+partial, EOF and failed reads on Linux, verifies descriptor ownership and normal
+sample caching, and checks distribution round trips/rollback and moments.
+
+The first regex search kernel uses an original ordered backtracking instruction
+program, with captures and loop-progress tracking. `regex-search.pass.cpp`
+checks nested/unmatched/repeated captures, prefix/suffix/positions, formatting,
+alternation/backreferences, lazy/greedy bounds, character/word classes, embedded
+NUL/high bytes, wide and list-iterator searches, match flags, invalid-assignment
+rollback and resource errors. The broad 80-test regex constructor/results/
+algorithm sample remains partial because other grammars, lookahead, iterators
+and replacement are pending. Some reference files contain disabled bodies;
+passing counts alone do not establish grammar support.
+
+Optimized host cleanup on resource exhaustion exposed the bundled unwinder's
+frame-pointer limitation. `hostcc.sh` now retains frame pointers, matching the
+exception-enabled PathScale driver. The underlying frameless-unwind issue is
+not claimed fixed. Both new library regressions and the memory-builtin check
+pass with both compilers across C++11/14 at both levels. The explicit
+exception-disabled regression passes across that matrix too, and four runner
+self-checks pass. The final full original target passes **62/62** in C++11 and
+**63/63** in C++14 at both optimization levels. C++98 memory probes pass with psclang, host Clang and the GCC
+frontend; the IRIX driver rebuilds. Source execution/entropy tests remain Linux x86-64; IRIX
+execution of these C++11 headers remains unvalidated.
+
 The system-error/category and existing stream/numeric/Unicode checkpoint passes
 171/171 with both compilers at C++14 `-O2` (nine exclusions). Original tests
 pass with PathScale: 42 in C++11, 43 in C++14, at `-O0`/`-O2`. New checks pass
@@ -716,6 +766,22 @@ above supersedes the missing-`<random>` algorithm gaps; current list status
 is recorded in Phase 2.
 
 ## Infrastructure
+
+- [x] (Codex) **Exception-disabled system-header lowering (psclang):** compile
+  only the live try body when EH is disabled; retained header catch ASTs must
+  not access absent PU exception metadata. The driver forwards exception/RTTI
+  options to both preprocessing and frontend stages so predefined macros agree.
+  `compiler-noexcept-library.pass.cpp` runs with `PATH64_FLAGS: -fno-exceptions`;
+  the runner honors source-specific flags and tests that metadata path. Disabled
+  macros and later re-enabling options have direct driver probes.
+
+- [x] (Codex) **Memory-reading builtin dependencies (psclang):** lower memcmp,
+  strcmp and strlen through intrinsic calls, preserving memory-reference
+  dependencies across local stores and writes. Intrinsic calls carry the
+  conservative call-effect flags used by the legacy frontend. A reduced
+  optimized comparison against memset-initialized bytes previously failed
+  despite identical byte values. `compiler-memory-intrinsics.pass.cpp` covers
+  comparison signs, memcpy/memset/strncpy effects and string updates.
 
 - [x] (Codex) **Static-guard runtime ABI and contention:** completion uses
   the first byte in memory on either endian, with the spin lock in a separate

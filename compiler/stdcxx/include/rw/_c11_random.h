@@ -11,6 +11,11 @@
 #include <ostream>
 #include <cmath>
 #include <utility>
+#include <system_error>
+#include <cstdlib>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 #include <rw/_c11_random_bits.h>
 namespace std {
 namespace __rw_random {
@@ -266,13 +271,14 @@ template<class _Stream> class __format_guard {
     _Stream& __stream;
     ios_base::fmtflags __flags;
     typename _Stream::char_type __fill;
+    streamsize __precision;
 public:
     __format_guard(_Stream& __s,ios_base::fmtflags __f)
-        : __stream(__s),__flags(__s.flags()),__fill(__s.fill()) {
+        : __stream(__s),__flags(__s.flags()),__fill(__s.fill()),__precision(__s.precision()) {
         typename _Stream::char_type __space=__s.widen(' ');
         __s.flags(__f); __s.fill(__space);
     }
-    ~__format_guard() { __stream.flags(__flags); __stream.fill(__fill); }
+    ~__format_guard() { __stream.flags(__flags); __stream.fill(__fill); __stream.precision(__precision); }
     __format_guard(const __format_guard&)=delete;
     __format_guard& operator=(const __format_guard&)=delete;
 };
@@ -537,6 +543,183 @@ public:
         __o<<__d.p(); __o.flags(__flags); __o.precision(__precision); return __o;
     }
     template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __i,bernoulli_distribution& __d) { double __p; if (__i>>__p) __d.param(param_type(__p)); return __i; }
+};
+// A POSIX entropy source. Tokens are implementation-defined: this implementation
+// accepts /dev/urandom only, and never substitutes a deterministic engine.
+class random_device {
+    int __fd;
+    static void __fail(int __error) {
+#if defined(__EXCEPTIONS) && !defined(_RWSTD_NO_EXCEPTIONS)
+        throw system_error(__error,generic_category(),"random_device");
+#else
+        std::abort();
+#endif
+    }
+public:
+    typedef unsigned int result_type;
+    explicit random_device(const string& __token="/dev/urandom") : __fd(-1) {
+        if (__token!="/dev/urandom") __fail(EINVAL);
+        int __flags=O_RDONLY;
+#ifdef O_CLOEXEC
+        __flags|=O_CLOEXEC;
+#endif
+        do { __fd=::open(__token.c_str(),__flags); } while (__fd<0 && errno==EINTR);
+        if (__fd<0) __fail(errno);
+#ifndef O_CLOEXEC
+        if (::fcntl(__fd,F_SETFD,FD_CLOEXEC)<0) {
+            int __error=errno; ::close(__fd); __fd=-1; __fail(__error);
+        }
+#endif
+    }
+    ~random_device() noexcept { int __saved=errno; if (__fd>=0) ::close(__fd); errno=__saved; }
+    random_device(const random_device&)=delete;
+    random_device& operator=(const random_device&)=delete;
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return ~0U; }
+    double entropy() const noexcept { return 0; } // No portable entropy estimate.
+    result_type operator()() {
+        result_type __value; unsigned char* __p=reinterpret_cast<unsigned char*>(&__value);
+        size_t __left=sizeof(__value);
+        while (__left) {
+            ssize_t __n=::read(__fd,__p,__left);
+            if (__n<0 && errno==EINTR) continue;
+            if (__n<=0) __fail(__n<0?errno:EIO);
+            __p+=__n; __left-=size_t(__n);
+        }
+        return __value;
+    }
+};
+template<class _Real=double> class exponential_distribution {
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __lambda;
+    public:
+        typedef exponential_distribution distribution_type;
+        explicit param_type(_Real __lambda=1) : __lambda(__lambda) {}
+        _Real lambda() const { return __lambda; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__lambda==__y.__lambda; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private:
+    param_type __param;
+public:
+    explicit exponential_distribution(_Real __lambda=1) : __param(__lambda) {}
+    explicit exponential_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {  }
+    _Real lambda() const { return __param.lambda(); }
+    _Real min() const { return 0; }
+    _Real max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> _Real operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> _Real operator()(_G& __g,const param_type& __p) {
+        return -std::log1p(-generate_canonical<_Real,numeric_limits<_Real>::digits>(__g))/__p.lambda();
+    }
+    friend bool operator==(const exponential_distribution& __x,const exponential_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const exponential_distribution& __x,const exponential_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const exponential_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.lambda(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,exponential_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        exponential_distribution __copy=__d; _Real __lambda;
+        if (!(__in>>__lambda)) return __in;
+        __copy.param(param_type(__lambda)); __d=__copy; return __in;
+    }
+};
+template<class _Real=double> class normal_distribution {
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __mean,__stddev;
+    public:
+        typedef normal_distribution distribution_type;
+        explicit param_type(_Real __mean=0,_Real __stddev=1) : __mean(__mean),__stddev(__stddev) {}
+        _Real mean() const { return __mean; } _Real stddev() const { return __stddev; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__mean==__y.__mean && __x.__stddev==__y.__stddev; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private:
+    param_type __param; bool __has_spare=false; _Real __spare=0;
+public:
+    explicit normal_distribution(_Real __mean=0,_Real __stddev=1) : __param(__mean,__stddev) {}
+    explicit normal_distribution(const param_type& __p) : __param(__p) {}
+    void reset() { __has_spare=false; }
+    _Real mean() const { return __param.mean(); } _Real stddev() const { return __param.stddev(); }
+    _Real min() const { return -numeric_limits<_Real>::infinity(); }
+    _Real max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> _Real operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> _Real operator()(_G& __g,const param_type& __p) {
+        _Real __z;
+        if (__has_spare) { __z=__spare; __has_spare=false; }
+        else {
+            _Real __x,__y,__r;
+            do {
+                __x=2*generate_canonical<_Real,numeric_limits<_Real>::digits>(__g)-1;
+                __y=2*generate_canonical<_Real,numeric_limits<_Real>::digits>(__g)-1;
+                __r=__x*__x+__y*__y;
+            } while (__r>=1 || __r==0);
+            _Real __scale=std::sqrt(-2*std::log(__r)/__r);
+            __z=__x*__scale; __spare=__y*__scale; __has_spare=true;
+        }
+        return __p.mean()+__p.stddev()*__z;
+    }
+    friend bool operator==(const normal_distribution& __x,const normal_distribution& __y) { return __x.__param==__y.__param && __x.__has_spare==__y.__has_spare && (!__x.__has_spare || __x.__spare==__y.__spare); }
+    friend bool operator!=(const normal_distribution& __x,const normal_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const normal_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.mean(); __out<<__out.widen(' '); __out<<__d.stddev(); __out<<__out.widen(' ')<<__d.__has_spare; if (__d.__has_spare) __out<<__out.widen(' ')<<__d.__spare; return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,normal_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        normal_distribution __copy=__d; _Real __mean,__stddev;
+        if (!(__in>>__mean>>__stddev>>__copy.__has_spare)) return __in; if (__copy.__has_spare && !(__in>>__copy.__spare)) return __in;
+        __copy.param(param_type(__mean,__stddev)); __d=__copy; return __in;
+    }
+};
+template<class _Real=double> class lognormal_distribution {
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __m,__s;
+    public:
+        typedef lognormal_distribution distribution_type;
+        explicit param_type(_Real __m=0,_Real __s=1) : __m(__m),__s(__s) {}
+        _Real m() const { return __m; } _Real s() const { return __s; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__m==__y.__m && __x.__s==__y.__s; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private:
+    param_type __param; normal_distribution<_Real> __normal;
+public:
+    explicit lognormal_distribution(_Real __m=0,_Real __s=1) : __param(__m,__s) {}
+    explicit lognormal_distribution(const param_type& __p) : __param(__p) {}
+    void reset() { __normal.reset(); }
+    _Real m() const { return __param.m(); } _Real s() const { return __param.s(); }
+    _Real min() const { return 0; }
+    _Real max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> _Real operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> _Real operator()(_G& __g,const param_type& __p) {
+        return std::exp(__normal(__g,typename normal_distribution<_Real>::param_type(__p.m(),__p.s())));
+    }
+    friend bool operator==(const lognormal_distribution& __x,const lognormal_distribution& __y) { return __x.__param==__y.__param && __x.__normal==__y.__normal; }
+    friend bool operator!=(const lognormal_distribution& __x,const lognormal_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const lognormal_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.m(); __out<<__out.widen(' '); __out<<__d.s(); __out<<__out.widen(' ')<<__d.__normal; return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,lognormal_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        lognormal_distribution __copy=__d; _Real __m,__s;
+        if (!(__in>>__m>>__s>>__copy.__normal)) return __in;
+        __copy.param(param_type(__m,__s)); __d=__copy; return __in;
+    }
 };
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::multiplier;
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::increment;

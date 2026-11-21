@@ -2336,6 +2336,11 @@ Get_break_continue_info()
 WN *WhirlStmtBuilder::ConvertCXXTryStmt(const CXXTryStmt *stmt) {
   TRACE_FUNC();
 
+  // System headers can retain try/catch ASTs with -fno-exceptions. No EH
+  // tables exist in that mode; lower only the live body and its normal scopes.
+  if (!emit_exceptions)
+    return ConvertCompoundStmt(stmt->getTryBlock());
+
   LABEL_IDX end_label_idx;
   WN *      end_label_wn;
 
