@@ -721,6 +721,191 @@ public:
         __copy.param(param_type(__m,__s)); __d=__copy; return __in;
     }
 };
+namespace __rw_random {
+// Marsaglia's cubic normal proposal for gamma shapes >= 1. Keep the full
+// logarithmic acceptance test, without a polynomial squeeze approximation.
+template<class _G> double __gamma_shape(double __shape,_G& __g) {
+    const double __d=__shape-1.0/3.0,__c=1/std::sqrt(9*__d);
+    normal_distribution<double> __normal;
+    for (;;) {
+        double __z=__normal(__g),__v=1+__c*__z;
+        if (__v<=0) continue;
+        __v=__v*__v*__v;
+        double __u=generate_canonical<double,numeric_limits<double>::digits>(__g);
+        if (std::log(__u)<0.5*__z*__z+__d*(1-__v+std::log(__v))) return __d*__v;
+    }
+}
+}
+template<class _Int=int> class geometric_distribution {
+    static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
+public:
+    typedef _Int result_type;
+    class param_type {
+        double __p;
+    public:
+        typedef geometric_distribution distribution_type;
+        explicit param_type(double __p=0.5) : __p(__p) {}
+        double p() const { return __p; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__p==__y.__p; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit geometric_distribution(double __p=0.5) : __param(__p) {}
+    explicit geometric_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    double p() const { return __param.p(); }
+    result_type min() const { return 0; }
+    result_type max() const { return (numeric_limits<_Int>::max)(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __pr) {
+        if (__pr.p()>=1) return 0;
+        const double __denominator=std::log1p(-__pr.p());
+        const long double __limit=static_cast<long double>((numeric_limits<_Int>::max)())+1;
+        for (;;) {
+            double __u=generate_canonical<double,numeric_limits<double>::digits>(__g);
+            long double __failures=std::floor(std::log1p(-__u)/__denominator);
+            if (__failures<__limit) return _Int(__failures);
+        }
+    }
+    friend bool operator==(const geometric_distribution& __x,const geometric_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const geometric_distribution& __x,const geometric_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const geometric_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(17); __out<<__d.p(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,geometric_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        double __p; if (__in>>__p) __d.param(param_type(__p)); return __in;
+    }
+};
+template<class _Int=int> class binomial_distribution {
+    static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
+public:
+    typedef _Int result_type;
+    class param_type {
+        _Int __t; double __p;
+    public:
+        typedef binomial_distribution distribution_type;
+        explicit param_type(_Int __t=1,double __p=0.5) : __t(__t),__p(__p) {}
+        _Int t() const { return __t; } double p() const { return __p; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__t==__y.__t && __x.__p==__y.__p; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit binomial_distribution(_Int __t=1,double __p=0.5) : __param(__t,__p) {}
+    explicit binomial_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Int t() const { return __param.t(); } double p() const { return __param.p(); }
+    result_type min() const { return 0; }
+    result_type max() const { return t(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __pr) {
+        if (__pr.p()<=0 || __pr.t()==0) return 0;
+        if (__pr.p()>=1) return __pr.t();
+        const bool __reflect=__pr.p()>0.5;
+        double __p=__reflect?1-__pr.p():__pr.p();
+        _Int __n=__pr.t(),__successes=0;
+        // The a-th order statistic of n uniforms is Beta(a,n-a+1).
+        // Conditioning on it halves the remaining number of trials.
+        while (__n>64 && double(__n)*__p>16) {
+            _Int __a=__n/2+1,__b=__n-__a+1;
+            double __x=__rw_random::__gamma_shape(double(__a),__g);
+            double __y=__rw_random::__gamma_shape(double(__b),__g);
+            double __split=__x/(__x+__y);
+            if (__split>=__p) { __n=__a-1; __p=__p/__split; }
+            else { __successes+=__a; __n=__b-1; __p=(__p-__split)/(1-__split); }
+            if (__p<=0) { __n=0; break; }
+            if (__p>=1) { __successes+=__n; __n=0; break; }
+        }
+        if (__n) {
+            const double __denominator=std::log1p(-__p);
+            while (__n) {
+                double __u=generate_canonical<double,numeric_limits<double>::digits>(__g);
+                long double __gap=std::floor(std::log1p(-__u)/__denominator);
+                if (__gap>=static_cast<long double>(__n)) break;
+                __n-=_Int(__gap); --__n; ++__successes;
+            }
+        }
+        return __reflect?_Int(__pr.t()-__successes):__successes;
+    }
+    friend bool operator==(const binomial_distribution& __x,const binomial_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const binomial_distribution& __x,const binomial_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const binomial_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(17); __out<<__d.t(); __out<<__out.widen(' '); __out<<__d.p(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,binomial_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Int __t; double __p; if (__in>>__t>>__p) __d.param(param_type(__t,__p)); return __in;
+    }
+};
+template<class _Int=int> class poisson_distribution {
+    static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
+public:
+    typedef _Int result_type;
+    class param_type {
+        double __mean;
+    public:
+        typedef poisson_distribution distribution_type;
+        explicit param_type(double __mean=1) : __mean(__mean) {}
+        double mean() const { return __mean; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__mean==__y.__mean; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit poisson_distribution(double __mean=1) : __param(__mean) {}
+    explicit poisson_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    double mean() const { return __param.mean(); }
+    result_type min() const { return 0; }
+    result_type max() const { return (numeric_limits<_Int>::max)(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __pr) {
+        const _Int __maximum=(numeric_limits<_Int>::max)();
+        for (;;) {
+            _Int __count=0; double __remaining=__pr.mean(); bool __retry=false;
+            // Conditional on the m-th arrival at y, earlier arrivals are
+            // uniform on [0,y]. This reduces a large Poisson draw to gamma
+            // and binomial draws rather than looping once per event.
+            while (__remaining>=16) {
+                double __candidate=std::floor(__remaining);
+                _Int __m=static_cast<long double>(__candidate)>=static_cast<long double>(__maximum)?__maximum:_Int(__candidate);
+                double __y=__rw_random::__gamma_shape(double(__m),__g);
+                if (__y>=__remaining) {
+                    _Int __part=binomial_distribution<_Int>(__m-1,__remaining/__y)(__g);
+                    if (__part<=__maximum-__count) return _Int(__count+__part);
+                    __retry=true; break;
+                }
+                if (__m>__maximum-__count) { __retry=true; break; }
+                __count+=__m; __remaining-=__y;
+            }
+            if (__retry) continue;
+            double __product=1,__limit=std::exp(-__remaining);
+            for (;;) {
+                __product*=generate_canonical<double,numeric_limits<double>::digits>(__g);
+                if (__product<=__limit) return __count;
+                if (__count==__maximum) break;
+                ++__count;
+            }
+        }
+    }
+    friend bool operator==(const poisson_distribution& __x,const poisson_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const poisson_distribution& __x,const poisson_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const poisson_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(17); __out<<__d.mean(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,poisson_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        double __mean; if (__in>>__mean) __d.param(param_type(__mean)); return __in;
+    }
+};
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::multiplier;
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::increment;
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::modulus;

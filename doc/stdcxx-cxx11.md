@@ -46,9 +46,10 @@ the reference for the design. Its test suite is the conformance test.
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
 New partial headers are `<random>` (engines, adapters, entropy, uniform,
-Bernoulli, exponential, normal and lognormal sampling) and `<regex>` (traits,
-captures/results and an initial ECMAScript search/match kernel). Remaining
-distributions, other regex grammars, lookahead, iterators and replacement are
+Bernoulli, exponential, normal, lognormal, geometric, binomial and Poisson
+sampling) and `<regex>` (traits, captures/results, an initial ECMAScript
+search/match kernel, iteration and replacement). Remaining
+distributions, other regex grammars, lookahead and token iterators are
 still open; these headers do not claim whole-header conformance.
 
 The libc++ tuple-extension test `PR31384` differs from stdcxx and the
@@ -753,3 +754,32 @@ optimization levels. All four runner self-checks pass. The explicit disabled-EH
 regression passes with both compilers across the language/optimization matrix;
 C++98 memory-intrinsic probes pass with psclang, host Clang and the GCC frontend.
 The IRIX driver rebuilds; IRIX C++11 runtime execution remains unvalidated.
+
+### Integer sampling and regex iteration/replacement checkpoint (2026-11-20)
+
+Original implementations add geometric, binomial and Poisson distributions,
+with parameter overrides, equality/reset and transactional stream extraction.
+Binomial sampling conditions on beta order statistics; Poisson sampling uses
+conditional arrival times and binomial draws. Large parameters avoid loops
+proportional to trial/event counts. A private gamma proposal supports these
+samplers; the public gamma_distribution API remains open.
+
+regex_iterator preserves original-input positions and advances correctly after
+empty matches, including a nonempty alternative at the same position.
+regex_replace supplies all six overloads, default/sed formats, first-only and
+no-copy flags. String formats preserve embedded NULs. Capture conversion also
+supports iterators with a deleted overloaded comma. Iteration currently repeats
+input materialization; performance optimization remains follow-up work.
+
+The 66 selected distribution/iterator/replacement reference checks record
+**60 PASS, six RUN** with psclang and host Clang in C++14 at O0/O2. The six
+are eval.pass.cpp and eval_param.pass.cpp for binomial, geometric and Poisson:
+fixed-seed sample skewness exceeds their relative tolerances. Unmodified
+system-library control runs of each family's eval.pass.cpp also fail a
+higher-moment threshold (binomial/Poisson kurtosis, geometric skewness).
+These remain reported statistical differences, not passing references.
+Original tests independently check PMF histograms, calibrated mean/variance
+bounds over three seeds, central/rare binomial cases, large-parameter variance,
+stream rollback, iterator progression and replacement flags.
+The full original suite passes **64/64 C++11 and 65/65 C++14**, at O0/O2.
+Execution coverage remains Linux x86-64; Phase 4 is still incomplete.

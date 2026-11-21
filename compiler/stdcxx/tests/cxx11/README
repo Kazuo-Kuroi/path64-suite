@@ -292,3 +292,13 @@ exercise retained system-header try/catch ASTs without generating handlers or
 accessing absent exception metadata. The runner passes these source-specific
 flags to either compiler. The test also asserts that preprocessing advertises
 the same exception mode as lowering; driver probes cover RTTI flags as well.
+
+random-integer-distributions.pass.cpp checks geometric/binomial/Poisson APIs,
+stream rollback, PMF histograms and calibrated multi-seed mean/variance bounds,
+including central/rare and large-parameter cases. The six reference eval and
+eval_param tests remain separately recorded RUN differences for fixed-sample
+higher moments; the system library also fails higher-moment control checks.
+regex-iteration-replace.pass.cpp checks empty/nonempty progression, global
+positions/prefixes, list/wide input, embedded NUL formats, format flags and
+iterators that prohibit overloaded comma. Other grammars and token iteration
+remain separate work.

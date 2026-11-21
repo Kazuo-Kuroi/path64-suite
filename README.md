@@ -116,9 +116,11 @@ C++14 at both optimization levels. Adding the first `<random>` components
 unblocked these references; remaining gaps include constexpr min/max-element
 operations, move-only `inplace_merge` and two unmarked C++17 tests. `<random>`
 currently supplies seed sequences, engines/adapters, a POSIX entropy source,
-uniform/Bernoulli/exponential/normal/lognormal sampling and `shuffle`.
+uniform/Bernoulli/exponential/normal/lognormal and geometric/binomial/Poisson
+sampling and `shuffle`.
 `<regex>` has capture/results APIs and an initial ECMAScript search/match
-kernel; other grammars, lookahead, regex iterators and replacement remain open. Move-only `sort`, heap operations, `partial_sort` and
+kernel, regex iteration and replacement; other grammars, lookahead and token
+iterators remain open. Move-only `sort`, heap operations, `partial_sort` and
 `stable_partition`, `nth_element` and `stable_sort` are covered by original
 tests, including packed-bit iterators, stable ordering and temporary-buffer
 exception cleanup. C++11 math overloads and the C library header wrappers

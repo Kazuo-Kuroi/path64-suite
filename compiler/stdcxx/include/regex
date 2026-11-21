@@ -167,7 +167,11 @@ public:
     bool matched;
     constexpr sub_match() : pair<_I,_I>(),matched(false) {}
     difference_type length() const { return matched?std::distance(this->first,this->second):0; }
-    string_type str() const { return matched?string_type(this->first,this->second):string_type(); }
+    string_type str() const {
+        string_type __result;
+        if (matched) for (_I __i=this->first;__i!=this->second;++__i) __result.push_back(*__i);
+        return __result;
+    }
     operator string_type() const { return str(); }
     int compare(const sub_match& __other) const { return str().compare(__other.str()); }
     int compare(const string_type& __other) const { return str().compare(__other); }
@@ -604,6 +608,9 @@ template<class _C,class _T> struct __program {
     }
 };
 struct __access {
+    template<class _I,class _A> static void rebase(match_results<_I,_A>& __m,_I __origin,_I __prefix) {
+        __m.__origin=__origin; __m.__prefix.first=__prefix; __m.__prefix.matched=__prefix!=__m.__prefix.second;
+    }
     template<class _I,class _A,class _Captures> static void store(match_results<_I,_A>& m,const vector<_I>& positions,const _Captures& captures,bool matched,bool nosubs) {
         m.__ready=true; m.__origin=positions.front(); m.__matches.clear();
         m.__unmatched.first=m.__unmatched.second=positions.back(); m.__unmatched.matched=false;
@@ -719,6 +726,97 @@ template<class _C,class _ST,class _SA,class _T>
 bool regex_match(const basic_string<_C,_ST,_SA>& text,const basic_regex<_C,_T>& re,regex_constants::match_flag_type f=regex_constants::match_default) { return regex_match(text.begin(),text.end(),re,f); }
 template<class _C,class _ST,class _SA,class _A,class _T>
 bool regex_match(basic_string<_C,_ST,_SA>&&,match_results<typename basic_string<_C,_ST,_SA>::const_iterator,_A>&,const basic_regex<_C,_T>&,regex_constants::match_flag_type=regex_constants::match_default)=delete;
+// Iterators borrow both the input and the compiled expression.
+template<class _I,class _C=typename iterator_traits<_I>::value_type,class _T=regex_traits<_C> > class regex_iterator {
+public:
+    typedef basic_regex<_C,_T> regex_type;
+    typedef match_results<_I> value_type;
+    typedef ptrdiff_t difference_type;
+    typedef const value_type* pointer;
+    typedef const value_type& reference;
+    typedef forward_iterator_tag iterator_category;
+private:
+    _I __first,__last;
+    const regex_type* __expression;
+    regex_constants::match_flag_type __flags;
+    value_type __match;
+public:
+    regex_iterator() : __first(),__last(),__expression(0),__flags(regex_constants::match_default) {}
+    regex_iterator(_I _First,_I _Last,const regex_type& _Expression,regex_constants::match_flag_type _Flags=regex_constants::match_default)
+        : __first(_First),__last(_Last),__expression(&_Expression),__flags(_Flags) {
+        if (!regex_search(_First,_Last,__match,_Expression,_Flags)) __expression=0;
+    }
+    regex_iterator(_I,_I,const regex_type&&,regex_constants::match_flag_type=regex_constants::match_default)=delete;
+    reference operator*() const { return __match; }
+    pointer operator->() const { return &__match; }
+    regex_iterator& operator++() {
+        if (!__expression) return *this;
+        _I _Previous=__match[0].second,_Start=_Previous;
+        value_type _Next;
+        auto _Flags=__flags;
+        if (_Start!=__first) _Flags|=regex_constants::match_prev_avail;
+        if (__match[0].first==_Start) {
+            if (_Start==__last) { __expression=0; return *this; }
+            if (regex_search(_Start,__last,_Next,*__expression,_Flags|regex_constants::match_not_null|regex_constants::match_continuous)) {
+                __rw_regex::__access::rebase(_Next,__first,_Previous); __match=std::move(_Next); return *this;
+            }
+            ++_Start;
+        }
+        if (_Start!=__first) _Flags|=regex_constants::match_prev_avail;
+        if (!regex_search(_Start,__last,_Next,*__expression,_Flags)) __expression=0;
+        else { __rw_regex::__access::rebase(_Next,__first,_Previous); __match=std::move(_Next); }
+        return *this;
+    }
+    regex_iterator operator++(int) { regex_iterator _Old=*this; ++*this; return _Old; }
+    friend bool operator==(const regex_iterator& _Left,const regex_iterator& _Right) {
+        if (!_Left.__expression || !_Right.__expression) return _Left.__expression==_Right.__expression;
+        return _Left.__expression==_Right.__expression && _Left.__first==_Right.__first && _Left.__last==_Right.__last && _Left.__flags==_Right.__flags &&
+            _Left.__match[0].first==_Right.__match[0].first && _Left.__match[0].second==_Right.__match[0].second;
+    }
+    friend bool operator!=(const regex_iterator& _Left,const regex_iterator& _Right) { return !(_Left==_Right); }
+};
+typedef regex_iterator<const char*> cregex_iterator;
+typedef regex_iterator<const wchar_t*> wcregex_iterator;
+typedef regex_iterator<string::const_iterator> sregex_iterator;
+typedef regex_iterator<wstring::const_iterator> wsregex_iterator;
+namespace __rw_regex {
+template<class _O,class _I,class _C,class _T,class _F> _O __replace(_O _Out,_I _First,_I _Last,const basic_regex<_C,_T>& _Expression,const _F& _Format,regex_constants::match_flag_type _Flags) {
+    regex_iterator<_I,_C,_T> _Current(_First,_Last,_Expression,_Flags),_End;
+    _I _Copied=_First;
+    for (;_Current!=_End;++_Current) {
+        if (!(_Flags&regex_constants::format_no_copy)) _Out=std::copy(_Copied,(*_Current)[0].first,_Out);
+        _Out=_Current->format(_Out,_Format,_Flags);
+        _Copied=(*_Current)[0].second;
+        if (_Flags&regex_constants::format_first_only) break;
+    }
+    if (!(_Flags&regex_constants::format_no_copy)) _Out=std::copy(_Copied,_Last,_Out);
+    return _Out;
+}
+}
+template<class _O,class _I,class _C,class _T,class _FST,class _FSA>
+_O regex_replace(_O _Out,_I _First,_I _Last,const basic_regex<_C,_T>& _Expression,const basic_string<_C,_FST,_FSA>& _Format,regex_constants::match_flag_type _Flags=regex_constants::match_default) {
+    return __rw_regex::__replace(_Out,_First,_Last,_Expression,_Format,_Flags);
+}
+template<class _O,class _I,class _C,class _T>
+_O regex_replace(_O _Out,_I _First,_I _Last,const basic_regex<_C,_T>& _Expression,const _C* _Format,regex_constants::match_flag_type _Flags=regex_constants::match_default) {
+    basic_string<_C> _Text(_Format); return __rw_regex::__replace(_Out,_First,_Last,_Expression,_Text,_Flags);
+}
+template<class _C,class _ST,class _SA,class _T,class _FST,class _FSA>
+basic_string<_C,_ST,_SA> regex_replace(const basic_string<_C,_ST,_SA>& _Input,const basic_regex<_C,_T>& _Expression,const basic_string<_C,_FST,_FSA>& _Format,regex_constants::match_flag_type _Flags=regex_constants::match_default) {
+    basic_string<_C,_ST,_SA> _Result; regex_replace(std::back_inserter(_Result),_Input.begin(),_Input.end(),_Expression,_Format,_Flags); return _Result;
+}
+template<class _C,class _ST,class _SA,class _T>
+basic_string<_C,_ST,_SA> regex_replace(const basic_string<_C,_ST,_SA>& _Input,const basic_regex<_C,_T>& _Expression,const _C* _Format,regex_constants::match_flag_type _Flags=regex_constants::match_default) {
+    basic_string<_C,_ST,_SA> _Result; regex_replace(std::back_inserter(_Result),_Input.begin(),_Input.end(),_Expression,_Format,_Flags); return _Result;
+}
+template<class _C,class _T,class _FST,class _FSA>
+basic_string<_C> regex_replace(const _C* _Input,const basic_regex<_C,_T>& _Expression,const basic_string<_C,_FST,_FSA>& _Format,regex_constants::match_flag_type _Flags=regex_constants::match_default) {
+    basic_string<_C> _Result; regex_replace(std::back_inserter(_Result),_Input,_Input+char_traits<_C>::length(_Input),_Expression,_Format,_Flags); return _Result;
+}
+template<class _C,class _T>
+basic_string<_C> regex_replace(const _C* _Input,const basic_regex<_C,_T>& _Expression,const _C* _Format,regex_constants::match_flag_type _Flags=regex_constants::match_default) {
+    basic_string<_C> _Result; regex_replace(std::back_inserter(_Result),_Input,_Input+char_traits<_C>::length(_Input),_Expression,_Format,_Flags); return _Result;
+}
 
 }
 #endif

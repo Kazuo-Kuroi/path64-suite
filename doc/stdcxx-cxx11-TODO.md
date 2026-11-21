@@ -609,8 +609,8 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal distributions and the earlier engines/samplers are implemented; other distributions remain open. |
-| `<regex>` | `re` (167) | In progress (Codex): constants, errors, traits, capture/results formatting and an initial ECMAScript search/match kernel. Other grammar modes, lookahead, iterators and replacement remain open. |
+| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal and geometric/binomial/Poisson distributions are implemented; other distributions remain open. |
+| `<regex>` | `re` (167) | In progress (Codex): constants, errors, traits, capture/results formatting and an initial ECMAScript search/match kernel. regex_iterator and regex_replace are implemented. Other grammar modes, lookahead and token iterators remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
 | `<codecvt>` | `localization/locale.stdcvt` (24) | Implemented: original `codecvt_utf8`, `codecvt_utf16`, `codecvt_utf8_utf16`; 24/24 references pass with both compilers. |
@@ -650,8 +650,10 @@ remains a WIP port.
   parameters, cached normal samples, reset/equality and transactional stream
   state. Real serialization preserves precision and formatting. Statistical
   references and original cached-sample/state/error regressions cover them.
-- [ ] Remaining random distributions: binomial, negative-binomial, geometric,
-  Poisson, gamma, Weibull, extreme-value, chi-squared, Cauchy, Fisher-F,
+- [x] (Codex) Geometric, binomial and Poisson distributions, including
+  parameters, transactional streams and efficient large-parameter sampling.
+- [ ] Remaining random distributions: negative-binomial, gamma, Weibull,
+  extreme-value, chi-squared, Cauchy, Fisher-F,
   Student-t, discrete and the two piecewise distributions.
 - [x] (Codex) Initial ECMAScript `basic_regex`, `regex_search`/`regex_match`,
   match_results storage/access/formatting and string/iterator overloads.
@@ -661,8 +663,10 @@ remains a WIP port.
   guards and work/saved-state/code-size limits bound resource use. Assignment
   from a failing pattern preserves the previous expression. This is a subset,
   not a whole-header or whole-grammar conformance claim.
-- [ ] Other grammar modes, lookahead, regex iterators/token iterators,
-  regex_replace, complete syntax validation and locale-specific
+- [x] (Codex) regex_iterator and regex_replace, including empty-match
+  progression, original-input positions, wide/noncontiguous input and format flags.
+- [ ] Other grammar modes, lookahead, regex token iterators,
+  complete syntax validation and locale-specific
   primary/multicharacter collation. Unsupported modes/lookahead currently
   throw regex_error. The
   legacy `ctype_base` lacks `blank`, blocking one trait reference; the original
@@ -764,6 +768,35 @@ node buffering disabled, with both compilers at both optimization levels.
 This is a historical iterator checkpoint. The random foundation checkpoint
 above supersedes the missing-`<random>` algorithm gaps; current list status
 is recorded in Phase 2.
+
+### Integer sampling and regex iteration/replacement checkpoint (2026-11-20)
+
+Original implementations add geometric, binomial and Poisson distributions,
+with parameter overrides, equality/reset and transactional stream extraction.
+Binomial sampling conditions on beta order statistics; Poisson sampling uses
+conditional arrival times and binomial draws. Large parameters avoid loops
+proportional to trial/event counts. A private gamma proposal supports these
+samplers; the public gamma_distribution API remains open.
+
+regex_iterator preserves original-input positions and advances correctly after
+empty matches, including a nonempty alternative at the same position.
+regex_replace supplies all six overloads, default/sed formats, first-only and
+no-copy flags. String formats preserve embedded NULs. Capture conversion also
+supports iterators with a deleted overloaded comma. Iteration currently repeats
+input materialization; performance optimization remains follow-up work.
+
+The 66 selected distribution/iterator/replacement reference checks record
+**60 PASS, six RUN** with psclang and host Clang in C++14 at O0/O2. The six
+are eval.pass.cpp and eval_param.pass.cpp for binomial, geometric and Poisson:
+fixed-seed sample skewness exceeds their relative tolerances. Unmodified
+system-library control runs of each family's eval.pass.cpp also fail a
+higher-moment threshold (binomial/Poisson kurtosis, geometric skewness).
+These remain reported statistical differences, not passing references.
+Original tests independently check PMF histograms, calibrated mean/variance
+bounds over three seeds, central/rare binomial cases, large-parameter variance,
+stream rollback, iterator progression and replacement flags.
+The full original suite passes **64/64 C++11 and 65/65 C++14**, at O0/O2.
+Execution coverage remains Linux x86-64; Phase 4 is still incomplete.
 
 ## Infrastructure
 
