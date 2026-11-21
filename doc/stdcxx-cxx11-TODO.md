@@ -388,10 +388,15 @@ psclang and host Clang at `-O0` and `-O2`. This batch has no runtime failures;
 the 31 compile failures are classified below. Reference markers exclude 25
 C++11 and 24 C++14 tests.
 
-- [ ] **`<limits>` follow-up discovered during weighted-distribution tests:**
-  `numeric_limits::max_digits10` and `lowest()` are absent; audit the remaining
-  C++11/14 numeric-limits additions and constexpr observers. The new extraction
-  regression uses the existing digits-based serialization precision meanwhile.
+- [x] (Codex) **`<limits>`:** original C++11 implementation with `lowest()`,
+  `max_digits10`, constexpr/noexcept observers, Unicode character types,
+  cv-qualified forwarding and header-defined ODR storage. The subnormal
+  extraction regression now uses public `max_digits10`. C++98 retains its
+  legacy implementation. See the numeric-limits checkpoint below.
+- [ ] **Compiler `__int128` runtime support:** clang2whirl currently maps both
+  128-bit integer types to I8, and full-width integer literals assert in
+  ConvertIntegerLiteral. Metadata/constant evaluation works, but the min/max/
+  lowest reference tests crash the psclang frontend; host Clang passes them.
 
 - [x] (Codex) **`<iterator>`:**
   * [x] (Codex) `begin`, `end` and C++14 const and reverse range access
@@ -914,6 +919,43 @@ at O0/O2; the weighted and subnormal fixtures also pass the full host matrix.
 The earlier 16 fixed-sample higher-moment reference differences remain open;
 this batch adds no new statistical exclusions. Phase 4 still has substantial
 container, time, threading and regex work. Execution coverage is Linux x86-64.
+
+### Numeric limits and constant lowering checkpoint (2026-11-20)
+
+An original rw/_c11_limits.h supplies C++11 numeric_limits. It adds lowest(),
+max_digits10, constexpr/noexcept value functions, char16_t/char32_t and cv
+forwarding. Integer bounds and floating values come from compiler target
+constants; plain-char signedness follows the compilation mode. The IEEE-format
+check excludes double-double long double. Template base members have out-of-
+class constexpr definitions so taking addresses works across translation units.
+The C++98 header path and compiled-runtime interface remain available.
+
+The reference batch has 37 checks. Host Clang passes all 37; psclang passes 34
+and records three COMPILE failures in min.pass.cpp, max.pass.cpp and
+lowest.pass.cpp. Those tests include runtime __int128 results: clang2whirl's
+existing type mapping narrows that extension to I8 and wide integer literals
+assert. This remains an explicit compiler follow-up, not a passing extension
+claim. The strict checkpoint includes the 34 passing references.
+
+New constexpr constants exposed two independent compiler defects, now fixed:
+float/double APFloat constants no longer pass through host long double during
+TCON creation, preserving signaling bits and NaN payloads; an enclosing integral
+constant omitted from a lambda's capture list is folded at lvalue-to-rvalue
+conversion instead of loading an outer function's stack slot. Actual capture
+fields and address-taking retain their lvalue behavior. The existing oversized-
+container regression now passes with constexpr size_t::max().
+
+Original checks cover constexpr finite/nonfinite values, all standard integer
+and floating types, Unicode types, primary/cv templates, ODR-used data, NaN
+representation bits, omitted/nested captures and capture/local addresses.
+Two-translation-unit address identity passes with both compilers at O0, and
+unsigned plain-char mode passes at O2. C++98 host/GCC-front-end probes pass.
+The full original suite passes **70/70 C++11 and 71/71 C++14**, at O0/O2.
+The 37-reference plus four-original matrix passes 41/41 with host Clang and
+38/41 with psclang across both language modes and levels; the three failures
+are exactly the recorded int128 runtime cases.
+No third-party implementation code was imported. Execution is Linux x86-64;
+Phase 4 and the earlier statistical reference follow-ups remain open.
 
 ## Infrastructure
 

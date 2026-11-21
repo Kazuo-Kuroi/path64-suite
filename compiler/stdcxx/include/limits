@@ -29,6 +29,10 @@
 
 #include <rw/_defs.h>
 
+#ifdef _RWSTD_CXX11
+#  include <rw/_c11_limits.h>
+#else   // retain the legacy C++98 implementation
+
 
 // quiet NAN (QNAN) supported?
 #ifndef _RWSTD_NO_QUIET_NAN
@@ -557,3 +561,5 @@ struct numeric_limits<const volatile _TypeT>: numeric_limits<_TypeT> { };
 #endif
 
 #endif   // _RWSTD_LIMITS_INCLUDED
+
+#endif   // _RWSTD_CXX11

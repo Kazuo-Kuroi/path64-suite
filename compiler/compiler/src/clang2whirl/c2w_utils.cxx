@@ -719,10 +719,28 @@ TCON_IDX
 Convert_float_to_tcon(TY_IDX ty_idx, const llvm::APFloat init) {
   Is_True(ty_idx != (TY_IDX)0, ("invalid ty idx"));
 
+  // Path64: preserve single/double NaN payloads and signaling bits. Routing
+  // these through long double performs host FP conversions that quiet sNaNs.
+  if (TY_mtype(ty_idx) == MTYPE_F4 &&
+      &init.getSemantics() == &llvm::APFloat::IEEEsingle()) {
+    float value = init.convertToFloat();
+    TCON_IDX idx = Enter_tcon(Host_To_Targ_Float_4(MTYPE_F4, value));
+    _tcon_value_map[idx] = value;
+    return idx;
+  }
+  if (TY_mtype(ty_idx) == MTYPE_F8 &&
+      &init.getSemantics() == &llvm::APFloat::IEEEdouble()) {
+    double value = init.convertToDouble();
+    TCON_IDX idx = Enter_tcon(Host_To_Targ_Float(MTYPE_F8, value));
+    _tcon_value_map[idx] = value;
+    return idx;
+  }
+
+  // A caller requesting a different target format still needs a conversion.
   if (&init.getSemantics() == &llvm::APFloat::IEEEsingle() ||
       &init.getSemantics() == &llvm::APFloat::IEEEdouble()) {
-    bool is_double = &init.getSemantics() == &llvm::APFloat::IEEEdouble();
-    double value = is_double? init.convertToDouble() : init.convertToFloat();
+    double value = &init.getSemantics() == &llvm::APFloat::IEEEdouble()
+                       ? init.convertToDouble() : init.convertToFloat();
     return createTconFromValue(ty_idx, value);
   }
 

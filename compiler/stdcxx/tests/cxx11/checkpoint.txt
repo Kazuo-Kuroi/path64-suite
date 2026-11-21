@@ -227,3 +227,39 @@ numerics/rand/rand.dis/rand.dist.pois/rand.dist.pois.weibull/types.pass.cpp
 
 # Discrete and piecewise distributions: complete selected reference subtree.
 numerics/rand/rand.dis/rand.dist.samp
+
+# Numeric limits: three runtime int128 value tests remain compiler failures.
+language.support/support.limits/limits/denorm.style/check_values.pass.cpp
+language.support/support.limits/limits/is_specialized.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/const_data_members.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/denorm_min.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/digits.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/digits10.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/epsilon.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/has_denorm.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/has_denorm_loss.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/has_infinity.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/has_quiet_NaN.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/has_signaling_NaN.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/infinity.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/is_bounded.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/is_exact.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/is_iec559.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/is_integer.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/is_modulo.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/is_signed.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/max_digits10.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/max_exponent.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/max_exponent10.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/min_exponent.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/min_exponent10.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/quiet_NaN.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/radix.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/round_error.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/round_style.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/signaling_NaN.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/tinyness_before.pass.cpp
+language.support/support.limits/limits/numeric.limits.members/traps.pass.cpp
+language.support/support.limits/limits/numeric.limits/default.pass.cpp
+language.support/support.limits/limits/numeric.special/nothing_to_do.pass.cpp
+language.support/support.limits/limits/round.style/check_values.pass.cpp

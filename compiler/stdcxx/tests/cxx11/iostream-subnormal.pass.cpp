@@ -11,7 +11,7 @@ template<class T,class C> void roundtrip() {
     const T values[]={tiny,-tiny,tiny*T(3),-tiny*T(7),std::numeric_limits<T>::min()/T(2)};
     for(T expected:values) {
         std::basic_stringstream<C> stream;
-        stream.precision(2+std::numeric_limits<T>::digits*30103/100000);
+        stream.precision(std::numeric_limits<T>::max_digits10);
         stream<<expected<<stream.widen(' ');
         T actual=42; stream>>actual;
         assert(!stream.fail() && actual==expected);

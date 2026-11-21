@@ -17,7 +17,7 @@ the reference for the design. Its test suite is the conformance test.
   (`libstl`) is still built in C++98 and does not change.
 * **Header-only.** The C++11 parts are templates and inline functions in
   `rw/_c11_*.h`, included by the standard headers in C++11 mode.
-  `<type_traits>`, `<tuple>` and `<array>` switch to them;
+  `<type_traits>`, `<tuple>`, `<array>` and `<limits>` switch to them;
   `<utility>`, `<functional>` and `<memory>` add them. libcxxrt also supplies
   the C++14 sized-deallocation entry points declared by `<new>`.
 * `_RWSTD_CONSTEXPR14` is `constexpr` from C++14 on (C++11 makes
@@ -42,6 +42,7 @@ the reference for the design. Its test suite is the conformance test.
 | `<exception>` | Exception handles, current/make/rethrow operations, nested exceptions, handler getters | propagation/nested: 10/10; original ownership/catch checks: 2/2 |
 | `<array>` | `array` | array: 27/27 |
 | `<cstddef>`, `<cstdint>` | `nullptr_t`, `max_align_t`; `<cstdint>` in C++11 mode | |
+| `<limits>` | constexpr/noexcept numeric limits, lowest/max_digits10, Unicode/cv types and header-defined static-member storage | 34/37 psclang, 37/37 host; three runtime int128 compiler failures |
 | `<cmath>` | C99 functions and suffixed forms, arithmetic overloads, boolean classification and comparison predicates | c.math: 3/3 |
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
@@ -885,3 +886,40 @@ at O0/O2; the weighted and subnormal fixtures also pass the full host matrix.
 The earlier 16 fixed-sample higher-moment reference differences remain open;
 this batch adds no new statistical exclusions. Phase 4 still has substantial
 container, time, threading and regex work. Execution coverage is Linux x86-64.
+
+### Numeric limits and constant lowering checkpoint (2026-11-20)
+
+An original rw/_c11_limits.h supplies C++11 numeric_limits. It adds lowest(),
+max_digits10, constexpr/noexcept value functions, char16_t/char32_t and cv
+forwarding. Integer bounds and floating values come from compiler target
+constants; plain-char signedness follows the compilation mode. The IEEE-format
+check excludes double-double long double. Template base members have out-of-
+class constexpr definitions so taking addresses works across translation units.
+The C++98 header path and compiled-runtime interface remain available.
+
+The reference batch has 37 checks. Host Clang passes all 37; psclang passes 34
+and records three COMPILE failures in min.pass.cpp, max.pass.cpp and
+lowest.pass.cpp. Those tests include runtime __int128 results: clang2whirl's
+existing type mapping narrows that extension to I8 and wide integer literals
+assert. This remains an explicit compiler follow-up, not a passing extension
+claim. The strict checkpoint includes the 34 passing references.
+
+New constexpr constants exposed two independent compiler defects, now fixed:
+float/double APFloat constants no longer pass through host long double during
+TCON creation, preserving signaling bits and NaN payloads; an enclosing integral
+constant omitted from a lambda's capture list is folded at lvalue-to-rvalue
+conversion instead of loading an outer function's stack slot. Actual capture
+fields and address-taking retain their lvalue behavior. The existing oversized-
+container regression now passes with constexpr size_t::max().
+
+Original checks cover constexpr finite/nonfinite values, all standard integer
+and floating types, Unicode types, primary/cv templates, ODR-used data, NaN
+representation bits, omitted/nested captures and capture/local addresses.
+Two-translation-unit address identity passes with both compilers at O0, and
+unsigned plain-char mode passes at O2. C++98 host/GCC-front-end probes pass.
+The full original suite passes **70/70 C++11 and 71/71 C++14**, at O0/O2.
+The 37-reference plus four-original matrix passes 41/41 with host Clang and
+38/41 with psclang across both language modes and levels; the three failures
+are exactly the recorded int128 runtime cases.
+No third-party implementation code was imported. Execution is Linux x86-64;
+Phase 4 and the earlier statistical reference follow-ups remain open.

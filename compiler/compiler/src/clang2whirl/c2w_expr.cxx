@@ -4425,11 +4425,22 @@ WhirlExprBuilder::ConvertCastExpr(const CastExpr *expr, Result dest) {
     // Do not turn these reads into references to an undefined weak symbol.
     if (const DeclRefExpr *ref = dyn_cast<DeclRefExpr>(sub->IgnoreParens())) {
       if (const VarDecl *var = dyn_cast<VarDecl>(ref->getDecl())) {
-        if (var->isStaticDataMember() && var->getType().isConstQualified() &&
-            !var->getType().isVolatileQualified() &&
-            var->getType()->isIntegralOrEnumerationType()) {
+        const bool static_value = var->isStaticDataMember() &&
+            var->getType().isConstQualified() && !var->getType().isVolatileQualified() &&
+            var->getType()->isIntegralOrEnumerationType();
+        // Path64: C++14 may omit an enclosing integral constant from the
+        // capture list. Fold its value at the lvalue-to-rvalue conversion,
+        // preserving genuine lvalues, captured fields and local addresses.
+        const FunctionDecl *current = dyn_cast<FunctionDecl>(_builder->Scope().CurrentDecl());
+        const bool uncaptured_value = _builder->LambdaHelper().IsInLambdaBody() &&
+            current && var->hasLocalStorage() && var->getDeclContext() != current &&
+            !_builder->LambdaHelper().GetCapFld(var) &&
+            var->getType()->isIntegralOrEnumerationType() &&
+            var->isUsableInConstantExpressions(*_builder->Context());
+        if (static_value || uncaptured_value) {
           llvm::APSInt value;
-          if (evaluateAsInt(expr, value, _builder->Context())) {
+          if (evaluateAsInt(expr, value, _builder->Context()) &&
+              (!uncaptured_value || value.getBitWidth() <= 64)) {
             TY_IDX type = _builder->TB().ConvertType(expr->getType());
             return Result::nwIntConst(value.isSigned() ? value.getSExtValue()
                                       : (INT64)value.getZExtValue(), type);

@@ -331,3 +331,11 @@ iostream-subnormal.pass.cpp checks positive/negative subnormal extraction for
 float/double/long double through narrow/wide streams, signed zero on complete
 underflow, and retained malformed/overflow failures. It guards the shared
 num_get fix needed for exact weighted-distribution subnormal round trips.
+
+numeric-limits.pass.cpp checks constexpr/noexcept functions and traits, Unicode
+and cv types, ODR-used static members, target floating ranges, NaN bits and
+plain-char signedness. iostream-subnormal now uses public max_digits10.
+compiler-lambda-constants.pass.cpp checks omitted integral constant captures,
+signed/unsigned values, nested lambdas and preserved capture/local addresses.
+The 37 limits references pass fully with host Clang; psclang's three runtime
+int128 min/max/lowest failures remain separately recorded compiler limitations.

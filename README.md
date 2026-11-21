@@ -119,7 +119,9 @@ currently supplies seed sequences, engines/adapters, a POSIX entropy source,
 all C++11 distribution templates (including discrete and both piecewise
 distributions) and `shuffle`. Fixed-sample statistical reference differences
 remain documented in the C++11 TODO.
-`<regex>` has capture/results APIs and an initial ECMAScript search/match
+`<limits>` supplies C++11 constexpr observers, `lowest()`, `max_digits10` and
+Unicode character limits. Three runtime `__int128` reference checks remain
+blocked by compiler lowering. `<regex>` has capture/results APIs and an initial ECMAScript search/match
 kernel, regex iteration and replacement; other grammars, lookahead and token
 iterators remain open. Move-only `sort`, heap operations, `partial_sort` and
 `stable_partition`, `nth_element` and `stable_sort` are covered by original
