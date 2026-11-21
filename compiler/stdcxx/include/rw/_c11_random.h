@@ -781,6 +781,253 @@ public:
         _Real __alpha,__beta; if (__in>>__alpha>>__beta) __d.param(param_type(__alpha,__beta)); return __in;
     }
 };
+// Stateless composition/inverse-CDF sampler; only parameters are serialized.
+template<class _Real=double> class weibull_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __a,__b;
+    public:
+        typedef weibull_distribution distribution_type;
+        explicit param_type(_Real __a=1,_Real __b=1) : __a(__a),__b(__b) {}
+        _Real a() const { return __a; } _Real b() const { return __b; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__a==__y.__a && __x.__b==__y.__b; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit weibull_distribution(_Real __a=1,_Real __b=1) : __param(__a,__b) {}
+    explicit weibull_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real a() const { return __param.a(); } _Real b() const { return __param.b(); }
+    result_type min() const { return 0; }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        _Real __u=generate_canonical<_Real,numeric_limits<_Real>::digits>(__g);
+        return __p.b()*std::pow(-std::log1p(-__u),1/__p.a());
+    }
+    friend bool operator==(const weibull_distribution& __x,const weibull_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const weibull_distribution& __x,const weibull_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const weibull_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.a(); __out<<__out.widen(' '); __out<<__d.b(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,weibull_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __a,__b; if (__in>>__a>>__b) __d.param(param_type(__a,__b)); return __in;
+    }
+};
+// Stateless composition/inverse-CDF sampler; only parameters are serialized.
+template<class _Real=double> class extreme_value_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __a,__b;
+    public:
+        typedef extreme_value_distribution distribution_type;
+        explicit param_type(_Real __a=0,_Real __b=1) : __a(__a),__b(__b) {}
+        _Real a() const { return __a; } _Real b() const { return __b; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__a==__y.__a && __x.__b==__y.__b; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit extreme_value_distribution(_Real __a=0,_Real __b=1) : __param(__a,__b) {}
+    explicit extreme_value_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real a() const { return __param.a(); } _Real b() const { return __param.b(); }
+    result_type min() const { return -numeric_limits<_Real>::infinity(); }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        _Real __u;
+        do { __u=generate_canonical<_Real,numeric_limits<_Real>::digits>(__g); } while (__u==0);
+        return __p.a()-__p.b()*std::log(-std::log(__u));
+    }
+    friend bool operator==(const extreme_value_distribution& __x,const extreme_value_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const extreme_value_distribution& __x,const extreme_value_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const extreme_value_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.a(); __out<<__out.widen(' '); __out<<__d.b(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,extreme_value_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __a,__b; if (__in>>__a>>__b) __d.param(param_type(__a,__b)); return __in;
+    }
+};
+// Stateless composition/inverse-CDF sampler; only parameters are serialized.
+template<class _Real=double> class chi_squared_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __n;
+    public:
+        typedef chi_squared_distribution distribution_type;
+        explicit param_type(_Real __n=1) : __n(__n) {}
+        _Real n() const { return __n; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__n==__y.__n; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit chi_squared_distribution(_Real __n=1) : __param(__n) {}
+    explicit chi_squared_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real n() const { return __param.n(); }
+    result_type min() const { return 0; }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        // A chi-squared variate is gamma with shape n/2 and scale 2.
+        return gamma_distribution<_Real>(__p.n()/2,2)(__g);
+    }
+    friend bool operator==(const chi_squared_distribution& __x,const chi_squared_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const chi_squared_distribution& __x,const chi_squared_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const chi_squared_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.n(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,chi_squared_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __n; if (__in>>__n) __d.param(param_type(__n)); return __in;
+    }
+};
+// Stateless composition/inverse-CDF sampler; only parameters are serialized.
+template<class _Real=double> class cauchy_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __a,__b;
+    public:
+        typedef cauchy_distribution distribution_type;
+        explicit param_type(_Real __a=0,_Real __b=1) : __a(__a),__b(__b) {}
+        _Real a() const { return __a; } _Real b() const { return __b; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__a==__y.__a && __x.__b==__y.__b; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit cauchy_distribution(_Real __a=0,_Real __b=1) : __param(__a,__b) {}
+    explicit cauchy_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real a() const { return __param.a(); } _Real b() const { return __param.b(); }
+    result_type min() const { return -numeric_limits<_Real>::infinity(); }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        const _Real __pi=std::acos(_Real(-1));
+        _Real __u=generate_canonical<_Real,numeric_limits<_Real>::digits>(__g);
+        return __p.a()+__p.b()*std::tan(__pi*(__u-_Real(0.5)));
+    }
+    friend bool operator==(const cauchy_distribution& __x,const cauchy_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const cauchy_distribution& __x,const cauchy_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const cauchy_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.a(); __out<<__out.widen(' '); __out<<__d.b(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,cauchy_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __a,__b; if (__in>>__a>>__b) __d.param(param_type(__a,__b)); return __in;
+    }
+};
+// Stateless composition/inverse-CDF sampler; only parameters are serialized.
+template<class _Real=double> class fisher_f_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __m,__n;
+    public:
+        typedef fisher_f_distribution distribution_type;
+        explicit param_type(_Real __m=1,_Real __n=1) : __m(__m),__n(__n) {}
+        _Real m() const { return __m; } _Real n() const { return __n; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__m==__y.__m && __x.__n==__y.__n; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit fisher_f_distribution(_Real __m=1,_Real __n=1) : __param(__m,__n) {}
+    explicit fisher_f_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real m() const { return __param.m(); } _Real n() const { return __param.n(); }
+    result_type min() const { return 0; }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        // Ratio of independent chi-squared variates divided by their degrees.
+        _Real __x=gamma_distribution<_Real>(__p.m()/2,2/__p.m())(__g);
+        _Real __y=gamma_distribution<_Real>(__p.n()/2,2/__p.n())(__g);
+        return __x/__y;
+    }
+    friend bool operator==(const fisher_f_distribution& __x,const fisher_f_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const fisher_f_distribution& __x,const fisher_f_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const fisher_f_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.m(); __out<<__out.widen(' '); __out<<__d.n(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,fisher_f_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __m,__n; if (__in>>__m>>__n) __d.param(param_type(__m,__n)); return __in;
+    }
+};
+// Stateless composition/inverse-CDF sampler; only parameters are serialized.
+template<class _Real=double> class student_t_distribution {
+    static_assert(is_floating_point<_Real>::value,"real distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __n;
+    public:
+        typedef student_t_distribution distribution_type;
+        explicit param_type(_Real __n=1) : __n(__n) {}
+        _Real n() const { return __n; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__n==__y.__n; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit student_t_distribution(_Real __n=1) : __param(__n) {}
+    explicit student_t_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real n() const { return __param.n(); }
+    result_type min() const { return -numeric_limits<_Real>::infinity(); }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        // Independent normal divided by sqrt(chi-squared/n).
+        normal_distribution<_Real> __normal;
+        _Real __z=__normal(__g);
+        _Real __v=gamma_distribution<_Real>(__p.n()/2,2/__p.n())(__g);
+        return __z/std::sqrt(__v);
+    }
+    friend bool operator==(const student_t_distribution& __x,const student_t_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const student_t_distribution& __x,const student_t_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const student_t_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.n(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,student_t_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __n; if (__in>>__n) __d.param(param_type(__n)); return __in;
+    }
+};
 template<class _Int=int> class geometric_distribution {
     static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
 public:

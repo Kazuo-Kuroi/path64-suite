@@ -46,8 +46,9 @@ the reference for the design. Its test suite is the conformance test.
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
 New partial headers are `<random>` (engines, adapters, entropy, uniform,
-Bernoulli, exponential, normal, lognormal, geometric, binomial, Poisson, gamma
-and negative-binomial sampling) and `<regex>` (traits, captures/results,
+Bernoulli, exponential, normal, lognormal, geometric, binomial, Poisson, gamma,
+negative-binomial, Weibull, extreme-value, chi-squared, Cauchy, Fisher-F and
+Student-t sampling) and `<regex>` (traits, captures/results,
 an initial ECMAScript search/match kernel, iteration and replacement). Remaining
 distributions, other regex grammars, lookahead and token iterators are
 still open; these headers do not claim whole-header conformance.
@@ -810,3 +811,30 @@ Weibull, extreme-value, chi-squared, Cauchy, Fisher-F, Student-t, discrete and
 the two piecewise distributions remain open, alongside the other Phase 4 headers.
 The full original suite passes **65/65 C++11 and 66/66 C++14**, at O0/O2.
 Execution coverage remains native Linux x86-64.
+
+### Continuous distribution checkpoint (2026-11-20)
+
+Original implementations add Weibull, extreme-value, chi-squared, Cauchy,
+Fisher-F and Student-t distributions. Inverse CDFs handle the first, second
+and fourth; gamma/normal composition handles the others. The extreme-value
+sampler retries a zero canonical sample before taking logarithms. All support
+float/double/long double, parameter overrides, reset/equality and transactional
+stream extraction with formatting and precision restoration. These samplers
+keep no persistent cached state; serialization records their parameters.
+
+The 108 selected references record **102 PASS, six RUN** with psclang and
+host Clang in C++14 at O2. The six RUNs are eval.pass.cpp/eval_param.pass.cpp
+for chi-squared, Student-t and extreme-value, failing fixed-sample kurtosis
+thresholds. Unmodified system-library eval.pass.cpp controls fail chi-squared
+kurtosis and Student-t skewness checks; the extreme-value control passes.
+All failures remain recorded; reference files and thresholds are unchanged.
+The strict checkpoint adds the 102 passing references, with independent
+CDF-bin and calibrated mean/variance tests covering all six new samplers.
+Original coverage also includes alternate parameters, float/long-double laws,
+precision-preserving round trips, failed/throwing input, wide streams and zero
+canonical endpoints. The original regression passes with psclang and host
+Clang in C++11/C++14 at O0/O2. No third-party implementation code was imported.
+
+Discrete and the two piecewise distributions remain open, alongside the other
+Phase 4 headers and the remaining regex items. The full original suite passes
+**66/66 C++11 and 67/67 C++14**, at O0/O2. Execution coverage is Linux x86-64.

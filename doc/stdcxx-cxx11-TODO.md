@@ -609,7 +609,7 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal and geometric/binomial/Poisson/gamma/negative-binomial distributions are implemented; other distributions remain open. |
+| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal and geometric/binomial/Poisson/gamma/negative-binomial and Weibull/extreme-value/chi-squared/Cauchy/Fisher-F/Student-t distributions are implemented; other distributions remain open. |
 | `<regex>` | `re` (167) | In progress (Codex): constants, errors, traits, capture/results formatting and an initial ECMAScript search/match kernel. regex_iterator and regex_replace are implemented. Other grammar modes, lookahead and token iterators remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
@@ -655,8 +655,10 @@ remains a WIP port.
 - [x] (Codex) Gamma and negative-binomial distributions, including float/
   double/long-double gamma sampling, small shapes, parameter overrides and
   transactional streams. Independent CDF/PMF and multi-seed moment tests pass.
-- [ ] Remaining random distributions: Weibull, extreme-value, chi-squared,
-  Cauchy, Fisher-F, Student-t, discrete and the two piecewise distributions.
+- [x] (Codex) Weibull, extreme-value, chi-squared, Cauchy, Fisher-F and
+  Student-t distributions, including all three real types, parameter overrides,
+  transactional streams and independent CDF/moment coverage.
+- [ ] Remaining random distributions: discrete and the two piecewise distributions.
 - [x] (Codex) Initial ECMAScript `basic_regex`, `regex_search`/`regex_match`,
   match_results storage/access/formatting and string/iterator overloads.
   Supported syntax includes literals, dot, classes/ranges and shorthands,
@@ -826,6 +828,33 @@ Weibull, extreme-value, chi-squared, Cauchy, Fisher-F, Student-t, discrete and
 the two piecewise distributions remain open, alongside the other Phase 4 headers.
 The full original suite passes **65/65 C++11 and 66/66 C++14**, at O0/O2.
 Execution coverage remains native Linux x86-64.
+
+### Continuous distribution checkpoint (2026-11-20)
+
+Original implementations add Weibull, extreme-value, chi-squared, Cauchy,
+Fisher-F and Student-t distributions. Inverse CDFs handle the first, second
+and fourth; gamma/normal composition handles the others. The extreme-value
+sampler retries a zero canonical sample before taking logarithms. All support
+float/double/long double, parameter overrides, reset/equality and transactional
+stream extraction with formatting and precision restoration. These samplers
+keep no persistent cached state; serialization records their parameters.
+
+The 108 selected references record **102 PASS, six RUN** with psclang and
+host Clang in C++14 at O2. The six RUNs are eval.pass.cpp/eval_param.pass.cpp
+for chi-squared, Student-t and extreme-value, failing fixed-sample kurtosis
+thresholds. Unmodified system-library eval.pass.cpp controls fail chi-squared
+kurtosis and Student-t skewness checks; the extreme-value control passes.
+All failures remain recorded; reference files and thresholds are unchanged.
+The strict checkpoint adds the 102 passing references, with independent
+CDF-bin and calibrated mean/variance tests covering all six new samplers.
+Original coverage also includes alternate parameters, float/long-double laws,
+precision-preserving round trips, failed/throwing input, wide streams and zero
+canonical endpoints. The original regression passes with psclang and host
+Clang in C++11/C++14 at O0/O2. No third-party implementation code was imported.
+
+Discrete and the two piecewise distributions remain open, alongside the other
+Phase 4 headers and the remaining regex items. The full original suite passes
+**66/66 C++11 and 67/67 C++14**, at O0/O2. Execution coverage is Linux x86-64.
 
 ## Infrastructure
 
