@@ -609,7 +609,7 @@ remains a WIP port.
 | `<atomic>` | `atomics` (52) | `__sync` is available. Native `__c11_atomic_*` and `__atomic_*` lowering remains to be implemented in `c2w_builtin.cxx`. |
 | `<thread>`, `<mutex>`, `<condition_variable>` | `thread` (219) | pthreads; `call_once` |
 | `<future>` | in `thread` | after the three above |
-| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal and geometric/binomial/Poisson distributions are implemented; other distributions remain open. |
+| `<random>` | `numerics/rand` (493) | In progress (Codex): seed_seq, congruential/Mersenne Twister/subtract-with-carry engines, uniform integer/real and Bernoulli distributions, canonical sampling, all three engine adapters and shuffle. random_device, exponential/normal/lognormal and geometric/binomial/Poisson/gamma/negative-binomial distributions are implemented; other distributions remain open. |
 | `<regex>` | `re` (167) | In progress (Codex): constants, errors, traits, capture/results formatting and an initial ECMAScript search/match kernel. regex_iterator and regex_replace are implemented. Other grammar modes, lookahead and token iterators remain open. |
 | `<typeindex>` | `utilities/type.index` (10) | small |
 | `<scoped_allocator>` | `utilities/allocator.adaptor` (30) | |
@@ -652,9 +652,11 @@ remains a WIP port.
   references and original cached-sample/state/error regressions cover them.
 - [x] (Codex) Geometric, binomial and Poisson distributions, including
   parameters, transactional streams and efficient large-parameter sampling.
-- [ ] Remaining random distributions: negative-binomial, gamma, Weibull,
-  extreme-value, chi-squared, Cauchy, Fisher-F,
-  Student-t, discrete and the two piecewise distributions.
+- [x] (Codex) Gamma and negative-binomial distributions, including float/
+  double/long-double gamma sampling, small shapes, parameter overrides and
+  transactional streams. Independent CDF/PMF and multi-seed moment tests pass.
+- [ ] Remaining random distributions: Weibull, extreme-value, chi-squared,
+  Cauchy, Fisher-F, Student-t, discrete and the two piecewise distributions.
 - [x] (Codex) Initial ECMAScript `basic_regex`, `regex_search`/`regex_match`,
   match_results storage/access/formatting and string/iterator overloads.
   Supported syntax includes literals, dot, classes/ranges and shorthands,
@@ -797,6 +799,33 @@ bounds over three seeds, central/rare binomial cases, large-parameter variance,
 stream rollback, iterator progression and replacement flags.
 The full original suite passes **64/64 C++11 and 65/65 C++14**, at O0/O2.
 Execution coverage remains Linux x86-64; Phase 4 is still incomplete.
+
+### Gamma and negative-binomial checkpoint (2026-11-20)
+
+Original gamma_distribution supports float, double and long double, extending
+our typed gamma proposal to shapes below one by uniform-power scaling.
+negative_binomial_distribution samples a gamma mixture of Poisson rates;
+p=1 returns zero without drawing from the engine. Both classes implement
+parameter overrides, reset/equality, bounds and transactional serialization,
+restoring stream formatting on failure or exceptions. Neither sampler keeps
+cached state. Large success counts avoid one loop per success.
+
+All three affected original distribution fixtures pass with psclang and host
+Clang across C++11/C++14 at O0/O2. Coverage includes closed-form gamma CDF bins,
+negative-binomial PMFs, calibrated multi-seed mean/variance bounds, small shapes,
+large success counts, all gamma floating types and stream rollback.
+The new 36-reference batch records **32 PASS and four RUN** in C++14 with
+psclang at O0/O2 and host Clang at O2. The four RUNs are the gamma and
+negative-binomial eval.pass.cpp/eval_param.pass.cpp fixed-sample kurtosis
+checks. Unmodified system-library eval.pass.cpp controls also fail a kurtosis
+threshold in both families. These remain reported differences; the strict
+checkpoint selects the 32 passing API/state checks and retains the original
+CDF/PMF/moment regression. No third-party implementation code was imported.
+
+Weibull, extreme-value, chi-squared, Cauchy, Fisher-F, Student-t, discrete and
+the two piecewise distributions remain open, alongside the other Phase 4 headers.
+The full original suite passes **65/65 C++11 and 66/66 C++14**, at O0/O2.
+Execution coverage remains native Linux x86-64.
 
 ## Infrastructure
 

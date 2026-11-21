@@ -302,3 +302,11 @@ regex-iteration-replace.pass.cpp checks empty/nonempty progression, global
 positions/prefixes, list/wide input, embedded NUL formats, format flags and
 iterators that prohibit overloaded comma. Other grammars and token iteration
 remain separate work.
+
+random-gamma-negbin.pass.cpp checks closed-form gamma CDF bins for shapes
+0.5/1/2, negative-binomial PMF histograms, multi-seed mean/variance bounds,
+small/large shapes and success counts, all three gamma floating types,
+parameter overrides, p=1 without engine draws and transactional serialization.
+Gamma and negative-binomial reference eval/eval_param files remain separate
+RUN differences at fixed-sample kurtosis thresholds; unmodified system-library
+eval controls also fail a kurtosis threshold in both families.

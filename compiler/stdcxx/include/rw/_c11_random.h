@@ -724,18 +724,63 @@ public:
 namespace __rw_random {
 // Marsaglia's cubic normal proposal for gamma shapes >= 1. Keep the full
 // logarithmic acceptance test, without a polynomial squeeze approximation.
-template<class _G> double __gamma_shape(double __shape,_G& __g) {
-    const double __d=__shape-1.0/3.0,__c=1/std::sqrt(9*__d);
-    normal_distribution<double> __normal;
+template<class _Real,class _G> _Real __gamma_shape(_Real __shape,_G& __g) {
+    const _Real __d=__shape-_Real(1)/3,__c=1/std::sqrt(9*__d);
+    normal_distribution<_Real> __normal;
     for (;;) {
-        double __z=__normal(__g),__v=1+__c*__z;
+        _Real __z=__normal(__g),__v=1+__c*__z;
         if (__v<=0) continue;
         __v=__v*__v*__v;
-        double __u=generate_canonical<double,numeric_limits<double>::digits>(__g);
-        if (std::log(__u)<0.5*__z*__z+__d*(1-__v+std::log(__v))) return __d*__v;
+        _Real __u=generate_canonical<_Real,numeric_limits<_Real>::digits>(__g);
+        if (std::log(__u)<_Real(0.5)*__z*__z+__d*(1-__v+std::log(__v))) return __d*__v;
     }
 }
 }
+template<class _Real=double> class gamma_distribution {
+    static_assert(is_floating_point<_Real>::value,"gamma distribution requires a floating-point result type");
+public:
+    typedef _Real result_type;
+    class param_type {
+        _Real __alpha,__beta;
+    public:
+        typedef gamma_distribution distribution_type;
+        explicit param_type(_Real __alpha=1,_Real __beta=1) : __alpha(__alpha),__beta(__beta) {}
+        _Real alpha() const { return __alpha; } _Real beta() const { return __beta; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__alpha==__y.__alpha && __x.__beta==__y.__beta; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit gamma_distribution(_Real __alpha=1,_Real __beta=1) : __param(__alpha,__beta) {}
+    explicit gamma_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Real alpha() const { return __param.alpha(); } _Real beta() const { return __param.beta(); }
+    result_type min() const { return 0; }
+    result_type max() const { return numeric_limits<_Real>::infinity(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __p) {
+        // Raising a uniform sample extends the shape >= 1 proposal to (0,1).
+        _Real __shape=__p.alpha();
+        _Real __value=__rw_random::__gamma_shape(__shape<1?__shape+1:__shape,__g);
+        if (__shape<1) {
+            _Real __u=generate_canonical<_Real,numeric_limits<_Real>::digits>(__g);
+            __value*=std::pow(__u,1/__shape);
+        }
+        return __value*__p.beta();
+    }
+    friend bool operator==(const gamma_distribution& __x,const gamma_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const gamma_distribution& __x,const gamma_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const gamma_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(2+numeric_limits<_Real>::digits*30103/100000);
+        __out<<__d.alpha(); __out<<__out.widen(' '); __out<<__d.beta(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,gamma_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Real __alpha,__beta; if (__in>>__alpha>>__beta) __d.param(param_type(__alpha,__beta)); return __in;
+    }
+};
 template<class _Int=int> class geometric_distribution {
     static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
 public:
@@ -904,6 +949,47 @@ public:
     template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,poisson_distribution& __d) {
         __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
         double __mean; if (__in>>__mean) __d.param(param_type(__mean)); return __in;
+    }
+};
+template<class _Int=int> class negative_binomial_distribution {
+    static_assert(is_integral<_Int>::value && !is_same<_Int,bool>::value,"integer distribution requires an integer result type");
+public:
+    typedef _Int result_type;
+    class param_type {
+        _Int __k; double __p;
+    public:
+        typedef negative_binomial_distribution distribution_type;
+        explicit param_type(_Int __k=1,double __p=0.5) : __k(__k),__p(__p) {}
+        _Int k() const { return __k; } double p() const { return __p; }
+        friend bool operator==(const param_type& __x,const param_type& __y) { return __x.__k==__y.__k && __x.__p==__y.__p; }
+        friend bool operator!=(const param_type& __x,const param_type& __y) { return !(__x==__y); }
+    };
+private: param_type __param;
+public:
+    explicit negative_binomial_distribution(_Int __k=1,double __p=0.5) : __param(__k,__p) {}
+    explicit negative_binomial_distribution(const param_type& __p) : __param(__p) {}
+    void reset() {}
+    _Int k() const { return __param.k(); } double p() const { return __param.p(); }
+    result_type min() const { return 0; }
+    result_type max() const { return (numeric_limits<_Int>::max)(); }
+    param_type param() const { return __param; } void param(const param_type& __p) { __param=__p; }
+    template<class _G> result_type operator()(_G& __g) { return (*this)(__g,__param); }
+    template<class _G> result_type operator()(_G& __g,const param_type& __pr) {
+        if (__pr.p()>=1) return 0;
+        // A gamma mixture of Poisson rates counts failures before k successes.
+        double __rate=gamma_distribution<double>(double(__pr.k()),(1-__pr.p())/__pr.p())(__g);
+        if (__rate==0) return 0; // A very small rate may underflow.
+        return poisson_distribution<_Int>(__rate)(__g);
+    }
+    friend bool operator==(const negative_binomial_distribution& __x,const negative_binomial_distribution& __y) { return __x.__param==__y.__param; }
+    friend bool operator!=(const negative_binomial_distribution& __x,const negative_binomial_distribution& __y) { return !(__x==__y); }
+    template<class _C,class _T> friend basic_ostream<_C,_T>& operator<<(basic_ostream<_C,_T>& __out,const negative_binomial_distribution& __d) {
+        __rw_random::__format_guard<basic_ostream<_C,_T> > __format(__out,ios_base::dec|ios_base::scientific|ios_base::left);
+        __out.precision(17); __out<<__d.k(); __out<<__out.widen(' '); __out<<__d.p(); return __out;
+    }
+    template<class _C,class _T> friend basic_istream<_C,_T>& operator>>(basic_istream<_C,_T>& __in,negative_binomial_distribution& __d) {
+        __rw_random::__format_guard<basic_istream<_C,_T> > __format(__in,ios_base::dec|ios_base::skipws);
+        _Int __k; double __p; if (__in>>__k>>__p) __d.param(param_type(__k,__p)); return __in;
     }
 };
 template<class _U,_U __a,_U __c,_U __m> constexpr _U linear_congruential_engine<_U,__a,__c,__m>::multiplier;

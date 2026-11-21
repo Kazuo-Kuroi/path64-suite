@@ -46,9 +46,9 @@ the reference for the design. Its test suite is the conformance test.
 | `<cinttypes>`, `<cfenv>`, `<cuchar>`, `<ctgmath>`, `<cstdbool>` | Native C interfaces imported into `std`, type-generic math/complex access, boolean compatibility | remaining C-header reference checks: 5/5 (including cstdint) |
 
 New partial headers are `<random>` (engines, adapters, entropy, uniform,
-Bernoulli, exponential, normal, lognormal, geometric, binomial and Poisson
-sampling) and `<regex>` (traits, captures/results, an initial ECMAScript
-search/match kernel, iteration and replacement). Remaining
+Bernoulli, exponential, normal, lognormal, geometric, binomial, Poisson, gamma
+and negative-binomial sampling) and `<regex>` (traits, captures/results,
+an initial ECMAScript search/match kernel, iteration and replacement). Remaining
 distributions, other regex grammars, lookahead and token iterators are
 still open; these headers do not claim whole-header conformance.
 
@@ -783,3 +783,30 @@ bounds over three seeds, central/rare binomial cases, large-parameter variance,
 stream rollback, iterator progression and replacement flags.
 The full original suite passes **64/64 C++11 and 65/65 C++14**, at O0/O2.
 Execution coverage remains Linux x86-64; Phase 4 is still incomplete.
+
+### Gamma and negative-binomial checkpoint (2026-11-20)
+
+Original gamma_distribution supports float, double and long double, extending
+our typed gamma proposal to shapes below one by uniform-power scaling.
+negative_binomial_distribution samples a gamma mixture of Poisson rates;
+p=1 returns zero without drawing from the engine. Both classes implement
+parameter overrides, reset/equality, bounds and transactional serialization,
+restoring stream formatting on failure or exceptions. Neither sampler keeps
+cached state. Large success counts avoid one loop per success.
+
+All three affected original distribution fixtures pass with psclang and host
+Clang across C++11/C++14 at O0/O2. Coverage includes closed-form gamma CDF bins,
+negative-binomial PMFs, calibrated multi-seed mean/variance bounds, small shapes,
+large success counts, all gamma floating types and stream rollback.
+The new 36-reference batch records **32 PASS and four RUN** in C++14 with
+psclang at O0/O2 and host Clang at O2. The four RUNs are the gamma and
+negative-binomial eval.pass.cpp/eval_param.pass.cpp fixed-sample kurtosis
+checks. Unmodified system-library eval.pass.cpp controls also fail a kurtosis
+threshold in both families. These remain reported differences; the strict
+checkpoint selects the 32 passing API/state checks and retains the original
+CDF/PMF/moment regression. No third-party implementation code was imported.
+
+Weibull, extreme-value, chi-squared, Cauchy, Fisher-F, Student-t, discrete and
+the two piecewise distributions remain open, alongside the other Phase 4 headers.
+The full original suite passes **65/65 C++11 and 66/66 C++14**, at O0/O2.
+Execution coverage remains native Linux x86-64.
